@@ -17,6 +17,7 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  Files,
   GripVertical,
   LucideIcon,
   MoreHorizontal,
@@ -68,6 +69,7 @@ export const Item = ({
   const { setInnerPopoverOpen } = useNavDrawer();
 
   const create = useMutation(api.documents.create);
+  const duplicate = useMutation(api.documents.duplicate);
   const archive = useMutation(api.documents.archive);
   const restore = useMutation(api.documents.restore);
 
@@ -125,6 +127,21 @@ export const Item = ({
       loading: "Creating new note",
       success: "New note created.",
       error: "Failed to create note.",
+    });
+  };
+
+  const onDuplicate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    event.stopPropagation();
+    if (!id) return;
+
+    const promise = duplicate({ id }).then((documentId) => {
+      router.push(`/documents/${documentId}`);
+    });
+
+    toast.promise(promise, {
+      loading: "Duplicating note...",
+      success: "Note duplicated.",
+      error: "Failed to duplicate note.",
     });
   };
 
@@ -224,6 +241,10 @@ export const Item = ({
                   )}
                 />
                 {isFavorite ? "Remove from favorites" : "Add to favorites"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={onDuplicate}>
+                <Files className="mr-2 h-4 w-4" />
+                Duplicate
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onArchive}>
                 <Trash className="mr-2 h-4 w-4" />

@@ -496,3 +496,44 @@ export const getFavorites = query({
     return documents;
   },
 });
+
+export const duplicate = mutation({
+  args: { id: v.id("documents") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const userId = identity.subject;
+
+    const existingDocument = await ctx.db.get(args.id);
+
+    if (!existingDocument) {
+      throw new Error("Document not found");
+    }
+
+    if (existingDocument.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const document = await ctx.db.insert("documents", {
+      userId,
+      title: `${existingDocument.title} (Copy)`,
+      parentDocument: existingDocument.parentDocument,
+      content: existingDocument.content,
+      coverImage: existingDocument.coverImage,
+      icon: existingDocument.icon,
+      editorFont: existingDocument.editorFont,
+      fullWidth: existingDocument.fullWidth,
+      smallText: existingDocument.smallText,
+      showToc: existingDocument.showToc,
+      isArchived: false,
+      isFavorite: false,
+      isPublished: false,
+    });
+
+    return document;
+  },
+});
