@@ -4,6 +4,8 @@ This project is a simplified clone of the popular productivity application, Noti
 
 It uses Convex as the backend, which is a real-time database that allows for instant data updates. The application also uses Edgestore, a distributed key-value store, to manage the images and files uploaded by the users. The user authentication is handled by Clerk, a secure and scalable user authentication API.
 
+**Note: this demo runs on Clerk development keys, so user limits apply. For long-term use and self-hosting, see the [installation](#installation) steps below.**
+
 ## Live
 
 Zotion - [https://zotion-app.vercel.app/](https://zotion-app.vercel.app/)
@@ -54,36 +56,38 @@ Zotion - [https://zotion-app.vercel.app/](https://zotion-app.vercel.app/)
 1. Clone the repository
 2. Install the dependencies
 
-```
+```bash
 npm install
 ```
 
-3. Set up the environment variables
+1. Set up the environment variables
 
-```
+Copy `.env.example` to `.env.local`, then fill in the values from Convex and Clerk.
+
+```bash
+# from Convex dashboard
 CONVEX_DEPLOYMENT=
 NEXT_PUBLIC_CONVEX_URL=
 CLERK_JWT_ISSUER_DOMAIN=
 
+# from Clerk dashboard
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
 CLERK_SECRET_KEY=
 
+# from EdgeStore dashboard
 EDGE_STORE_ACCESS_KEY=
 EDGE_STORE_SECRET_KEY=
-
-// for deploying
-CONVEX_DEPLOY_KEY=
 ```
 
-4. Run Convex
+1. Run Convex
 
-```
+```bash
 npx convex dev
 ```
 
-5. Run the development server
+1. Run the development server
 
-```
+```bash
 npm run dev
 ```
 
