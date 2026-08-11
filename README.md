@@ -4,7 +4,7 @@ This project is a simplified clone of the popular productivity application, Noti
 
 It uses Convex as the backend, which is a real-time database that allows for instant data updates. The application also uses Edgestore, a distributed key-value store, to manage the images and files uploaded by the users. The user authentication is handled by Clerk, a secure and scalable user authentication API.
 
-**Note: this demo runs on Clerk development keys, so user limits apply. For long-term use and self-hosting, see the [installation](#installation) steps below.**
+**Note**: This demo runs on Clerk development keys, so user limits apply. For long-term use, see the [installation](#installation) steps below.
 
 ## Live
 

@@ -33,7 +33,7 @@ export const Navbar = () => {
                 </Button>
               </SignInButton>
               <SignUpButton mode="modal">
-                <Button size="sm">Get Zotion Free</Button>
+                <Button size="sm">Join Zotion</Button>
               </SignUpButton>
             </>
           )}
