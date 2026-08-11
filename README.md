@@ -60,7 +60,7 @@ Zotion - [https://zotion-app.vercel.app/](https://zotion-app.vercel.app/)
 npm install
 ```
 
-1. Set up the environment variables
+3. Set up the environment variables
 
 Copy `.env.example` to `.env.local`, then fill in the values from Convex and Clerk.
 
@@ -79,13 +79,13 @@ EDGE_STORE_ACCESS_KEY=
 EDGE_STORE_SECRET_KEY=
 ```
 
-1. Run Convex
+4. Run Convex
 
 ```bash
 npx convex dev
 ```
 
-1. Run the development server
+5. Run the development server
 
 ```bash
 npm run dev
