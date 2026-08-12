@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, use, useState, useEffect } from "react";
+import { useMemo, use, useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 
 import { Cover } from "@/components/cover";
@@ -25,6 +25,7 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
   const { documentId } = use(params);
   const [editor, setEditor] = useState<BlockNoteEditor | null>(null);
   const { resolvedTheme } = useTheme();
+  const isMarked = useRef(false);
 
   const Editor = useMemo(
     () => dynamic(() => import("@/components/editor"), { ssr: false }),
@@ -38,6 +39,13 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
   const { editorFont, isFontLoading } = useEditorFont({ enabled: true });
 
   const update = useMutation(api.documents.update);
+  const markOpened = useMutation(api.documents.markOpened);
+
+  useEffect(() => {
+    if (!doc || isMarked.current) return;
+    isMarked.current = true;
+    markOpened({ id: documentId });
+  }, [documentId, markOpened]);
 
   useEffect(() => {
     if (!doc) return;

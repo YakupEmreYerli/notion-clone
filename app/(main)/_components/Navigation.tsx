@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import {
   ChevronsLeft,
   MenuIcon,
+  Notebook,
   Plus,
   PlusCircle,
   Search,
@@ -35,6 +36,7 @@ import { FavoritesList } from "./FavoritesList";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import NavDrawer from "./NavDrawer";
+import RecentList from "./RecentList";
 
 const Navigation = () => {
   const params = useParams();
@@ -252,9 +254,11 @@ const Navigation = () => {
         <div className="mt-4">
           <div>
             <ScrollableList>
+              <RecentList />
               <FavoritesList />
               <div>
-                <p className="text-muted-foreground/60 px-3 py-1 text-xs font-medium">
+                <p className="text-muted-foreground/60 flex items-center px-3 py-1 text-[13px] font-medium">
+                  <Notebook className="mr-1 size-3 shrink-0" />
                   Notes
                 </p>
                 <DocumentList />

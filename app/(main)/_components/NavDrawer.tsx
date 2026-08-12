@@ -10,6 +10,7 @@ import { UserItem } from "./UserItem";
 import { ActionTooltip } from "@/components/action-tooltip";
 import {
   ChevronsRight,
+  Notebook,
   Plus,
   PlusCircle,
   Search,
@@ -26,6 +27,7 @@ import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/hooks/useSearch";
 import { useSettings } from "@/hooks/useSettingsModal";
+import RecentList from "./RecentList";
 
 type NavDrawerProps = {
   resetWidth: () => void;
@@ -113,9 +115,11 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
             </ActionTooltip>
           </div>
           <div className="max-h-[65vh] overflow-y-auto pb-3">
+            <RecentList navDrawer />
             <FavoritesList navDrawer />
             <div>
-              <p className="text-muted-foreground/60 px-3 py-1 text-xs font-medium">
+              <p className="text-muted-foreground/60 flex items-center px-3 py-1 text-[13px] font-medium">
+                <Notebook className="mr-1 size-3 shrink-0" />
                 Notes
               </p>
               <DocumentList navDrawer />
