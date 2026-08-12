@@ -18,6 +18,7 @@ export default defineSchema({
     fullWidth: v.optional(v.boolean()),
     smallText: v.optional(v.boolean()),
     showToc: v.optional(v.boolean()),
+    lastOpenedAt: v.optional(v.number()),
   })
     .index("by_user", ["userId"])
     .index("by_user_parent", ["userId", "parentDocument"]),

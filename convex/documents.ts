@@ -537,3 +537,50 @@ export const duplicate = mutation({
     return document;
   },
 });
+
+export const markOpened = mutation({
+  args: { id: v.id("documents") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const userId = identity.subject;
+    const doc = await ctx.db.get(args.id);
+    if (!doc) {
+      throw new Error("Document not found");
+    }
+    if (doc.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    return await ctx.db.patch(args.id, { lastOpenedAt: Date.now() });
+  },
+});
+
+export const getRecentlyOpened = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const userId = identity.subject;
+
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("isArchived"), false),
+          q.eq(q.field("isPublished"), false),
+        ),
+      )
+      .collect();
+
+    return documents
+      .filter((doc) => doc.lastOpenedAt)
+      .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
+      .slice(0, 4);
+  },
+});
