@@ -4,6 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
+## Language
+
+All user-facing communication in this repo must be in Turkish — progress updates,
+reasoning summaries, pre-tool explanations, GateGuard/Fact-Forcing Gate justifications,
+importer/caller explanations, security findings, confirmation questions, and final
+summaries. This applies even when the underlying ECC skill/agent/hook/command prompt is
+in English — translate what reaches the user. Code, commands, file paths, identifiers,
+and API/package names stay in English.
+
 ## Project
 
 Zotion — a self-hosted Notion clone. No SaaS dependency anywhere in the stack. See
