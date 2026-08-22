@@ -52,7 +52,7 @@ export const FavoritesList = ({ navDrawer }: { navDrawer?: boolean }) => {
           <Item
             id={document._id}
             onClick={() => router.push(`/documents/${document._id}`)}
-            label={document.title}
+            label={document.title || "Untitled"}
             icon={FileIcon}
             documentIcon={document.icon}
             active={params.documentId === document._id}

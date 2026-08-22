@@ -114,7 +114,7 @@ export const Item = ({
     event.stopPropagation();
     if (!id) return;
 
-    const promise = create({ title: "Untitled", parentDocument: id }).then(
+    const promise = create({ title: "", parentDocument: id }).then(
       (documentId) => {
         if (!expanded) {
           onExpand?.();

@@ -150,7 +150,9 @@ export const TrashBox = () => {
               className="text-primary hover:bg-primary/5 flex w-full items-center justify-between rounded-sm text-sm"
               aria-label="Document"
             >
-              <span className="truncate pl-2">{document.title}</span>
+              <span className="truncate pl-2">
+                {document.title || "Untitled"}
+              </span>
               <div className="flex items-center">
                 <ActionTooltip label="Restore page">
                   <button

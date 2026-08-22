@@ -1,6 +1,14 @@
 "use client";
 
-import { ComponentRef, ElementRef, useEffect, useRef, useState } from "react";
+import {
+  ComponentRef,
+  ElementRef,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -20,67 +28,94 @@ interface ToolbarProps {
   initialData: Doc<"documents">;
   editorFont?: string;
   preview?: boolean;
+  onFocusEditor?: () => void;
 }
 
-export const Toolbar = ({ initialData, preview, editorFont }: ToolbarProps) => {
-  const inputRef = useRef<ComponentRef<"textarea">>(null);
+export interface ToolbarHandle {
+  focusEnd: () => void;
+}
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [value, setValue] = useState(initialData.title);
+export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
+  ({ initialData, preview, editorFont, onFocusEditor }, ref) => {
+    const inputRef = useRef<ComponentRef<"textarea">>(null);
 
-  const update = useMutation(api.documents.update);
-  const removeIcon = useMutation(api.documents.removeIcon);
+    const [isEditing, setIsEditing] = useState(false);
+    const [value, setValue] = useState(initialData.title);
 
-  const coverImage = useCoverImage();
+    const update = useMutation(api.documents.update);
+    const removeIcon = useMutation(api.documents.removeIcon);
 
-  const enableInput = () => {
-    if (preview) return;
-    setIsEditing(true);
-    inputRef.current?.focus();
-  };
+    const coverImage = useCoverImage();
 
-  const disableInput = () => {
-    setIsEditing(false);
-    if (value === "") {
-      setValue(initialData.title || "Untitled");
-    }
-  };
+    const enableInput = () => {
+      if (preview) return;
+      setIsEditing(true);
+      inputRef.current?.focus();
+    };
 
-  useEffect(() => {
-    if (!isEditing) {
-      setValue(initialData.title);
-    }
-  }, [initialData.title]);
+    const disableInput = () => {
+      setIsEditing(false);
+    };
 
-  useEffect(() => {
-    if (value === initialData.title) return;
+    useImperativeHandle(ref, () => ({
+      focusEnd: () => {
+        const el = inputRef.current;
+        if (!el) return;
+        setIsEditing(true);
+        el.focus();
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      },
+    }));
 
-    const timer = setTimeout(() => {
-      update({
-        id: initialData._id,
-        title: value || "Untitled",
-      });
-    }, 400);
+    useEffect(() => {
+      if (!isEditing) {
+        setValue(initialData.title);
+      }
+    }, [initialData.title]);
 
-    return () => clearTimeout(timer);
-  }, [value, initialData._id, initialData.title, update]);
+    useEffect(() => {
+      if (value === initialData.title) return;
 
-  const onInput = (value: string) => {
-    setValue(value);
-  };
-
-  const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      update({
-        id: initialData._id,
-        title: value || "Untitled",
-      });
-      setTimeout(() => {
-        inputRef.current?.blur();
+      const timer = setTimeout(() => {
+        update({
+          id: initialData._id,
+          title: value,
+        });
       }, 400);
-    }
-  };
+
+      return () => clearTimeout(timer);
+    }, [value, initialData._id, initialData.title, update]);
+
+    const onInput = (value: string) => {
+      setValue(value);
+    };
+
+    const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        update({
+          id: initialData._id,
+          title: value,
+        });
+        setTimeout(() => {
+          inputRef.current?.blur();
+        }, 400);
+        return;
+      }
+
+      // Notion'daki gibi: başlığın son satırındayken ArrowDown ile
+      // editöre geçilir — yukarıda editörden başlığa dönüşün tersi.
+      if (event.key === "ArrowDown" && onFocusEditor) {
+        const el = inputRef.current;
+        if (!el) return;
+        const afterCursor = el.value.slice(el.selectionEnd ?? el.value.length);
+        if (!afterCursor.includes("\n")) {
+          event.preventDefault();
+          onFocusEditor();
+        }
+      }
+    };
 
   const onIconSelect = (icon: string) => {
     update({
@@ -170,11 +205,13 @@ export const Toolbar = ({ initialData, preview, editorFont }: ToolbarProps) => {
         style={{ fontFamily: fontFamilies[editorFont as EditorFont] }}
         className={cn(
           "w-full resize-none bg-transparent font-bold wrap-break-word outline-hidden",
-          "text-[#3F3F3F] placeholder:text-gray-300 disabled:cursor-default dark:text-[#CFCFCF]",
+          "text-[#3F3F3F] placeholder:text-gray-300 disabled:cursor-default dark:text-[#CFCFCF] dark:placeholder:text-neutral-600",
           !isEditing && "cursor-pointer",
           initialData.smallText ? "text-4xl" : "text-5xl",
         )}
       />
     </div>
   );
-};
+  },
+);
+Toolbar.displayName = "Toolbar";

@@ -5,7 +5,7 @@ import { useMemo, use, useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 
 import { Cover } from "@/components/cover";
-import { Toolbar } from "@/components/toolbar";
+import { Toolbar, ToolbarHandle } from "@/components/toolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { api } from "@/convex/_generated/api";
@@ -33,6 +33,7 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
   const [editor, setEditor] = useState<BlockNoteEditor | null>(null);
   const { resolvedTheme } = useTheme();
   const isMarked = useRef(false);
+  const toolbarRef = useRef<ToolbarHandle>(null);
 
   const Editor = useMemo(
     () => dynamic(() => import("@/components/editor"), { ssr: false }),
@@ -127,7 +128,16 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
           !isFullWidth ? "max-w-200" : ""
         }`}
       >
-        <Toolbar initialData={doc} editorFont={activeFont} />
+        <Toolbar
+          ref={toolbarRef}
+          initialData={doc}
+          editorFont={activeFont}
+          onFocusEditor={() => {
+            if (!editor) return;
+            editor.setTextCursorPosition(editor.document[0], "start");
+            editor.focus();
+          }}
+        />
         {doc.type === "database" ? (
           <DatabaseView documentId={documentId} />
         ) : (
@@ -138,6 +148,7 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
               smallText={isSmallText}
               onEditorReady={setEditor}
               editorFont={activeFont}
+              onFocusTitle={() => toolbarRef.current?.focusEnd()}
             />
             {showToc && <TableOfContents editor={editor} />}
           </>

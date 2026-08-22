@@ -75,8 +75,8 @@ export const SearchCommand = () => {
             {documents?.map((document) => (
               <CommandItem
                 key={document._id}
-                value={`${document.title}|${document._id}`}
-                title={document.title}
+                value={`${document.title || "Untitled"}|${document._id}`}
+                title={document.title || "Untitled"}
                 onSelect={() => onSelect(document._id)}
               >
                 {document.icon ? (
@@ -86,7 +86,7 @@ export const SearchCommand = () => {
                 ) : (
                   <File className="mr-2 h-4 w-4" />
                 )}
-                <span>{document.title}</span>
+                <span>{document.title || "Untitled"}</span>
               </CommandItem>
             ))}
           </CommandGroup>

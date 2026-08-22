@@ -221,7 +221,7 @@ const Navigation = () => {
   }, [isMobile, sidebarDefaultWidth]);
 
   const handleCreate = () => {
-    const promise = create({ title: "Untitled" }).then((documentId) =>
+    const promise = create({ title: "" }).then((documentId) =>
       router.push(`/documents/${documentId}`),
     );
 
@@ -233,7 +233,7 @@ const Navigation = () => {
   };
 
   const handleCreateDatabase = () => {
-    const promise = createDatabase({ title: "Untitled" }).then(
+    const promise = createDatabase({ title: "" }).then(
       (documentId) => router.push(`/documents/${documentId}`),
     );
 

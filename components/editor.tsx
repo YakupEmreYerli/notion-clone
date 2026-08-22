@@ -27,6 +27,7 @@ interface EditorProps {
   editorFont?: string;
   smallText?: boolean;
   onEditorReady?: (editor: BlockNoteEditor) => void;
+  onFocusTitle?: () => void;
 }
 
 const schema = BlockNoteSchema.create().extend({
@@ -75,6 +76,7 @@ const Editor = ({
   editorFont,
   smallText = false,
   onEditorReady,
+  onFocusTitle,
 }: EditorProps) => {
   const { resolvedTheme } = useTheme();
 
@@ -174,6 +176,23 @@ const Editor = ({
     onChange(JSON.stringify(editor.document, null, 2));
   };
 
+  // İçeriğin en başındayken (ilk blok, imleç offset 0) ArrowUp basılınca
+  // başlığa geçilir — Notion'daki "yukarı bas bas çık" davranışı.
+  // Bubble fazında çalışır: BlockNote önce kendi imleç hareketini
+  // dener; hâlâ ilk bloktaysak gidecek yer kalmamış demektir.
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowUp" || !onFocusTitle) return;
+
+    const pos = editor.getTextCursorPosition();
+    if (pos.prevBlock) return;
+
+    const selection = (editor as any)._tiptapEditor?.state?.selection;
+    if (!selection?.empty || selection.$from.parentOffset !== 0) return;
+
+    e.preventDefault();
+    onFocusTitle();
+  };
+
   const handleCapture = (e: React.DragEvent) => {
     if (coverImage.isOpen) {
       e.preventDefault();
@@ -229,6 +248,7 @@ const Editor = ({
       onDropCapture={handleCapture}
       onDragOverCapture={handleCapture}
       onMouseDown={handleMouseDown}
+      onKeyDown={handleEditorKeyDown}
     >
       <BlockNoteView
         editable={editable && !coverImage.isOpen}

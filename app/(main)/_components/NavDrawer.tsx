@@ -49,7 +49,7 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
   const open = isEdgeHovered || isDrawerOpen || isInnerPopoverOpen;
 
   const handleCreate = () => {
-    const promise = create({ title: "Untitled" }).then((documentId) =>
+    const promise = create({ title: "" }).then((documentId) =>
       router.push(`/documents/${documentId}`),
     );
 
