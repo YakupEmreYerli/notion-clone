@@ -15,6 +15,13 @@ import { BlockNoteEditor } from "@blocknote/core";
 import { TableOfContents } from "@/components/table-of-contents";
 import { useEditorFont } from "@/hooks/useEditorFont";
 
+// Modül kapsamında bir kez çağrılır — render içinde her seferinde yeni bir
+// modül factory'si üretmez, bu yüzden grid Convex push'larında remount olmaz.
+const DatabaseView = dynamic(
+  () => import("@/components/database/database-view"),
+  { ssr: false },
+);
+
 interface DocumentIdPageProps {
   params: Promise<{
     documentId: Id<"documents">;
@@ -121,14 +128,20 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
         }`}
       >
         <Toolbar initialData={doc} editorFont={activeFont} />
-        <Editor
-          onChange={onChange}
-          initialContent={doc.content}
-          smallText={isSmallText}
-          onEditorReady={setEditor}
-          editorFont={activeFont}
-        />
-        {showToc && <TableOfContents editor={editor} />}
+        {doc.type === "database" ? (
+          <DatabaseView documentId={documentId} />
+        ) : (
+          <>
+            <Editor
+              onChange={onChange}
+              initialContent={doc.content}
+              smallText={isSmallText}
+              onEditorReady={setEditor}
+              editorFont={activeFont}
+            />
+            {showToc && <TableOfContents editor={editor} />}
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
+import { cascadeDeleteDatabase } from "./databases";
 
 export const archive = mutation({
   args: { id: v.id("documents") },
@@ -90,6 +91,7 @@ export const create = mutation({
   args: {
     title: v.string(),
     parentDocument: v.optional(v.id("documents")),
+    type: v.optional(v.union(v.literal("page"), v.literal("database"))),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -104,6 +106,7 @@ export const create = mutation({
       title: args.title,
       parentDocument: args.parentDocument,
       userId,
+      type: args.type,
       fullWidth: true,
       showToc: true,
       isArchived: false,
@@ -212,6 +215,10 @@ export const remove = mutation({
 
     if (exisingDocument.userId !== userId) {
       throw new Error("Not authorized");
+    }
+
+    if (exisingDocument.type === "database") {
+      await cascadeDeleteDatabase(ctx, args.id);
     }
 
     const document = await ctx.db.delete(args.id);
@@ -436,7 +443,12 @@ export const removeAll = mutation({
       .filter((q) => q.eq(q.field("isArchived"), true))
       .collect();
 
-    const promises = documents.map((document) => ctx.db.delete(document._id));
+    const promises = documents.map(async (document) => {
+      if (document.type === "database") {
+        await cascadeDeleteDatabase(ctx, document._id);
+      }
+      await ctx.db.delete(document._id);
+    });
     await Promise.all(promises);
     return true;
   },

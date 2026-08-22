@@ -20,6 +20,7 @@ import {
   PlusCircle,
   Search,
   Settings,
+  Table2,
   Trash,
 } from "lucide-react";
 import {
@@ -53,6 +54,7 @@ const Navigation = () => {
   const prevFocusMode = useRef(focusMode);
 
   const create = useMutation(api.documents.create);
+  const createDatabase = useMutation(api.databases.createDatabase);
 
   const isResizingRef = useRef(false);
   const sidebarRef = useRef<ComponentRef<"aside">>(null);
@@ -217,6 +219,18 @@ const Navigation = () => {
     });
   };
 
+  const handleCreateDatabase = () => {
+    const promise = createDatabase({ title: "Untitled" }).then(
+      (documentId) => router.push(`/documents/${documentId}`),
+    );
+
+    toast.promise(promise, {
+      loading: "Creating a new database....",
+      success: "New database created.",
+      error: "Failed to create a database.",
+    });
+  };
+
   return (
     <>
       <aside
@@ -250,6 +264,11 @@ const Navigation = () => {
           />
           <Item label="Settings" icon={Settings} onClick={settings.onOpen} />
           <Item onClick={handleCreate} label="New page" icon={PlusCircle} />
+          <Item
+            onClick={handleCreateDatabase}
+            label="New database"
+            icon={Table2}
+          />
         </div>
         <div className="mt-4">
           <div>

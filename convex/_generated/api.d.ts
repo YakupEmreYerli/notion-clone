@@ -8,7 +8,12 @@
  * @module
  */
 
+import type * as databases from "../databases.js";
 import type * as documents from "../documents.js";
+import type * as lib_auth from "../lib/auth.js";
+import type * as lib_cellValue from "../lib/cellValue.js";
+import type * as lib_databaseCascade from "../lib/databaseCascade.js";
+import type * as lib_ordering from "../lib/ordering.js";
 import type * as userSettings from "../userSettings.js";
 
 import type {
@@ -18,7 +23,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  databases: typeof databases;
   documents: typeof documents;
+  "lib/auth": typeof lib_auth;
+  "lib/cellValue": typeof lib_cellValue;
+  "lib/databaseCascade": typeof lib_databaseCascade;
+  "lib/ordering": typeof lib_ordering;
   userSettings: typeof userSettings;
 }>;
 

@@ -1,5 +1,10 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import {
+  cellValueValidator,
+  propertyOptionValidator,
+  propertyTypeValidator,
+} from "./lib/cellValue";
 
 export default defineSchema({
   documents: defineTable({
@@ -19,9 +24,29 @@ export default defineSchema({
     smallText: v.optional(v.boolean()),
     showToc: v.optional(v.boolean()),
     lastOpenedAt: v.optional(v.number()),
+    // optional: mevcut satırlar migration istemez. undefined => "page"
+    type: v.optional(v.union(v.literal("page"), v.literal("database"))),
   })
     .index("by_user", ["userId"])
     .index("by_user_parent", ["userId", "parentDocument"]),
+
+  databaseProperties: defineTable({
+    databaseId: v.id("documents"),
+    userId: v.string(),
+    name: v.string(),
+    type: propertyTypeValidator,
+    order: v.number(),
+    width: v.optional(v.number()),
+    options: v.optional(v.array(propertyOptionValidator)),
+    isTitle: v.optional(v.boolean()),
+  }).index("by_database_order", ["databaseId", "order"]),
+
+  databaseRows: defineTable({
+    databaseId: v.id("documents"),
+    userId: v.string(),
+    order: v.number(),
+    cells: v.record(v.id("databaseProperties"), cellValueValidator),
+  }).index("by_database_order", ["databaseId", "order"]),
 
   userSettings: defineTable({
     userId: v.string(),
