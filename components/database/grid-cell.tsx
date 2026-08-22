@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+import { SelectCell } from "./select-cell";
+import { CellValue, DatabaseProperty } from "./types";
+
 interface GridTextCellProps {
   value: string;
   editable: boolean;
@@ -37,6 +40,42 @@ export const GridTextCell = ({
         }
       }}
       className="text-foreground h-full w-full bg-transparent px-3 py-2 text-sm outline-none"
+    />
+  );
+};
+
+interface DatabaseCellProps {
+  property: DatabaseProperty;
+  value: CellValue | undefined;
+  editable: boolean;
+  onCommit: (value: CellValue) => void;
+}
+
+// Tipe göre doğru hücre bileşenini seçer — yeni tip eklendiğinde
+// dokunulması gereken tek yer burası.
+export const DatabaseCell = ({
+  property,
+  value,
+  editable,
+  onCommit,
+}: DatabaseCellProps) => {
+  if (property.type === "select" || property.type === "multiSelect") {
+    return (
+      <SelectCell
+        property={property}
+        value={value as string | string[] | null | undefined}
+        multiple={property.type === "multiSelect"}
+        editable={editable}
+        onCommit={onCommit}
+      />
+    );
+  }
+
+  return (
+    <GridTextCell
+      editable={editable}
+      value={typeof value === "string" ? value : ""}
+      onCommit={onCommit}
     />
   );
 };

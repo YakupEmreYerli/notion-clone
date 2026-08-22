@@ -8,7 +8,7 @@ import { GripVertical } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 
-import { DatabaseProperty } from "./types";
+import { DatabaseProperty, PropertyType } from "./types";
 import { ColumnMenu } from "./column-menu";
 
 interface ColumnHeaderProps {
@@ -19,6 +19,7 @@ interface ColumnHeaderProps {
   onResizeStart: (event: React.PointerEvent) => void;
   onInsertLeft: () => void;
   onInsertRight: () => void;
+  onChangeType: (type: PropertyType) => void;
   onDelete: () => void;
 }
 
@@ -30,6 +31,7 @@ export const ColumnHeader = ({
   onResizeStart,
   onInsertLeft,
   onInsertRight,
+  onChangeType,
   onDelete,
 }: ColumnHeaderProps) => {
   const renameProperty = useMutation(api.databases.renameProperty);
@@ -92,8 +94,10 @@ export const ColumnHeader = ({
       {editable && (
         <>
           <ColumnMenu
+            currentType={property.type as PropertyType}
             onInsertLeft={onInsertLeft}
             onInsertRight={onInsertRight}
+            onChangeType={onChangeType}
             onDelete={onDelete}
             canDelete={canDelete}
           />

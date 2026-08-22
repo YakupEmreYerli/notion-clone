@@ -26,9 +26,10 @@ import {
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
-import { DatabaseProperty, DatabaseRow } from "./types";
-import { GridTextCell } from "./grid-cell";
+import { DatabaseProperty, DatabaseRow, PropertyType } from "./types";
+import { DatabaseCell } from "./grid-cell";
 import { ColumnHeader } from "./column-header";
+import { AddPropertyMenu } from "./add-property-menu";
 import { useColumnResize } from "./use-column-resize";
 
 interface DatabaseGridProps {
@@ -51,6 +52,7 @@ export const DatabaseGrid = ({
   const updateCell = useMutation(api.databases.updateCell);
   const deleteProperty = useMutation(api.databases.deleteProperty);
   const reorderProperty = useMutation(api.databases.reorderProperty);
+  const changePropertyType = useMutation(api.databases.changePropertyType);
 
   const { getWidth, startResize } = useColumnResize();
 
@@ -82,10 +84,10 @@ export const DatabaseGrid = ({
     });
   };
 
-  const onAddProperty = () => {
+  const onAddProperty = (type: PropertyType) => {
     createProperty({
       databaseId,
-      type: "text",
+      type,
       afterPropertyId: properties[properties.length - 1]?._id,
     });
   };
@@ -120,6 +122,9 @@ export const DatabaseGrid = ({
                   canDelete={properties.length > 1}
                   onResizeStart={(e) => startResize(property, e)}
                   onDelete={() => deleteProperty({ propertyId: property._id })}
+                  onChangeType={(type) =>
+                    changePropertyType({ propertyId: property._id, type })
+                  }
                   onInsertLeft={() =>
                     createProperty({
                       databaseId,
@@ -137,13 +142,7 @@ export const DatabaseGrid = ({
                 />
               ))}
               {editable ? (
-                <button
-                  onClick={onAddProperty}
-                  aria-label="Add property"
-                  className="text-muted-foreground hover:bg-primary/5 flex items-center justify-center"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                <AddPropertyMenu onCreate={onAddProperty} />
               ) : (
                 <div />
               )}
@@ -159,13 +158,10 @@ export const DatabaseGrid = ({
           >
             {properties.map((property) => (
               <div key={property._id} className="border-border border-r">
-                <GridTextCell
+                <DatabaseCell
+                  property={property}
                   editable={editable}
-                  value={
-                    typeof row.cells[property._id] === "string"
-                      ? (row.cells[property._id] as string)
-                      : ""
-                  }
+                  value={row.cells[property._id]}
                   onCommit={(value) =>
                     updateCell({ rowId: row._id, propertyId: property._id, value })
                   }

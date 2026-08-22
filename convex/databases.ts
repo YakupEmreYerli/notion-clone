@@ -11,6 +11,7 @@ import {
 import { ORDER_GAP, orderBetween } from "./lib/ordering";
 import { cellValueValidator, propertyTypeValidator } from "./lib/cellValue";
 import { deleteDatabaseChildren } from "./lib/databaseCascade";
+import { coerceValue, generateOptionId } from "./lib/coerce";
 
 // getSchema ve getRows bilerek ayrı sorgular: birleşik olsaydı her hücre
 // düzenlemesi sütun tanımlarını da geçersiz kılar, tüm başlıkları yeniden
@@ -211,6 +212,140 @@ export const reorderProperty = mutation({
     }
 
     await ctx.db.patch(args.propertyId, { order });
+  },
+});
+
+export const changePropertyType = mutation({
+  args: { propertyId: v.id("databaseProperties"), type: propertyTypeValidator },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+
+    if (property.type === args.type) return;
+
+    const rows = await ctx.db
+      .query("databaseRows")
+      .withIndex("by_database_order", (q) =>
+        q.eq("databaseId", property.databaseId),
+      )
+      .collect();
+
+    let options = property.options ?? [];
+
+    for (const row of rows) {
+      const current = row.cells[args.propertyId];
+      if (current === undefined) continue;
+
+      const result = coerceValue(current, property.type, args.type, options);
+      options = result.options;
+
+      const cells = { ...row.cells };
+      const isEmpty =
+        result.value === null ||
+        result.value === "" ||
+        (Array.isArray(result.value) && result.value.length === 0);
+
+      if (isEmpty) {
+        delete cells[args.propertyId];
+      } else {
+        cells[args.propertyId] = result.value;
+      }
+      await ctx.db.patch(row._id, { cells });
+    }
+
+    await ctx.db.patch(args.propertyId, {
+      type: args.type,
+      options: args.type === "text" ? undefined : options,
+    });
+  },
+});
+
+export const addSelectOption = mutation({
+  args: {
+    propertyId: v.id("databaseProperties"),
+    label: v.string(),
+    color: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+
+    const optionId = generateOptionId();
+    const options = [
+      ...(property.options ?? []),
+      { id: optionId, label: args.label, color: args.color },
+    ];
+    await ctx.db.patch(args.propertyId, { options });
+    return optionId;
+  },
+});
+
+export const updateSelectOption = mutation({
+  args: {
+    propertyId: v.id("databaseProperties"),
+    optionId: v.string(),
+    label: v.optional(v.string()),
+    color: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+
+    // Satırlara dokunulmuyor: hücreler option id ile anahtarlandığı için
+    // ad/renk değişikliği O(1) — tüm satırlar bu tek patch'i otomatik görür.
+    const options = (property.options ?? []).map((o) =>
+      o.id === args.optionId
+        ? { ...o, label: args.label ?? o.label, color: args.color ?? o.color }
+        : o,
+    );
+    await ctx.db.patch(args.propertyId, { options });
+  },
+});
+
+export const deleteSelectOption = mutation({
+  args: { propertyId: v.id("databaseProperties"), optionId: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+
+    const options = (property.options ?? []).filter(
+      (o) => o.id !== args.optionId,
+    );
+    await ctx.db.patch(args.propertyId, { options });
+
+    const rows = await ctx.db
+      .query("databaseRows")
+      .withIndex("by_database_order", (q) =>
+        q.eq("databaseId", property.databaseId),
+      )
+      .collect();
+
+    if (rows.length > 2000) {
+      // Kemer + askı: süpürme atlanır, orphan-toleranslı render devreye girer.
+      return;
+    }
+
+    await Promise.all(
+      rows.flatMap((row) => {
+        const current = row.cells[args.propertyId];
+        if (current === undefined) return [];
+
+        const cells = { ...row.cells };
+        if (Array.isArray(current)) {
+          const filtered = current.filter((id) => id !== args.optionId);
+          if (filtered.length === 0) {
+            delete cells[args.propertyId];
+          } else {
+            cells[args.propertyId] = filtered;
+          }
+        } else if (current === args.optionId) {
+          delete cells[args.propertyId];
+        } else {
+          return [];
+        }
+        return [ctx.db.patch(row._id, { cells })];
+      }),
+    );
   },
 });
 

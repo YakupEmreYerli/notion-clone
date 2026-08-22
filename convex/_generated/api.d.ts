@@ -12,6 +12,7 @@ import type * as databases from "../databases.js";
 import type * as documents from "../documents.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_cellValue from "../lib/cellValue.js";
+import type * as lib_coerce from "../lib/coerce.js";
 import type * as lib_databaseCascade from "../lib/databaseCascade.js";
 import type * as lib_ordering from "../lib/ordering.js";
 import type * as userSettings from "../userSettings.js";
@@ -27,6 +28,7 @@ declare const fullApi: ApiFromModules<{
   documents: typeof documents;
   "lib/auth": typeof lib_auth;
   "lib/cellValue": typeof lib_cellValue;
+  "lib/coerce": typeof lib_coerce;
   "lib/databaseCascade": typeof lib_databaseCascade;
   "lib/ordering": typeof lib_ordering;
   userSettings: typeof userSettings;

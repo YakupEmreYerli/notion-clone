@@ -5,20 +5,36 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ArrowLeftToLine, ArrowRightToLine, MoreHorizontal, Trash } from "lucide-react";
+import {
+  ArrowLeftToLine,
+  ArrowRightToLine,
+  ListFilter,
+  MoreHorizontal,
+  Trash,
+} from "lucide-react";
+
+import { PROPERTY_TYPE_OPTIONS } from "./property-types";
+import { PropertyType } from "./types";
 
 interface ColumnMenuProps {
+  currentType: PropertyType;
   onInsertLeft: () => void;
   onInsertRight: () => void;
+  onChangeType: (type: PropertyType) => void;
   onDelete: () => void;
   canDelete: boolean;
 }
 
 export const ColumnMenu = ({
+  currentType,
   onInsertLeft,
   onInsertRight,
+  onChangeType,
   onDelete,
   canDelete,
 }: ColumnMenuProps) => {
@@ -32,6 +48,24 @@ export const ColumnMenu = ({
         <MoreHorizontal className="h-3.5 w-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <ListFilter className="mr-2 h-4 w-4" />
+            Change type
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            {PROPERTY_TYPE_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.type}
+                disabled={option.type === currentType}
+                onClick={() => onChangeType(option.type)}
+              >
+                <option.icon className="mr-2 h-4 w-4" />
+                {option.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
         <DropdownMenuItem onClick={onInsertLeft}>
           <ArrowLeftToLine className="mr-2 h-4 w-4" />
           Insert left
