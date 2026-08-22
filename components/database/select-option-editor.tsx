@@ -66,11 +66,15 @@ export const SelectOptionEditor = ({
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder="Search options..."
+        placeholder="Search for an option..."
       />
       <CommandList>
-        <CommandEmpty className="px-1 py-1">
-          {trimmed ? createButton : "No options"}
+        <CommandEmpty className="px-1 py-1 text-left">
+          {trimmed ? createButton : (
+            <p className="text-muted-foreground px-2 py-1.5 text-sm">
+              Select an option or create one
+            </p>
+          )}
         </CommandEmpty>
         <CommandGroup>
           {options.map((option) => (

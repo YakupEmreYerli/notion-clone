@@ -48,7 +48,7 @@ export const Navbar = ({ isCollapsed, onResetWidth }: NavbarProps) => {
 
   return (
     <>
-      <nav className="bg-background dark:bg-dark flex w-full items-center gap-x-2 px-3 py-2">
+      <nav className="bg-background dark:bg-dark flex w-full items-center gap-x-2 px-3 py-2.5">
         {isCollapsed && (
           <ActionTooltip label="Open sidebar (Ctrl + \)">
             <button aria-label="Menu" onClick={onResetWidth}>
@@ -58,7 +58,7 @@ export const Navbar = ({ isCollapsed, onResetWidth }: NavbarProps) => {
         )}
         <div className="flex w-full items-center justify-between">
           <Title initialData={document} />
-          <div className="flex shrink-0 items-center">
+          <div className="flex shrink-0 items-center gap-x-1">
             <Publish initialData={document} />
             <ActionTooltip
               label={document.isFavorite ? "Unfavorite" : "Favorite"}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import { Table2 } from "lucide-react";
 
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -25,6 +26,12 @@ const DatabaseView = ({ documentId, editable = true }: DatabaseViewProps) => {
 
   return (
     <div className="px-4 md:px-8">
+      <div className="mb-3 flex items-center gap-x-2">
+        <span className="bg-secondary text-foreground/80 inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium">
+          <Table2 className="h-3.5 w-3.5" />
+          Table
+        </span>
+      </div>
       <DatabaseGrid
         databaseId={documentId}
         properties={properties}

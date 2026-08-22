@@ -18,6 +18,7 @@ import { useParams } from "next/navigation";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CoverGallery } from "./CoverGallery";
 
 const COVER_COLORS = [
   "#f87171",
@@ -139,6 +140,15 @@ export const CoverImageModal = () => {
     onClose();
   };
 
+  const onSelectGalleryImage = async (url: string) => {
+    await deleteFile(coverImage.url);
+    await update({
+      id: params.documentId as Id<"documents">,
+      coverImage: url,
+    });
+    onClose();
+  };
+
   return (
     <Dialog open={coverImage.isOpen} onOpenChange={coverImage.onClose}>
       <DialogTitle>
@@ -151,8 +161,11 @@ export const CoverImageModal = () => {
         <DialogDescription className="sr-only">
           Upload a cover image or choose a color for your document.
         </DialogDescription>
-        <Tabs defaultValue="upload">
+        <Tabs defaultValue="gallery">
           <TabsList className="w-full">
+            <TabsTrigger value="gallery" className="flex-1">
+              Gallery
+            </TabsTrigger>
             <TabsTrigger value="upload" className="flex-1">
               Upload
             </TabsTrigger>
@@ -160,6 +173,12 @@ export const CoverImageModal = () => {
               Colors
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="gallery">
+            <CoverGallery
+              onSelect={onSelectGalleryImage}
+              selectedUrl={coverImage.url}
+            />
+          </TabsContent>
           <TabsContent value="upload">
             <SingleImageDropzone
               className="w-full outline-hidden"

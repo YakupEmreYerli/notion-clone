@@ -7,8 +7,9 @@ import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { Item } from "./Item";
 import { DocumentList } from "./DocumentList";
-import { FileIcon, Star } from "lucide-react";
+import { FileIcon, Star, Table2 } from "lucide-react";
 import { toast } from "sonner";
+import { getDocumentLabel } from "@/lib/utils";
 
 export const FavoritesList = ({ navDrawer }: { navDrawer?: boolean }) => {
   const params = useParams();
@@ -52,8 +53,8 @@ export const FavoritesList = ({ navDrawer }: { navDrawer?: boolean }) => {
           <Item
             id={document._id}
             onClick={() => router.push(`/documents/${document._id}`)}
-            label={document.title || "Untitled"}
-            icon={FileIcon}
+            label={getDocumentLabel(document.title, document.type)}
+            icon={document.type === "database" ? Table2 : FileIcon}
             documentIcon={document.icon}
             active={params.documentId === document._id}
             level={0}

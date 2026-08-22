@@ -28,10 +28,11 @@ import { CSS } from "@dnd-kit/utilities";
 
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
+import { getDocumentLabel } from "@/lib/utils";
 
 import { Item } from "./Item";
 
-import { FileIcon } from "lucide-react";
+import { FileIcon, Table2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface SortableItemProps {
@@ -86,8 +87,8 @@ const SortableItem = ({
       <Item
         id={document._id}
         onClick={() => onRedirect(document._id)}
-        label={document.title || "Untitled"}
-        icon={FileIcon}
+        label={getDocumentLabel(document.title, document.type)}
+        icon={document.type === "database" ? Table2 : FileIcon}
         documentIcon={document.icon}
         active={activeId === document._id}
         level={level}

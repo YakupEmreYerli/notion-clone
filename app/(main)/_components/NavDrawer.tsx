@@ -27,7 +27,6 @@ import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/hooks/useSearch";
 import { useSettings } from "@/hooks/useSettingsModal";
-import RecentList from "./RecentList";
 
 type NavDrawerProps = {
   resetWidth: () => void;
@@ -115,7 +114,6 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
             </ActionTooltip>
           </div>
           <div className="max-h-[65vh] overflow-y-auto pb-3">
-            <RecentList navDrawer />
             <FavoritesList navDrawer />
             <div>
               <p className="text-muted-foreground/60 flex items-center px-3 py-1 text-[13px] font-medium">

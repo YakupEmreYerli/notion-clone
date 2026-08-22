@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { deleteFiles, getDocumentUrls } from "@/lib/storage";
+import { getDocumentLabel } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { Coffee, Search, Trash, Trash2, Undo } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -151,7 +152,7 @@ export const TrashBox = () => {
               aria-label="Document"
             >
               <span className="truncate pl-2">
-                {document.title || "Untitled"}
+                {getDocumentLabel(document.title, document.type)}
               </span>
               <div className="flex items-center">
                 <ActionTooltip label="Restore page">

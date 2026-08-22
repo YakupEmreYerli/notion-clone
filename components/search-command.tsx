@@ -18,6 +18,7 @@ import {
 import { useSearch } from "@/hooks/useSearch";
 import { api } from "@/convex/_generated/api";
 import { DialogTitle } from "./ui/dialog";
+import { getDocumentLabel } from "@/lib/utils";
 
 export const SearchCommand = () => {
   const { data: session } = authClient.useSession();
@@ -75,8 +76,8 @@ export const SearchCommand = () => {
             {documents?.map((document) => (
               <CommandItem
                 key={document._id}
-                value={`${document.title || "Untitled"}|${document._id}`}
-                title={document.title || "Untitled"}
+                value={`${getDocumentLabel(document.title, document.type)}|${document._id}`}
+                title={getDocumentLabel(document.title, document.type)}
                 onSelect={() => onSelect(document._id)}
               >
                 {document.icon ? (
@@ -86,7 +87,7 @@ export const SearchCommand = () => {
                 ) : (
                   <File className="mr-2 h-4 w-4" />
                 )}
-                <span>{document.title || "Untitled"}</span>
+                <span>{getDocumentLabel(document.title, document.type)}</span>
               </CommandItem>
             ))}
           </CommandGroup>

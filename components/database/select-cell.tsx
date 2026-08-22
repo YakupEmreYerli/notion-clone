@@ -88,7 +88,7 @@ export const SelectCell = ({
     >
       <PopoverTrigger
         disabled={!editable}
-        className="flex h-full min-h-9 w-full flex-wrap items-center gap-1 px-3 py-1.5 text-left"
+        className="flex h-full min-h-0 w-full items-center gap-1 overflow-hidden px-3 py-0 text-left"
       >
         {selectedOptions.map((option) => (
           <OptionBadge

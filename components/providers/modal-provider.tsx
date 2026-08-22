@@ -6,6 +6,8 @@ import { SettingsModal } from "@/components/modals/SettingsModal";
 import { CoverImageModal } from "@/components/modals/CoverImageModal";
 import { AuthModal } from "@/components/modals/AuthModal";
 import { AccountModal } from "@/components/modals/AccountModal";
+import { PeekModal } from "@/components/modals/PeekModal";
+import { NewPageModal } from "@/components/modals/NewPageModal";
 
 export const ModalProvider = () => {
   const [isMounted, setIsMounted] = useState(false);
@@ -24,6 +26,8 @@ export const ModalProvider = () => {
       <CoverImageModal />
       <AuthModal />
       <AccountModal />
+      <PeekModal />
+      <NewPageModal />
     </>
   );
 };

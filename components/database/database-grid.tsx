@@ -71,17 +71,21 @@ const SortableDatabaseRow = ({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: row._id, disabled: !editable });
 
+  const rowTransition = transition
+    ? `${transition}, background-color 200ms ease-out`
+    : undefined;
+
   return (
     <div
       ref={setNodeRef}
       style={{
         gridTemplateColumns: template,
         transform: CSS.Transform.toString(transform),
-        transition,
+        transition: rowTransition,
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className="border-border group/row grid border-b"
+      className="border-border hover:bg-primary/5 group/row grid h-9 grid-rows-[36px] border-b transition-colors duration-200 ease-out"
     >
       {properties.map((property) => {
         const isActive =
@@ -91,7 +95,7 @@ const SortableDatabaseRow = ({
             key={property._id}
             role="gridcell"
             onClick={() => onActivate({ rowId: row._id, propertyId: property._id })}
-            className={`border-border border-r ${isActive ? "ring-primary relative z-1 ring-1 ring-inset" : ""}`}
+            className={`border-border h-9 min-h-0 overflow-hidden border-r ${isActive ? "ring-primary relative z-1 ring-1 ring-inset" : ""}`}
           >
             <DatabaseCell
               property={property}
@@ -220,7 +224,7 @@ export const DatabaseGrid = ({
       role="grid"
       tabIndex={0}
       onKeyDown={onKeyDown}
-      className="border-border overflow-x-auto rounded-md border outline-none"
+      className="overflow-x-auto outline-none"
     >
       <div className="min-w-max">
         <DndContext
@@ -234,7 +238,7 @@ export const DatabaseGrid = ({
             strategy={horizontalListSortingStrategy}
           >
             <div
-              className="border-border bg-secondary/50 sticky top-0 z-10 grid border-b"
+              className="border-border bg-secondary/50 sticky top-0 z-10 grid h-9 grid-rows-[36px] border-b"
               style={{ gridTemplateColumns: template }}
             >
               {properties.map((property, index) => (

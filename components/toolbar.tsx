@@ -23,12 +23,15 @@ import { ImageIcon, Smile, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EditorFont, useEditorFont } from "@/hooks/useEditorFont";
 import { fontFamilies } from "@/lib/editorFont";
+import { getDocumentLabel } from "@/lib/utils";
 
 interface ToolbarProps {
   initialData: Doc<"documents">;
   editorFont?: string;
   preview?: boolean;
   onFocusEditor?: () => void;
+  /** Database şeması gibi sola tam dayalı, sayfa içeriğiyle aynı hizada başlık. */
+  flushLeft?: boolean;
 }
 
 export interface ToolbarHandle {
@@ -36,7 +39,7 @@ export interface ToolbarHandle {
 }
 
 export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
-  ({ initialData, preview, editorFont, onFocusEditor }, ref) => {
+  ({ initialData, preview, editorFont, onFocusEditor, flushLeft }, ref) => {
     const inputRef = useRef<ComponentRef<"textarea">>(null);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -131,7 +134,7 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
   };
 
   return (
-    <div className="group relative pl-12">
+    <div className={cn("group relative", flushLeft ? "px-4 md:px-8" : "pl-12")}>
       {!!initialData.icon && !preview && (
         <div
           className={cn(
@@ -166,15 +169,15 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
           {initialData.icon}
         </p>
       )}
-      <div className="flex items-center gap-x-1 py-2 group-hover:opacity-100 md:opacity-0">
+      <div className="flex items-center gap-x-1 py-2">
         {!initialData.icon && !preview && (
           <IconPicker asChild onChange={onIconSelect}>
             <Button
               className="text-muted-foreground text-xs"
-              variant="outline"
+              variant="ghost"
               size="sm"
             >
-              <Smile className="mr-2 h-4 w-4" />
+              <Smile className="mr-1.5 size-3.5" />
               Add icon
             </Button>
           </IconPicker>
@@ -183,10 +186,10 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
           <Button
             onClick={coverImage.onOpen}
             className="text-muted-foreground text-xs"
-            variant="outline"
+            variant="ghost"
             size="sm"
           >
-            <ImageIcon className="mr-2 h-4 w-4" />
+            <ImageIcon className="mr-1.5 size-3.5" />
             Add Cover
           </Button>
         )}
@@ -194,7 +197,7 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
 
       <TextareaAutosize
         ref={inputRef}
-        placeholder="Untitled"
+        placeholder={getDocumentLabel(undefined, initialData.type)}
         spellCheck="false"
         onBlur={disableInput}
         onFocus={() => setIsEditing(true)}

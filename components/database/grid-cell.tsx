@@ -36,7 +36,7 @@ export const GridTextCell = ({
         if (isEditing && draft !== value) onCommit(draft);
       }}
       autoFocus={isEditing}
-      className="text-foreground h-full w-full bg-transparent px-3 py-2 text-sm outline-none"
+      className="text-foreground h-full min-h-0 w-full bg-transparent px-3 py-0 text-sm outline-none"
     />
   );
 };

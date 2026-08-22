@@ -15,6 +15,7 @@ import type * as lib_cellValue from "../lib/cellValue.js";
 import type * as lib_coerce from "../lib/coerce.js";
 import type * as lib_databaseCascade from "../lib/databaseCascade.js";
 import type * as lib_ordering from "../lib/ordering.js";
+import type * as lib_searchText from "../lib/searchText.js";
 import type * as userSettings from "../userSettings.js";
 
 import type {
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   "lib/coerce": typeof lib_coerce;
   "lib/databaseCascade": typeof lib_databaseCascade;
   "lib/ordering": typeof lib_ordering;
+  "lib/searchText": typeof lib_searchText;
   userSettings: typeof userSettings;
 }>;
 

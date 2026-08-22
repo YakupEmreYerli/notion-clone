@@ -283,12 +283,14 @@ export const update = mutation({
     title: v.optional(v.string()),
     content: v.optional(v.string()),
     coverImage: v.optional(v.string()),
+    coverImageY: v.optional(v.number()),
     icon: v.optional(v.string()),
     isPublished: v.optional(v.boolean()),
     editorFont: v.optional(v.string()),
     fullWidth: v.optional(v.boolean()),
     smallText: v.optional(v.boolean()),
     showToc: v.optional(v.boolean()),
+    parentDocument: v.optional(v.id("documents")),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -373,6 +375,7 @@ export const removeCoverImage = mutation({
 
     const document = await ctx.db.patch(args.id, {
       coverImage: undefined,
+      coverImageY: undefined,
       updatedAt: Date.now(),
     });
 
@@ -536,6 +539,7 @@ export const duplicate = mutation({
       parentDocument: existingDocument.parentDocument,
       content: existingDocument.content,
       coverImage: existingDocument.coverImage,
+      coverImageY: existingDocument.coverImageY,
       icon: existingDocument.icon,
       editorFont: existingDocument.editorFont,
       fullWidth: existingDocument.fullWidth,

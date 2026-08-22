@@ -29,6 +29,7 @@ import {
 
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useNavDrawer } from "@/hooks/useNavDrawer";
+import { usePeek } from "@/hooks/usePeek";
 
 interface ItemProps {
   id?: Id<"documents">;
@@ -67,6 +68,7 @@ export const Item = ({
   const params = useParams();
 
   const { setInnerPopoverOpen } = useNavDrawer();
+  const peek = usePeek();
 
   const create = useMutation(api.documents.create);
   const duplicate = useMutation(api.documents.duplicate);
@@ -119,7 +121,10 @@ export const Item = ({
         if (!expanded) {
           onExpand?.();
         }
-        router.push(`/documents/${documentId}`);
+
+        // "Full page"/"New tab" tek seferlik bir aksiyondur, kalıcı tercih
+        // değildir — yeni alt sayfa her zaman peek (center/side) ile açılır.
+        peek.onOpen(documentId);
       },
     );
 

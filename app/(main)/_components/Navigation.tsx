@@ -8,16 +8,13 @@ import React, {
   useState,
 } from "react";
 import { useMediaQuery } from "usehooks-ts";
-import { useMutation } from "convex/react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
-import { api } from "@/convex/_generated/api";
 import { DocumentList } from "./DocumentList";
 import { Item } from "./Item";
 import { UserItem } from "./UserItem";
 
-import { toast } from "sonner";
 import {
   ChevronsLeft,
   MenuIcon,
@@ -26,7 +23,6 @@ import {
   PlusCircle,
   Search,
   Settings,
-  Table2,
   Trash,
 } from "lucide-react";
 import {
@@ -36,6 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { TrashBox } from "./TrashBox";
 import { useSearch } from "@/hooks/useSearch";
+import { useNewPage } from "@/hooks/useNewPage";
 import { useSettings } from "@/hooks/useSettingsModal";
 import { Navbar } from "./Navbar";
 import { ScrollableList } from "@/components/scrollable-list";
@@ -43,7 +40,6 @@ import { FavoritesList } from "./FavoritesList";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import NavDrawer from "./NavDrawer";
-import RecentList from "./RecentList";
 
 const SIDEBAR_DEFAULT_WIDTH = 280;
 const SIDEBAR_DEFAULT_WIDTH_CSS = `${SIDEBAR_DEFAULT_WIDTH}px`;
@@ -51,7 +47,6 @@ const SIDEBAR_DEFAULT_WIDTH_CSS = `${SIDEBAR_DEFAULT_WIDTH}px`;
 const Navigation = () => {
   const sidebarDefaultWidth = SIDEBAR_DEFAULT_WIDTH_CSS;
   const params = useParams();
-  const router = useRouter();
   const pathname = usePathname();
 
   const isMobile = useMediaQuery("(max-width: 768px)");
@@ -59,12 +54,10 @@ const Navigation = () => {
 
   const search = useSearch();
   const settings = useSettings();
+  const newPage = useNewPage();
 
   const { focusMode, setFocusMode } = useFocusMode();
   const prevFocusMode = useRef(focusMode);
-
-  const create = useMutation(api.documents.create);
-  const createDatabase = useMutation(api.databases.createDatabase);
 
   const isResizingRef = useRef(false);
   const sidebarRef = useRef<ComponentRef<"aside">>(null);
@@ -220,30 +213,6 @@ const Navigation = () => {
     }
   }, [isMobile, sidebarDefaultWidth]);
 
-  const handleCreate = () => {
-    const promise = create({ title: "" }).then((documentId) =>
-      router.push(`/documents/${documentId}`),
-    );
-
-    toast.promise(promise, {
-      loading: "Creating a new note....",
-      success: "New note created.",
-      error: "Failed to create a note.",
-    });
-  };
-
-  const handleCreateDatabase = () => {
-    const promise = createDatabase({ title: "" }).then(
-      (documentId) => router.push(`/documents/${documentId}`),
-    );
-
-    toast.promise(promise, {
-      loading: "Creating a new database....",
-      success: "New database created.",
-      error: "Failed to create a database.",
-    });
-  };
-
   return (
     <>
       <aside
@@ -281,17 +250,11 @@ const Navigation = () => {
             shortcut="Ctrl + K"
           />
           <Item label="Settings" icon={Settings} onClick={settings.onOpen} />
-          <Item onClick={handleCreate} label="New page" icon={PlusCircle} />
-          <Item
-            onClick={handleCreateDatabase}
-            label="New database"
-            icon={Table2}
-          />
+          <Item onClick={newPage.onOpen} label="New page" icon={PlusCircle} />
         </div>
         <div className="mt-4">
           <div>
             <ScrollableList>
-              <RecentList />
               <FavoritesList />
               <div className="mt-3">
                 <p className="text-muted-foreground/60 flex items-center px-4 py-1 text-[13px] font-medium">
@@ -302,7 +265,7 @@ const Navigation = () => {
               </div>
             </ScrollableList>
           </div>
-          <Item onClick={handleCreate} icon={Plus} label="Add a page" />
+          <Item onClick={newPage.onOpen} icon={Plus} label="Add a page" />
           <Popover>
             <PopoverTrigger className="mt-3 w-full">
               <Item label="Trash" icon={Trash} />

@@ -6,9 +6,13 @@ const nextConfig = {
   devIndicators: false,
   serverExternalPackages: ["pg"],
   images: {
-    // Uploads are served from the app itself (/api/files/<key>), so no remote
-    // hosts need to be allow-listed.
-    remotePatterns: [],
+    // Uploads are served from the app itself (/api/files/<key>) — no remote
+    // host needed for those. The two entries below are for the built-in
+    // cover image gallery (Met Museum + NASA open-access artwork).
+    remotePatterns: [
+      { protocol: "https", hostname: "images.metmuseum.org" },
+      { protocol: "https", hostname: "images-assets.nasa.gov" },
+    ],
   },
   async rewrites() {
     return [

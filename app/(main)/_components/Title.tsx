@@ -7,6 +7,7 @@ import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
 import { ChangeEvent, useRef, useState } from "react";
+import { getDocumentLabel } from "@/lib/utils";
 
 interface TitleProps {
   initialData: Doc<"documents">;
@@ -52,7 +53,7 @@ export const Title = ({ initialData }: TitleProps) => {
       {isEditing ? (
         <Input
           ref={inputRef}
-          placeholder="Untitled"
+          placeholder={getDocumentLabel(undefined, initialData.type)}
           onClick={enableInput}
           onBlur={disabledInput}
           onChange={onChange}
@@ -63,13 +64,13 @@ export const Title = ({ initialData }: TitleProps) => {
       ) : (
         <Button
           onClick={enableInput}
-          title={initialData.title || "Untitled"}
+          title={getDocumentLabel(initialData.title, initialData.type)}
           variant="ghost"
           size="sm"
           className="h-auto max-w-[45vw] min-w-0 shrink overflow-hidden p-1 text-left font-normal md:max-w-[80vw]"
         >
           <span className="block min-w-0 truncate">
-            {initialData?.title || "Untitled"}
+            {getDocumentLabel(initialData?.title, initialData?.type)}
           </span>
         </Button>
       )}
