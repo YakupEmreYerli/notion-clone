@@ -24,7 +24,13 @@ const setStoredPeekMode = (mode: PeekPanelMode) => {
 type PeekStore = {
   documentId: Id<"documents"> | null;
   mode: PeekPanelMode;
-  onOpen: (documentId: Id<"documents">) => void;
+  /** Bu peek oturumu, boş/başlıksız kapanırsa temizlenmesi gereken bir
+   * "+ alt sayfa ekle" akışından mı açıldı — bkz. PeekModal'daki temizlik. */
+  pendingEmptyId: Id<"documents"> | null;
+  onOpen: (
+    documentId: Id<"documents">,
+    options?: { mode?: PeekPanelMode; pendingEmpty?: boolean },
+  ) => void;
   onClose: () => void;
   setMode: (mode: PeekPanelMode) => void;
 };
@@ -32,8 +38,16 @@ type PeekStore = {
 export const usePeek = create<PeekStore>((set) => ({
   documentId: null,
   mode: "center",
-  onOpen: (documentId) => set({ documentId, mode: getStoredPeekMode() }),
-  onClose: () => set({ documentId: null }),
+  pendingEmptyId: null,
+  onOpen: (documentId, options) =>
+    set({
+      documentId,
+      // Alt+Click gibi tek seferlik bir zorlama (options.mode) varsa onu
+      // kullan, yoksa kullanıcının kalıcı side/center tercihine dön.
+      mode: options?.mode ?? getStoredPeekMode(),
+      pendingEmptyId: options?.pendingEmpty ? documentId : null,
+    }),
+  onClose: () => set({ documentId: null, pendingEmptyId: null }),
   setMode: (mode) => {
     setStoredPeekMode(mode);
     set({ mode });

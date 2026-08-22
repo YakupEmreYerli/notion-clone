@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   AArrowDown,
+  FolderInput,
   Maximize2,
   MoreHorizontal,
   Settings,
@@ -25,7 +27,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSettings } from "@/hooks/useSettingsModal";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useWordCount } from "@/hooks/useWordCount";
+import { useArchivingDoc } from "@/hooks/useArchivingDoc";
 import { Switch } from "@/components/ui/switch";
+import { PagePicker } from "@/components/page-picker";
 
 interface MenuProps {
   documentId: Id<"documents">;
@@ -36,18 +40,21 @@ export const Menu = ({ documentId }: MenuProps) => {
 
   const settings = useSettings();
   const words = useWordCount();
+  const markArchiving = useArchivingDoc((state) => state.markArchiving);
 
   const document = useQuery(api.documents.getById, {
     documentId,
   });
   const archive = useMutation(api.documents.archive);
   const update = useMutation(api.documents.update);
+  const [isMoveToOpen, setIsMoveToOpen] = useState(false);
 
   const isFullWidth = document?.fullWidth ?? true;
   const toggleToc = document?.showToc ?? true;
   const isSmallText = !!document?.smallText;
 
   const onArchive = () => {
+    markArchiving(documentId);
     router.push("/documents");
     const promise = archive({ id: documentId });
 
@@ -72,6 +79,14 @@ export const Menu = ({ documentId }: MenuProps) => {
     });
   };
 
+  const onMove = (parentDocument: Id<"documents"> | undefined) => {
+    update(
+      parentDocument
+        ? { id: documentId, parentDocument }
+        : { id: documentId, unparent: true },
+    );
+  };
+
   const onTocChange = (checked: boolean) => {
     update({
       id: documentId,
@@ -80,7 +95,8 @@ export const Menu = ({ documentId }: MenuProps) => {
   };
 
   return (
-    <DropdownMenu>
+    <>
+      <DropdownMenu>
       <ActionTooltip label="Page actions">
         <DropdownMenuTrigger asChild>
           <Button size="sm" variant="ghost" aria-label="Page actions">
@@ -116,6 +132,12 @@ export const Menu = ({ documentId }: MenuProps) => {
         <DropdownMenuItem onClick={settings.onOpen}>
           <Settings className="mr-2 h-4 w-4" />
           Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => setTimeout(() => setIsMoveToOpen(true), 0)}
+        >
+          <FolderInput className="mr-2 h-4 w-4" />
+          Move to
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onArchive}>
           <Trash className="mr-2 h-4 w-4" />
@@ -154,7 +176,16 @@ export const Menu = ({ documentId }: MenuProps) => {
           </p>
         </div>
       </DropdownMenuContent>
-    </DropdownMenu>
+      </DropdownMenu>
+      <PagePicker
+        excludeId={documentId}
+        includeRoot
+        dialog
+        open={isMoveToOpen}
+        onOpenChange={setIsMoveToOpen}
+        onSelect={(parentDocument) => onMove(parentDocument)}
+      />
+    </>
   );
 };
 

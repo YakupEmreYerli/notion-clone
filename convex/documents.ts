@@ -1,8 +1,50 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  MutationCtx,
+} from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { cascadeDeleteDatabase } from "./databases";
 import { buildSearchText } from "./lib/searchText";
+import { requireUser } from "./lib/auth";
+
+// `update`'in parentDocument argümanıyla çağrıldığı her yerde (sidebar
+// drag&drop dahil) çağrılır. Tek-ebeveynli ağaç modelinde döngü sadece bir
+// düğümü kendi soyundan gelen bir düğümün altına taşımakla oluşabilir, bu
+// yüzden hedef ebeveynden köke doğru yürüyüp `documentId`ye rastlanırsa
+// reddetmek hem "kendi üzerine taşıma" hem "kendi soyuna taşıma" durumlarını
+// tek kontrolle kapsar.
+async function assertValidReparent(
+  ctx: MutationCtx,
+  userId: string,
+  documentId: Id<"documents">,
+  newParentDocument: Id<"documents">,
+) {
+  if (newParentDocument === documentId) {
+    throw new Error("A page cannot be moved into itself.");
+  }
+
+  const parent = await ctx.db.get(newParentDocument);
+  if (!parent) {
+    throw new Error("Target page not found.");
+  }
+  if (parent.userId !== userId) {
+    throw new Error("Not authorized.");
+  }
+  if (parent.isArchived) {
+    throw new Error("Cannot move a page into a page that is in Trash.");
+  }
+
+  let current: Doc<"documents"> | null = parent;
+  while (current?.parentDocument) {
+    if (current.parentDocument === documentId) {
+      throw new Error("Cannot move a page into its own descendant.");
+    }
+    current = await ctx.db.get(current.parentDocument);
+  }
+}
 
 export const archive = mutation({
   args: { id: v.id("documents") },
@@ -25,6 +67,8 @@ export const archive = mutation({
       throw new Error("Not authorized");
     }
 
+    const archivedAt = Date.now();
+
     const recursiveArchive = async (documentId: Id<"documents">) => {
       const children = await ctx.db
         .query("documents")
@@ -36,6 +80,7 @@ export const archive = mutation({
       for (const child of children) {
         await ctx.db.patch(child._id, {
           isArchived: true,
+          archivedAt,
         });
 
         await recursiveArchive(child._id);
@@ -44,6 +89,7 @@ export const archive = mutation({
 
     const document = await ctx.db.patch(args.id, {
       isArchived: true,
+      archivedAt,
     });
 
     recursiveArchive(args.id);
@@ -172,6 +218,7 @@ export const restore = mutation({
       for (const child of children) {
         await ctx.db.patch(child._id, {
           isArchived: false,
+          archivedAt: undefined,
         });
 
         await recursiveRestore(child._id);
@@ -180,6 +227,7 @@ export const restore = mutation({
 
     const options: Partial<Doc<"documents">> = {
       isArchived: false,
+      archivedAt: undefined,
     };
 
     if (exisingDocument.parentDocument) {
@@ -189,6 +237,31 @@ export const restore = mutation({
         options.parentDocument = undefined;
       }
     }
+
+    // Notion'da doğrulanan davranış: trash'ten restore edilen sayfa eski
+    // konumuna değil, ait olduğu listenin EN SONUNA eklenir (bkz.
+    // docs/notion-research/sidebar-pages.md).
+    const targetParent =
+      "parentDocument" in options
+        ? options.parentDocument
+        : exisingDocument.parentDocument;
+
+    const siblings = await ctx.db
+      .query("documents")
+      .withIndex("by_user_parent", (q) =>
+        q.eq("userId", userId).eq("parentDocument", targetParent),
+      )
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .collect();
+
+    const maxOrder = siblings.reduce(
+      (max, sibling) =>
+        sibling.order !== undefined && sibling.order > max
+          ? sibling.order
+          : max,
+      -1,
+    );
+    options.order = maxOrder + 1;
 
     const document = await ctx.db.patch(args.id, options);
 
@@ -310,6 +383,37 @@ export const getById = query({
   },
 });
 
+// Navbar breadcrumb'ı için kök -> immediate-parent sırasıyla ata zinciri
+// (mevcut sayfa hariç). Notion'da doğrulandığı gibi sadece sahibinin
+// oturumunda kullanılır — yayınlanmış/anonim önizleme bu query'yi çağırmaz.
+export const getAncestors = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+
+    const self = await ctx.db.get(args.documentId);
+    if (!self || self.userId !== userId) {
+      throw new Error("Document not found");
+    }
+
+    const ancestors: Doc<"documents">[] = [];
+    let current = self;
+    let guard = 0;
+
+    while (current.parentDocument && guard < 50) {
+      const parent: Doc<"documents"> | null = await ctx.db.get(
+        current.parentDocument,
+      );
+      if (!parent || parent.userId !== userId) break;
+      ancestors.unshift(parent);
+      current = parent;
+      guard++;
+    }
+
+    return ancestors;
+  },
+});
+
 export const update = mutation({
   args: {
     id: v.id("documents"),
@@ -324,6 +428,11 @@ export const update = mutation({
     smallText: v.optional(v.boolean()),
     showToc: v.optional(v.boolean()),
     parentDocument: v.optional(v.id("documents")),
+    // `parentDocument: undefined` bir Convex mutation çağrısında "alan
+    // gönderilmedi" ile ayırt edilemez (optional validator'lar undefined'ı
+    // "yok" sayar), bu yüzden bir sayfayı köke taşımak (sidebar'dan sürükleyip
+    // çıkarmak) için ayrı, açık bir bayrak gerekiyor.
+    unparent: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
@@ -334,7 +443,7 @@ export const update = mutation({
 
     const userId = identity.subject;
 
-    const { id, ...rest } = args;
+    const { id, unparent, ...rest } = args;
 
     const existingDocument = await ctx.db.get(args.id);
 
@@ -346,10 +455,18 @@ export const update = mutation({
       throw new Error("Unauthorized");
     }
 
+    if (args.parentDocument !== undefined) {
+      await assertValidReparent(ctx, userId, args.id, args.parentDocument);
+    }
+
     const patch: typeof rest & { updatedAt: number; searchText?: string } = {
       ...rest,
       updatedAt: Date.now(),
     };
+
+    if (unparent) {
+      patch.parentDocument = undefined;
+    }
 
     if (args.title !== undefined || args.content !== undefined) {
       const title = args.title ?? existingDocument.title;
@@ -642,6 +759,41 @@ export const getRecentlyOpened = query({
       .filter((doc) => doc.lastOpenedAt)
       .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
       .slice(0, 4);
+  },
+});
+
+const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Notion'da doğrulanan davranış: trash'teki bir sayfa 30 gün sonra kalıcı
+// olarak silinir (bkz. docs/notion-research/sidebar-pages.md). Client'tan
+// çağrılamaz — `convex/crons.ts`'teki günlük iş tarafından tetiklenir.
+// `archivedAt === undefined` olan (bu alan eklenmeden önce trash'e atılmış)
+// belgeler bilerek atlanır — aksi halde ilk cron çalışmasında beklenmedik
+// şekilde toplu silinirlerdi.
+export const purgeExpiredTrash = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - TRASH_RETENTION_MS;
+
+    const expired = await ctx.db
+      .query("documents")
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("isArchived"), true),
+          q.neq(q.field("archivedAt"), undefined),
+          q.lt(q.field("archivedAt"), cutoff),
+        ),
+      )
+      .collect();
+
+    for (const doc of expired) {
+      if (doc.type === "database") {
+        await cascadeDeleteDatabase(ctx, doc._id);
+      }
+      await ctx.db.delete(doc._id);
+    }
+
+    return { purged: expired.length };
   },
 });
 

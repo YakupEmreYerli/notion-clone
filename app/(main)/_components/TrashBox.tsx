@@ -180,6 +180,12 @@ export const TrashBox = () => {
             </div>
           ))}
         </div>
+        {documents.length > 0 && (
+          <p className="text-muted-foreground/70 border-t px-2 pt-2 pb-1 text-[.6875rem]">
+            Once a page has been in Trash for 30 days, it will be automatically
+            deleted.
+          </p>
+        )}
       </div>
     </section>
   );

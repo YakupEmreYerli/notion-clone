@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -17,10 +18,15 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  Copy,
+  ExternalLink,
   Files,
+  FolderInput,
   GripVertical,
   LucideIcon,
   MoreHorizontal,
+  PanelRight,
+  Pencil,
   Plus,
   Settings,
   Star,
@@ -30,6 +36,9 @@ import {
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useNavDrawer } from "@/hooks/useNavDrawer";
 import { usePeek } from "@/hooks/usePeek";
+import { useOrigin } from "@/hooks/useOrigin";
+import { useArchivingDoc } from "@/hooks/useArchivingDoc";
+import { PagePicker } from "@/components/page-picker";
 
 interface ItemProps {
   id?: Id<"documents">;
@@ -39,7 +48,7 @@ interface ItemProps {
   level?: number;
   onExpand?: () => void;
   label?: string;
-  onClick?: () => void;
+  onClick?: (event: React.MouseEvent) => void;
   icon: LucideIcon;
   isFavorite?: boolean;
   onFavorite?: () => void;
@@ -66,25 +75,79 @@ export const Item = ({
 }: ItemProps) => {
   const router = useRouter();
   const params = useParams();
+  const origin = useOrigin();
 
   const { setInnerPopoverOpen } = useNavDrawer();
+  const markArchiving = useArchivingDoc((state) => state.markArchiving);
   const peek = usePeek();
 
   const create = useMutation(api.documents.create);
   const duplicate = useMutation(api.documents.duplicate);
   const archive = useMutation(api.documents.archive);
   const restore = useMutation(api.documents.restore);
+  const update = useMutation(api.documents.update);
 
   const document = useQuery(
     api.documents.getById,
     id ? { documentId: id } : "skip",
   );
 
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(label ?? "");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const [isMoveToOpen, setIsMoveToOpen] = useState(false);
+
+  useEffect(() => {
+    if (isRenaming) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [isRenaming]);
+
+  const onStartRename = () => {
+    if (!id) return;
+    setRenameValue(label ?? "");
+    setIsRenaming(true);
+  };
+
+  const commitRename = () => {
+    if (id && renameValue !== label) {
+      update({ id, title: renameValue });
+    }
+    setIsRenaming(false);
+  };
+
+  const onCopyLink = () => {
+    if (!id) return;
+    navigator.clipboard.writeText(`${origin}/documents/${id}`);
+    toast.success("Link copied");
+  };
+
+  const onOpenInNewTab = () => {
+    if (!id) return;
+    window.open(`/documents/${id}`, "_blank");
+  };
+
+  const onOpenInSidePeek = () => {
+    if (!id) return;
+    peek.onOpen(id, { mode: "side" });
+  };
+
+  const onMove = (parentDocument: Id<"documents"> | undefined) => {
+    if (!id) return;
+    if (parentDocument) {
+      update({ id, parentDocument });
+    } else {
+      update({ id, unparent: true });
+    }
+  };
+
   const onArchive = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     event.stopPropagation();
     if (!id) return;
 
     if (params.documentId === id) {
+      markArchiving(id);
       router.push("/documents");
     }
 
@@ -124,7 +187,9 @@ export const Item = ({
 
         // "Full page"/"New tab" tek seferlik bir aksiyondur, kalıcı tercih
         // değildir — yeni alt sayfa her zaman peek (center/side) ile açılır.
-        peek.onOpen(documentId);
+        // pendingEmpty: PeekModal bu belgeyi başlıksız+içeriksiz kapatılırsa
+        // sessizce siler (Notion'da doğrulanan davranış).
+        peek.onOpen(documentId, { pendingEmpty: true });
       },
     );
 
@@ -164,7 +229,8 @@ export const Item = ({
       style={{ paddingLeft: level ? `${level * 12 + 12}px` : "12px" }}
       className={cn(
         "group text-foreground/80 relative mx-2 flex min-h-8 w-[calc(100%-1rem)] items-center rounded-md py-1.5 pr-3 text-sm font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700/60",
-        active && "text-foreground bg-neutral-200 font-semibold dark:bg-neutral-700/60",
+        active &&
+          "text-foreground bg-neutral-200 font-semibold dark:bg-neutral-700/60",
         navDrawer && !id && "rounded-full",
       )}
     >
@@ -192,10 +258,31 @@ export const Item = ({
             className={`text-foreground/70 h-4.5 w-4.5 shrink-0 ${navDrawer && Icon === Settings ? "mr-0" : "mr-2"}`}
           />
         )}
-        {label && (
-          <span className="truncate" title={label}>
-            {label}
-          </span>
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitRename();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setIsRenaming(false);
+              }
+            }}
+            className="w-full min-w-0 truncate bg-transparent outline-none"
+          />
+        ) : (
+          label && (
+            <span className="truncate" title={label}>
+              {label}
+            </span>
+          )
         )}
       </div>
       {shortcut && (
@@ -247,9 +334,56 @@ export const Item = ({
                 />
                 {isFavorite ? "Remove from favorites" : "Add to favorites"}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCopyLink();
+                }}
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Copy link
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onDuplicate}>
                 <Files className="mr-2 h-4 w-4" />
                 Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStartRename();
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Rename
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  // Menü önce kapanır; ikinci Radix katmanı bir sonraki tick'te
+                  // açılarak iki DismissableLayer'ın aynı pointer olayını
+                  // paylaşması engellenir.
+                  setTimeout(() => setIsMoveToOpen(true), 0);
+                }}
+              >
+                <FolderInput className="mr-2 h-4 w-4" />
+                Move to
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenInNewTab();
+                }}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open in new tab
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenInSidePeek();
+                }}
+              >
+                <PanelRight className="mr-2 h-4 w-4" />
+                Open in side peek
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onArchive}>
                 <Trash className="mr-2 h-4 w-4" />
@@ -285,6 +419,16 @@ export const Item = ({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+          {id && (
+            <PagePicker
+              excludeId={id}
+              includeRoot
+              dialog
+              open={isMoveToOpen}
+              onOpenChange={setIsMoveToOpen}
+              onSelect={(parentDocument) => onMove(parentDocument)}
+            />
+          )}
         </div>
       )}
     </div>

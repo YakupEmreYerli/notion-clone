@@ -27,6 +27,9 @@ import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/hooks/useSearch";
 import { useSettings } from "@/hooks/useSettingsModal";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { useSidebarDragAndDrop } from "@/hooks/useSidebarDragAndDrop";
 
 type NavDrawerProps = {
   resetWidth: () => void;
@@ -38,6 +41,7 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
 
   const search = useSearch();
   const settings = useSettings();
+  const sidebarDnd = useSidebarDragAndDrop();
 
   const [isEdgeHovered, setIsEdgeHovered] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -120,7 +124,15 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
                 <Notebook className="mr-1 size-3 shrink-0" />
                 Notes
               </p>
-              <DocumentList navDrawer />
+              <DndContext
+                sensors={sidebarDnd.sensors}
+                onDragStart={sidebarDnd.onDragStart}
+                onDragEnd={sidebarDnd.onDragEnd}
+                modifiers={[restrictToVerticalAxis]}
+                collisionDetection={closestCenter}
+              >
+                <DocumentList navDrawer />
+              </DndContext>
             </div>
             <Item onClick={handleCreate} icon={Plus} label="Add a page" />
             <Popover onOpenChange={setInnerPopoverOpen}>

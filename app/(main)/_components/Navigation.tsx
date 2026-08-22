@@ -14,6 +14,9 @@ import { cn } from "@/lib/utils";
 import { DocumentList } from "./DocumentList";
 import { Item } from "./Item";
 import { UserItem } from "./UserItem";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { useSidebarDragAndDrop } from "@/hooks/useSidebarDragAndDrop";
 
 import {
   ChevronsLeft,
@@ -39,6 +42,7 @@ import { ScrollableList } from "@/components/scrollable-list";
 import { FavoritesList } from "./FavoritesList";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useFocusMode } from "@/hooks/useFocusMode";
+import { useArchivingDoc } from "@/hooks/useArchivingDoc";
 import NavDrawer from "./NavDrawer";
 
 const SIDEBAR_DEFAULT_WIDTH = 280;
@@ -55,8 +59,11 @@ const Navigation = () => {
   const search = useSearch();
   const settings = useSettings();
   const newPage = useNewPage();
+  const sidebarDnd = useSidebarDragAndDrop();
 
   const { focusMode, setFocusMode } = useFocusMode();
+  const archivingId = useArchivingDoc((state) => state.archivingId);
+  const clearArchiving = useArchivingDoc((state) => state.clearArchiving);
   const prevFocusMode = useRef(focusMode);
 
   const isResizingRef = useRef(false);
@@ -64,6 +71,7 @@ const Navigation = () => {
   const navbarRef = useRef<ComponentRef<"div">>(null);
 
   const [isResetting, setIsResetting] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(isMobile);
 
   const [isNavbarHovered, setIsNavbarHovered] = useState(false);
@@ -73,6 +81,13 @@ const Navigation = () => {
       collapse();
     }
   }, [pathname, isMobile]);
+
+  // arşivleme sonrası navigasyon tamamlandığında çöp kutusu bandını serbest bırak
+  useEffect(() => {
+    if (archivingId && archivingId !== params.documentId) {
+      clearArchiving();
+    }
+  }, [archivingId, params.documentId, clearArchiving]);
 
   // focus mode effects
   useEffect(() => {
@@ -87,6 +102,8 @@ const Navigation = () => {
     }
 
     prevFocusMode.current = focusMode;
+    // Bu efektler layout fonksiyonlarını kasıtlı olarak güncel state ile çağırır.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.documentId, focusMode, isMobile, isCollapsed]);
 
   useEffect(() => {
@@ -119,6 +136,7 @@ const Navigation = () => {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCollapsed]);
 
   useEffect(() => {
@@ -131,6 +149,7 @@ const Navigation = () => {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusMode]);
 
   const handleMouseDown = (
@@ -140,6 +159,7 @@ const Navigation = () => {
     event.stopPropagation();
 
     isResizingRef.current = true;
+    setIsResizing(true);
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
   };
@@ -163,11 +183,12 @@ const Navigation = () => {
 
   const handleMouseUp = () => {
     isResizingRef.current = false;
+    setIsResizing(false);
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
   };
 
-  const resetWidth = () => {
+  function resetWidth() {
     if (sidebarRef.current && navbarRef.current) {
       setIsCollapsed(false);
       setIsResetting(true);
@@ -189,9 +210,9 @@ const Navigation = () => {
       }, 0);
       setTimeout(() => setIsResetting(false), 300);
     }
-  };
+  }
 
-  const collapse = () => {
+  function collapse() {
     if (sidebarRef.current && navbarRef.current) {
       setIsCollapsed(true);
       setIsResetting(true);
@@ -201,7 +222,7 @@ const Navigation = () => {
       navbarRef.current.style.setProperty("left", "0");
       setTimeout(() => setIsResetting(false), 300);
     }
-  };
+  }
 
   // Keep imperative styles in sync when a preserved client layout receives a
   // new default width (for example after a Fast Refresh).
@@ -211,6 +232,7 @@ const Navigation = () => {
     } else {
       resetWidth();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, sidebarDefaultWidth]);
 
   return (
@@ -261,7 +283,22 @@ const Navigation = () => {
                   <Notebook className="mr-1 size-3 shrink-0" />
                   Notes
                 </p>
-                <DocumentList />
+                <DndContext
+                  sensors={sidebarDnd.sensors}
+                  onDragStart={sidebarDnd.onDragStart}
+                  onDragEnd={sidebarDnd.onDragEnd}
+                  // restrictToParentElement KULLANMIYORUZ: sidebar ağacı çok
+                  // seviyeli, her satırın DOM ebeveyni kendi seviyesindeki
+                  // kardeş listesi. O modifier'la sürüklenen öğe görsel
+                  // olarak kendi seviyesinin sınırlarının dışına hiç
+                  // çıkamıyordu — bu da bir alt sayfayı üst seviyeye/başka
+                  // bir ebeveyne sürükleyerek taşımayı (reparent) yapısal
+                  // olarak imkânsız kılıyordu.
+                  modifiers={[restrictToVerticalAxis]}
+                  collisionDetection={closestCenter}
+                >
+                  <DocumentList />
+                </DndContext>
               </div>
             </ScrollableList>
           </div>
@@ -294,7 +331,7 @@ const Navigation = () => {
         onMouseLeave={() => setIsNavbarHovered(false)}
         className={cn(
           "absolute top-0 left-[var(--sidebar-default-width)] z-40 w-[calc(100%_-_var(--sidebar-default-width))]",
-          !isResizingRef.current && "transition-all duration-300 ease-in-out",
+          !isResizing && "transition-all duration-300 ease-in-out",
           isMobile && "left-0 w-full",
         )}
         style={

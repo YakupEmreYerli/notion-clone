@@ -1,61 +1,41 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { useParams, useRouter } from "next/navigation";
-
-import {
-  DndContext,
-  closestCorners,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-  useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable";
-import {
-  restrictToVerticalAxis,
-  restrictToParentElement,
-} from "@dnd-kit/modifiers";
+import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { getDocumentLabel } from "@/lib/utils";
-
+import { usePeek } from "@/hooks/usePeek";
+import { useLiveTitleDrafts } from "@/hooks/useLiveTitleDrafts";
 import { Item } from "./Item";
-
 import { FileIcon, Table2 } from "lucide-react";
 import { toast } from "sonner";
 
-interface SortableItemProps {
+interface VisibleDocument {
   document: Doc<"documents">;
   level: number;
+  siblingIndex: number;
+}
+
+interface SortableItemProps extends VisibleDocument {
+  sortableDisabled?: boolean;
   onExpand: (id: string) => void;
   expanded: boolean;
-  onRedirect: (id: string) => void;
+  onRedirect: (id: string, event: React.MouseEvent) => void;
   activeId?: string | string[];
-  isFavorite?: boolean;
   onFavorite?: (id: Id<"documents">) => void;
-  navDrawer?: boolean;
-}
-interface DocumentListProps {
-  parentDocumentId?: Id<"documents">;
-  level?: number;
-  data?: Doc<"documents">[];
   navDrawer?: boolean;
 }
 
 const SortableItem = ({
   document,
+  sortableDisabled,
   level,
+  siblingIndex,
   onExpand,
   expanded,
   onRedirect,
@@ -70,24 +50,30 @@ const SortableItem = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: document._id });
-
+  } = useSortable({
+    id: document._id,
+    disabled: sortableDisabled,
+    data: {
+      parentDocument: document.parentDocument,
+      order: document.order,
+      siblingIndex,
+    },
+  });
+  const draftTitle = useLiveTitleDrafts((state) => state.drafts[document._id]);
+  const label = getDocumentLabel(draftTitle ?? document.title, document.type);
   const style = {
-    transform: CSS.Transform.toString(
-      transform ? { ...transform, scaleY: 1, scaleX: 1 } : null,
-    ),
+    transform: CSS.Transform.toString(transform ? { ...transform, scaleY: 1, scaleX: 1 } : null),
     transition,
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 100 : undefined,
-    cursor: isDragging ? "grabbing" : "pointer",
   };
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <Item
         id={document._id}
-        onClick={() => onRedirect(document._id)}
-        label={getDocumentLabel(document.title, document.type)}
+        onClick={(event) => onRedirect(document._id, event)}
+        label={label}
         icon={document.type === "database" ? Table2 : FileIcon}
         documentIcon={document.icon}
         active={activeId === document._id}
@@ -98,89 +84,29 @@ const SortableItem = ({
         onFavorite={() => onFavorite?.(document._id)}
         navDrawer={navDrawer}
       />
-      {expanded && (
-        <DocumentList
-          parentDocumentId={document._id}
-          level={level + 1}
-          navDrawer={navDrawer}
-        />
-      )}
     </div>
   );
 };
 
 export const DocumentList = ({
+  navDrawer,
   parentDocumentId,
   level = 0,
-  navDrawer,
-}: DocumentListProps) => {
+}: {
+  navDrawer?: boolean;
+  parentDocumentId?: Id<"documents">;
+  level?: number;
+}) => {
   const params = useParams();
   const router = useRouter();
-
-  const reorder = useMutation(api.documents.reorder);
+  const peek = usePeek();
   const toggleFavorite = useMutation(api.documents.toggleFavorite);
-
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [isDragging, setIsDragging] = useState(false);
-  const [orderedDocuments, setOrderedDocuments] = useState<Doc<"documents">[]>(
-    [],
-  );
-
-  const documents = useQuery(api.documents.getSidebar, {
-    parentDocument: parentDocumentId,
-  });
-
-  useEffect(() => {
-    if (isDragging) {
-      return;
-    }
-    if (documents) {
-      setOrderedDocuments(documents);
-    }
-  }, [documents]);
+  const documents = useQuery(api.documents.getSearch);
 
   const onExpand = (documentId: string) => {
-    setExpanded((prevExpanded) => ({
-      ...prevExpanded,
-      [documentId]: !prevExpanded[documentId],
-    }));
+    setExpanded((previous) => ({ ...previous, [documentId]: !previous[documentId] }));
   };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setIsDragging(false);
-
-    const { active, over } = event;
-
-    if (!over) return;
-
-    if (active.id !== over.id) {
-      const oldIndex = orderedDocuments.findIndex(
-        (doc) => doc._id === active.id,
-      );
-      const newIndex = orderedDocuments.findIndex((doc) => doc._id === over.id);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        setOrderedDocuments((prev) => arrayMove(prev, oldIndex, newIndex));
-        reorder({
-          id: active.id as Id<"documents">,
-          parentDocument: parentDocumentId,
-          newOrder: newIndex,
-        });
-      }
-    }
-  };
-
   const onToggleFavorite = (id: Id<"documents">) => {
     const promise = toggleFavorite({ id });
     toast.promise(promise, {
@@ -190,68 +116,95 @@ export const DocumentList = ({
     });
   };
 
-  const onRedirect = (documentId: string) => {
+  const visibleDocuments = useMemo<VisibleDocument[] | undefined>(() => {
+    if (!documents) return undefined;
+    const compareDocuments = (a: Doc<"documents">, b: Doc<"documents">) => {
+      if (a.order === undefined && b.order === undefined) return b._creationTime - a._creationTime;
+      if (a.order === undefined) return -1;
+      if (b.order === undefined) return 1;
+      return a.order - b.order;
+    };
+    const byParent = new Map<string, Doc<"documents">[]>();
+    const byId = new Map(documents.map((document) => [document._id, document]));
+    for (const document of documents) {
+      const key = document.parentDocument ?? "root";
+      byParent.set(key, [...(byParent.get(key) ?? []), document]);
+    }
+    for (const siblings of byParent.values()) siblings.sort(compareDocuments);
+
+    const result: VisibleDocument[] = [];
+    const visited = new Set<Id<"documents">>();
+    const append = (parentDocument: Id<"documents"> | undefined, level: number) => {
+      const siblings = byParent.get(parentDocument ?? "root") ?? [];
+      siblings.forEach((document, siblingIndex) => {
+        if (visited.has(document._id)) return;
+        visited.add(document._id);
+        result.push({ document, level, siblingIndex });
+        if (expanded[document._id]) append(document._id, level + 1);
+      });
+    };
+    append(parentDocumentId, level);
+
+    // Çökmüş dalların çocukları da visited'a girmez; onları yetim sanıp köke
+    // taşımamak için parent zincirini köke kadar doğrula.
+    if (!parentDocumentId) {
+      for (const document of documents) {
+        let current = document;
+        const ancestors = new Set<Id<"documents">>();
+        let reachesRoot = true;
+
+        while (current.parentDocument) {
+          if (ancestors.has(current._id)) {
+            reachesRoot = false;
+            break;
+          }
+          ancestors.add(current._id);
+          const parent = byId.get(current.parentDocument);
+          if (!parent) {
+            reachesRoot = false;
+            break;
+          }
+          current = parent;
+        }
+
+        if (!visited.has(document._id) && !reachesRoot) {
+          visited.add(document._id);
+          result.push({ document, level: 0, siblingIndex: 0 });
+        }
+      }
+    }
+    return result;
+  }, [documents, expanded, level, parentDocumentId]);
+
+  const onRedirect = (documentId: string, event: React.MouseEvent) => {
+    if (event.altKey) {
+      peek.onOpen(documentId as Id<"documents">, { mode: "side" });
+      return;
+    }
     router.push(`/documents/${documentId}`);
   };
 
-  if (documents === undefined) {
-    return (
-      <>
-        <Item.Skeleton level={level} />
-        {level === 0 && (
-          <>
-            <Item.Skeleton level={level} />
-            <Item.Skeleton level={level} />
-          </>
-        )}
-      </>
-    );
+  if (visibleDocuments === undefined) {
+    return <><Item.Skeleton /><Item.Skeleton /><Item.Skeleton /></>;
   }
 
   return (
     <div className="w-full">
-      {orderedDocuments.length === 0 && level !== 0 && (
-        <p
-          style={{ paddingLeft: level ? `${level * 12 + 25}px` : undefined }}
-          className="text-muted-foreground/80 py-1 text-sm font-medium"
-        >
-          No pages inside
-        </p>
-      )}
-
-      <DndContext
-        sensors={sensors}
-        onDragStart={() => {
-          setIsDragging(true);
-          document.body.classList.add("cursor-grabbing");
-        }}
-        onDragEnd={(event) => {
-          document.body.classList.remove("cursor-grabbing");
-          handleDragEnd(event);
-        }}
-        modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-        collisionDetection={closestCorners}
-      >
-        <SortableContext
-          items={orderedDocuments.map((doc) => doc._id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {orderedDocuments.map((document) => (
-            <SortableItem
-              key={document._id}
-              document={document}
-              level={level}
-              onExpand={onExpand}
-              expanded={expanded[document._id]}
-              onRedirect={onRedirect}
-              activeId={params.documentId}
-              isFavorite={document.isFavorite}
-              onFavorite={onToggleFavorite}
-              navDrawer={navDrawer}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+      <SortableContext id="sidebar" items={visibleDocuments.map(({ document }) => document._id)} strategy={verticalListSortingStrategy}>
+        {visibleDocuments.map((item) => (
+          <SortableItem
+            key={item.document._id}
+            {...item}
+            sortableDisabled={!!parentDocumentId}
+            onExpand={onExpand}
+            expanded={!!expanded[item.document._id]}
+            onRedirect={onRedirect}
+            activeId={params.documentId}
+            onFavorite={onToggleFavorite}
+            navDrawer={navDrawer}
+          />
+        ))}
+      </SortableContext>
     </div>
   );
 };

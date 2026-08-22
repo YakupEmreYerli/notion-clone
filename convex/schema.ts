@@ -11,6 +11,12 @@ export default defineSchema({
     title: v.string(),
     userId: v.string(),
     isArchived: v.boolean(),
+    // Notion'da doğrulanan davranış: trash'teki bir sayfa 30 gün sonra
+    // kalıcı olarak silinir. Bu alan, o retention penceresini hesaplamak
+    // için "ne zaman trash'e taşındığı"nı tutar — `archive` mutation'ı
+    // set eder, `restore` temizler. `convex/crons.ts`'teki günlük iş bunu
+    // kullanır. Optional: mevcut satırlar migration istemez.
+    archivedAt: v.optional(v.number()),
     parentDocument: v.optional(v.id("documents")),
     content: v.optional(v.string()),
     coverImage: v.optional(v.string()),
