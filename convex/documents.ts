@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { cascadeDeleteDatabase } from "./databases";
+import { extractPlainText } from "./lib/searchText";
 
 export const archive = mutation({
   args: { id: v.id("documents") },
@@ -313,10 +314,18 @@ export const update = mutation({
       throw new Error("Unauthorized");
     }
 
-    const document = await ctx.db.patch(args.id, {
+    const patch: typeof rest & { updatedAt: number; searchText?: string } = {
       ...rest,
       updatedAt: Date.now(),
-    });
+    };
+
+    if (args.title !== undefined || args.content !== undefined) {
+      const title = args.title ?? existingDocument.title;
+      const content = args.content ?? existingDocument.content;
+      patch.searchText = `${title}\n${extractPlainText(content)}`;
+    }
+
+    const document = await ctx.db.patch(args.id, patch);
 
     return document;
   },
@@ -598,5 +607,31 @@ export const getRecentlyOpened = query({
       .filter((doc) => doc.lastOpenedAt)
       .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
       .slice(0, 4);
+  },
+});
+
+// Var olan belgeler için searchText'i doldurur. UI'da çağrılmaz — bir kez
+// `npx convex run documents:backfillSearchText` ile elle tetiklenir.
+export const backfillSearchText = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+    const userId = identity.subject;
+
+    const documents = await ctx.db
+      .query("documents")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    for (const doc of documents) {
+      await ctx.db.patch(doc._id, {
+        searchText: `${doc.title}\n${extractPlainText(doc.content)}`,
+      });
+    }
+
+    return { updated: documents.length };
   },
 });
