@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCoverImage } from "@/hooks/useCoverImage";
 import { SingleImageDropzone } from "@/components/single-image-dropzone";
 import { useEffect, useState } from "react";
-import { useEdgeStore } from "@/lib/edgestore";
+import { deleteFile, isManagedFileUrl, uploadFile } from "@/lib/storage";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useParams } from "next/navigation";
@@ -50,7 +50,6 @@ export const CoverImageModal = () => {
 
   const update = useMutation(api.documents.update);
   const coverImage = useCoverImage();
-  const { edgestore } = useEdgeStore();
 
   const [isDragging, setIsDragging] = useState(false);
 
@@ -106,28 +105,33 @@ export const CoverImageModal = () => {
       setIsSubmitting(true);
       setFile(file);
 
-      const res = await edgestore.publicFiles.upload({
-        file,
-        options: {
-          replaceTargetUrl: coverImage.url?.startsWith("http")
-            ? coverImage.url
-            : undefined,
-        },
-      });
+      const previousUrl = coverImage.url;
 
-      await update({
-        id: params.documentId as Id<"documents">,
-        coverImage: res.url,
-      });
+      try {
+        const url = await uploadFile(file);
+
+        await update({
+          id: params.documentId as Id<"documents">,
+          coverImage: url,
+        });
+
+        if (isManagedFileUrl(previousUrl)) {
+          await deleteFile(previousUrl);
+        }
+      } catch (error) {
+        console.error("Failed to upload cover image:", error);
+        toast.error("Failed to upload cover image.");
+        setIsSubmitting(false);
+        setFile(undefined);
+        return;
+      }
 
       onClose();
     }
   };
 
   const onSelectColor = async (color: string) => {
-    if (coverImage.url?.startsWith("http")) {
-      await edgestore.publicFiles.delete({ url: coverImage.url });
-    }
+    await deleteFile(coverImage.url);
     await update({
       id: params.documentId as Id<"documents">,
       coverImage: color,

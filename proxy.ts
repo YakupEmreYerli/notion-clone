@@ -1,18 +1,38 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
-const isPublicRoute = createRouteMatcher([
-  "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
-  "/preview(.*)",
-  "/api/edgestore(.*)",
-]);
+const PUBLIC_ROUTES = [
+  /^\/$/,
+  /^\/preview(\/.*)?$/,
+  /^\/api\/auth(\/.*)?$/,
+  /^\/api\/files(\/.*)?$/,
+  /^\/\.well-known(\/.*)?$/,
+];
 
-export default clerkMiddleware(async (auth, request) => {
-  if (!isPublicRoute(request)) {
-    await auth.protect();
+const isPublicRoute = (pathname: string) =>
+  PUBLIC_ROUTES.some((route) => route.test(pathname));
+
+/**
+ * Optimistic session check only — it looks at the cookie, never the database,
+ * so it stays edge-safe. Every Convex query/mutation and API route still
+ * verifies the session (or the JWT) on its own.
+ */
+export default function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
   }
-});
+
+  if (!getSessionCookie(request)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [

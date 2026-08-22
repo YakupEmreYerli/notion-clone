@@ -1,12 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Self-contained server bundle for the Docker image.
+  output: "standalone",
+  serverExternalPackages: ["pg"],
   images: {
-    remotePatterns: [
+    // Uploads are served from the app itself (/api/files/<key>), so no remote
+    // hosts need to be allow-listed.
+    remotePatterns: [],
+  },
+  async rewrites() {
+    return [
       {
-        protocol: "https",
-        hostname: "files.edgestore.dev",
+        // Convex discovers the Better Auth JWKS through this document.
+        source: "/.well-known/openid-configuration",
+        destination: "/api/oidc-config",
       },
-    ],
+    ];
   },
 };
 

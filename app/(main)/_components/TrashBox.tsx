@@ -6,7 +6,7 @@ import { Spinner } from "@/components/spinner";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { getDocumentUrls, useEdgeStore } from "@/lib/edgestore";
+import { deleteFiles, getDocumentUrls } from "@/lib/storage";
 import { useMutation, useQuery } from "convex/react";
 import { Coffee, Search, Trash, Trash2, Undo } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
@@ -16,8 +16,6 @@ import { toast } from "sonner";
 export const TrashBox = () => {
   const router = useRouter();
   const params = useParams();
-
-  const { edgestore } = useEdgeStore();
 
   const documents = useQuery(api.documents.getTrash);
   const restore = useMutation(api.documents.restore);
@@ -48,16 +46,10 @@ export const TrashBox = () => {
     });
   };
 
-  const deleteFromEdgeStore = async (urls: string[]) => {
-    await Promise.allSettled(
-      urls.map((url) => edgestore.publicFiles.delete({ url })),
-    );
-  };
-
   const onRemove = (documentId: Id<"documents">) => {
     const document = documents?.find((d) => d._id === documentId);
     if (document) {
-      deleteFromEdgeStore(getDocumentUrls(document));
+      deleteFiles(getDocumentUrls(document));
     }
 
     const promise = remove({ id: documentId });
@@ -76,7 +68,7 @@ export const TrashBox = () => {
   const onEmptyTrash = () => {
     if (documents) {
       const allUrls = documents.flatMap(getDocumentUrls);
-      deleteFromEdgeStore(allUrls);
+      deleteFiles(allUrls);
     }
 
     const promise = removeAll();

@@ -5,10 +5,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
 import { ModalProvider } from "@/components/providers/modal-provider";
-import { EdgeStoreProvider } from "@/lib/edgestore";
-import { ClerkProvider } from "@clerk/nextjs";
 import { ToasterProvider } from "@/components/providers/toaster-provider";
-import { shadcn } from "@clerk/themes";
+import { getConvexUrl } from "@/lib/env";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const lora = Lora({ subsets: ["latin"], variable: "--font-lora" });
@@ -16,6 +14,10 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
 });
+
+// The Convex URL and app URL are read from the environment at request time so
+// one Docker image can be deployed to any host.
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Zotion",
@@ -47,27 +49,19 @@ export default function RootLayout({
       <body
         className={`${inter.className} ${inter.variable} ${lora.variable} ${jetbrainsMono.variable}`}
       >
-        <ClerkProvider
-          appearance={{
-            theme: shadcn,
-          }}
-        >
-          <ConvexClientProvider>
-            <EdgeStoreProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-                storageKey="zotion-theme-2"
-              >
-                <ToasterProvider />
-                <ModalProvider />
-                {children}
-              </ThemeProvider>
-            </EdgeStoreProvider>
-          </ConvexClientProvider>
-        </ClerkProvider>
+        <ConvexClientProvider convexUrl={getConvexUrl()}>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+            storageKey="zotion-theme-2"
+          >
+            <ToasterProvider />
+            <ModalProvider />
+            {children}
+          </ThemeProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );

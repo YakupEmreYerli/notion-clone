@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 import { Logo } from "./Logo";
 import { ModeToggle } from "@/components/mode-toggle";
 import { useConvexAuth } from "convex/react";
-import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { UserButton } from "@/components/user-button";
+import { useAuthModal } from "@/hooks/useAuthModal";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/spinner";
 import Link from "next/link";
@@ -13,6 +14,7 @@ import Link from "next/link";
 export const Navbar = () => {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const scrolled = useScrollTop();
+  const authModal = useAuthModal();
 
   return (
     <nav
@@ -27,14 +29,17 @@ export const Navbar = () => {
           {isLoading && <Spinner />}
           {!isLoading && !isAuthenticated && (
             <>
-              <SignInButton mode="modal">
-                <Button className="hidden md:block" variant="ghost" size="sm">
-                  Log In
-                </Button>
-              </SignInButton>
-              <SignUpButton mode="modal">
-                <Button size="sm">Join Zotion</Button>
-              </SignUpButton>
+              <Button
+                className="hidden md:block"
+                variant="ghost"
+                size="sm"
+                onClick={() => authModal.onOpen("sign-in")}
+              >
+                Log In
+              </Button>
+              <Button size="sm" onClick={() => authModal.onOpen("sign-up")}>
+                Join Zotion
+              </Button>
             </>
           )}
 
@@ -43,7 +48,7 @@ export const Navbar = () => {
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/documents"> Enter Zotion </Link>
               </Button>
-              <UserButton afterSignOutUrl="/" />
+              <UserButton />
             </>
           )}
           <ModeToggle />

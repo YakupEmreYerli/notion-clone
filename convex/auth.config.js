@@ -1,7 +1,9 @@
 export default {
   providers: [
     {
-      domain: process.env.CLERK_JWT_ISSUER_DOMAIN,
+      // Public URL of the Next.js app; it serves the OIDC discovery document
+      // and the Better Auth JWKS used to verify incoming tokens.
+      domain: process.env.CONVEX_AUTH_ISSUER,
       applicationID: "convex",
     },
   ],

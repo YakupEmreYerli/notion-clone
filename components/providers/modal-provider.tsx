@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 import { SettingsModal } from "@/components/modals/SettingsModal";
 import { CoverImageModal } from "@/components/modals/CoverImageModal";
+import { AuthModal } from "@/components/modals/AuthModal";
+import { AccountModal } from "@/components/modals/AccountModal";
 
 export const ModalProvider = () => {
   const [isMounted, setIsMounted] = useState(false);
@@ -20,6 +22,8 @@ export const ModalProvider = () => {
     <>
       <SettingsModal />
       <CoverImageModal />
+      <AuthModal />
+      <AccountModal />
     </>
   );
 };

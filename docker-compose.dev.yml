@@ -1,0 +1,37 @@
+# Local development override.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d \
+#     postgres minio minio-init convex-backend convex-dashboard
+#   npm run dev
+#
+# Publishes the infrastructure ports to the host and puts the Convex backend on
+# the host network, so it can fetch the Better Auth JWKS from
+# http://localhost:3000 while you run `npm run dev`.
+
+services:
+  postgres:
+    ports:
+      # Non-default host port so it never clashes with a local Postgres.
+      - "${POSTGRES_HOST_PORT:-55432}:5432"
+
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  convex-backend:
+    network_mode: host
+    environment:
+      CONVEX_CLOUD_ORIGIN: http://localhost:3210
+      CONVEX_SITE_ORIGIN: http://localhost:3211
+      POSTGRES_URL: postgresql://${POSTGRES_USER:-zotion}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_HOST_PORT:-55432}
+
+  convex-dashboard:
+    ports:
+      - "6791:6791"
+
+  # Not used in dev: `npm run dev` serves the app instead.
+  web:
+    profiles: ["prod"]
+  convex-deploy:
+    profiles: ["prod"]

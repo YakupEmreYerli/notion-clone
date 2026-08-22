@@ -14,7 +14,7 @@ import {
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
 import { useTheme } from "next-themes";
-import { useEdgeStore } from "@/lib/edgestore";
+import { deleteFile, uploadFile } from "@/lib/storage";
 import { codeBlockOptions } from "@blocknote/code-block";
 import "@blocknote/core/style.css";
 import "@blocknote/mantine/style.css";
@@ -77,7 +77,6 @@ const Editor = ({
   onEditorReady,
 }: EditorProps) => {
   const { resolvedTheme } = useTheme();
-  const { edgestore } = useEdgeStore();
 
   const coverImage = useCoverImage();
   const wordCount = useWordCount();
@@ -85,10 +84,7 @@ const Editor = ({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const trackedUrlsRef = useRef<Set<string>>(new Set());
 
-  const handleUpload = async (file: File) => {
-    const res = await edgestore.publicFiles.upload({ file });
-    return res.url;
-  };
+  const handleUpload = async (file: File) => uploadFile(file);
 
   const getWords = () => {
     let count: number = 0;
@@ -167,8 +163,8 @@ const Editor = ({
     );
 
     removedUrls.forEach((url) => {
-      edgestore.publicFiles.delete({ url }).catch((err) => {
-        console.warn("Failed to delete file in edgestore:", url, err);
+      deleteFile(url).catch((err) => {
+        console.warn("Failed to delete file from storage:", url, err);
       });
     });
     trackedUrlsRef.current = currentUrls;

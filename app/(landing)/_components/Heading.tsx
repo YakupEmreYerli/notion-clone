@@ -2,13 +2,14 @@
 
 import { Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { useAuthModal } from "@/hooks/useAuthModal";
 import { useConvexAuth } from "convex/react";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export const Heading = () => {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const authModal = useAuthModal();
 
   return (
     <div className="max-w-5xl space-y-4">
@@ -42,12 +43,10 @@ export const Heading = () => {
         </Button>
       )}
       {!isAuthenticated && !isLoading && (
-        <SignUpButton mode="modal">
-          <Button>
-            Join Zotion
-            <ArrowRight className="ml-1 h-4 w-4" />
-          </Button>
-        </SignUpButton>
+        <Button onClick={() => authModal.onOpen("sign-up")}>
+          Join Zotion
+          <ArrowRight className="ml-1 h-4 w-4" />
+        </Button>
       )}
     </div>
   );
