@@ -97,9 +97,11 @@ async function nextPropertyOrder(
     .withIndex("by_database_order", (q) => q.eq("databaseId", databaseId))
     .collect();
 
+  // afterPropertyId verilmemişse en başa eklenir — çağıran taraf sona
+  // eklemek istiyorsa son sütunun id'sini açıkça geçmeli.
   const afterIndex = afterPropertyId
     ? properties.findIndex((p) => p._id === afterPropertyId)
-    : properties.length - 1;
+    : -1;
 
   const prev = afterIndex >= 0 ? properties[afterIndex] : undefined;
   const next = properties[afterIndex + 1];
@@ -147,6 +149,68 @@ export const createProperty = mutation({
       width: 180,
       options: args.type === "text" ? undefined : [],
     });
+  },
+});
+
+export const renameProperty = mutation({
+  args: { propertyId: v.id("databaseProperties"), name: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    await requireOwnedProperty(ctx, args.propertyId, userId);
+    await ctx.db.patch(args.propertyId, { name: args.name });
+  },
+});
+
+export const setPropertyWidth = mutation({
+  args: { propertyId: v.id("databaseProperties"), width: v.number() },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    await requireOwnedProperty(ctx, args.propertyId, userId);
+    await ctx.db.patch(args.propertyId, { width: args.width });
+  },
+});
+
+export const reorderProperty = mutation({
+  args: {
+    propertyId: v.id("databaseProperties"),
+    beforePropertyId: v.optional(v.id("databaseProperties")),
+    afterPropertyId: v.optional(v.id("databaseProperties")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+
+    const [before, after] = await Promise.all([
+      args.beforePropertyId ? ctx.db.get(args.beforePropertyId) : null,
+      args.afterPropertyId ? ctx.db.get(args.afterPropertyId) : null,
+    ]);
+
+    let order = orderBetween(before?.order, after?.order);
+    if (order === null) {
+      const siblings = await ctx.db
+        .query("databaseProperties")
+        .withIndex("by_database_order", (q) =>
+          q.eq("databaseId", property.databaseId),
+        )
+        .collect();
+      siblings.sort((a, b) => a.order - b.order);
+      await Promise.all(
+        siblings.map((p, i) => ctx.db.patch(p._id, { order: i * ORDER_GAP })),
+      );
+      const beforeIndex = args.beforePropertyId
+        ? siblings.findIndex((p) => p._id === args.beforePropertyId)
+        : -1;
+      const afterIndex = args.afterPropertyId
+        ? siblings.findIndex((p) => p._id === args.afterPropertyId)
+        : siblings.length;
+      order =
+        orderBetween(
+          beforeIndex >= 0 ? beforeIndex * ORDER_GAP : undefined,
+          afterIndex < siblings.length ? afterIndex * ORDER_GAP : undefined,
+        ) ?? 0;
+    }
+
+    await ctx.db.patch(args.propertyId, { order });
   },
 });
 
