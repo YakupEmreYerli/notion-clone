@@ -158,9 +158,9 @@ export const Item = ({
       role="button"
       style={{ paddingLeft: level ? `${level * 12 + 12}px` : "12px" }}
       className={cn(
-        "group text-muted-foreground hover:bg-primary/5 relative flex min-h-6.75 w-full items-center py-1 pr-3 text-sm font-medium",
-        active && "bg-primary/5 text-primary",
-        navDrawer && !id ? "rounded-full" : "rounded-none",
+        "group text-foreground/80 relative mx-2 flex min-h-8 w-[calc(100%-1rem)] items-center rounded-md py-1.5 pr-3 text-sm font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700/60",
+        active && "text-foreground bg-neutral-200 font-semibold dark:bg-neutral-700/60",
+        navDrawer && !id && "rounded-full",
       )}
     >
       <div className="group flex items-center justify-center truncate">
@@ -184,7 +184,7 @@ export const Item = ({
           </div>
         ) : (
           <Icon
-            className={`text-muted-foreground h-4.5 w-4.5 shrink-0 ${navDrawer && Icon === Settings ? "mr-0" : "mr-2"}`}
+            className={`text-foreground/70 h-4.5 w-4.5 shrink-0 ${navDrawer && Icon === Settings ? "mr-0" : "mr-2"}`}
           />
         )}
         {label && (

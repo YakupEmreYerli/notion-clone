@@ -47,7 +47,7 @@ export const ColumnHeader = ({
     <div
       ref={setNodeRef}
       style={style}
-      className="border-border group/col text-muted-foreground relative flex shrink-0 items-center gap-0.5 border-r px-1 py-2 text-sm font-medium"
+      className="border-border group/col text-foreground/80 relative flex shrink-0 items-center gap-0.5 border-r px-1.5 py-2.5 text-sm font-semibold"
     >
       {editable && (
         <button

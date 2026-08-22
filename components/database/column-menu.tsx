@@ -66,7 +66,7 @@ export const ColumnMenu = ({
     >
       <DropdownMenuTrigger
         onPointerDown={(e) => e.stopPropagation()}
-        className="text-muted-foreground hover:bg-primary/5 flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1 py-1 text-left"
+        className="hover:bg-primary/5 flex min-w-0 flex-1 items-center gap-1.5 rounded-sm px-1 py-1 text-left"
       >
         <currentTypeOption.icon className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate">{property.name}</span>

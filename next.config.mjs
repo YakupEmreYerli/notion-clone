@@ -2,6 +2,8 @@
 const nextConfig = {
   // Self-contained server bundle for the Docker image.
   output: "standalone",
+  // Next.js'in dev modunda sol altta gösterdiği "N" rozeti kapatıldı.
+  devIndicators: false,
   serverExternalPackages: ["pg"],
   images: {
     // Uploads are served from the app itself (/api/files/<key>), so no remote

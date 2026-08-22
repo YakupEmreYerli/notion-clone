@@ -53,13 +53,13 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
               navDrawer ? "w-full" : "max-w-39",
             )}
           >
-            <Avatar className="h-5 w-5">
+            <Avatar className="h-5 w-5 rounded-md">
               <AvatarImage src={user?.image ?? undefined} />
-              <AvatarFallback className="text-[0.625rem]">
+              <AvatarFallback className="bg-primary text-primary-foreground rounded-md text-[0.625rem] font-semibold">
                 {initial}
               </AvatarFallback>
             </Avatar>
-            <span className="line-clamp-1 text-start font-medium">
+            <span className="text-foreground line-clamp-1 text-start font-semibold">
               {user?.name}&apos;s Zotion
             </span>
           </div>

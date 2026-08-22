@@ -147,7 +147,7 @@ export const createProperty = mutation({
       name: args.name ?? "Property",
       type: args.type,
       order,
-      width: 180,
+      width: 200,
       options: args.type === "text" ? undefined : [],
     });
   },

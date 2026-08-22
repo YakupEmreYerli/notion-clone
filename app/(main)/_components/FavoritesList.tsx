@@ -42,8 +42,8 @@ export const FavoritesList = ({ navDrawer }: { navDrawer?: boolean }) => {
   if (documents.length === 0) return null;
 
   return (
-    <div className="w-full">
-      <p className="text-muted-foreground/60 flex items-center px-3 py-1 text-[13px] font-medium">
+    <div className="mt-3 w-full">
+      <p className="text-muted-foreground/60 flex items-center px-4 py-1 text-[13px] font-medium">
         <Star className="mr-1 size-3 shrink-0 fill-yellow-400 text-yellow-400" />
         Favorites
       </p>

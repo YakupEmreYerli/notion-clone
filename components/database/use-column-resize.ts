@@ -9,7 +9,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { DatabaseProperty } from "./types";
 
 const MIN_WIDTH = 100;
-const DEFAULT_WIDTH = 180;
+const DEFAULT_WIDTH = 200;
 
 // Genişlik state'i burada, tek yerde tutulur: başlık VE her satır aynı
 // gridTemplateColumns string'ini paylaştığı için sürüklerken ikisinin de

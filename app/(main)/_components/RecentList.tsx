@@ -22,7 +22,7 @@ export default function RecentList({ navDrawer }: { navDrawer?: boolean }) {
 
   return (
     <div>
-      <p className="text-muted-foreground/60 flex items-center px-3 py-1 text-[13px] font-medium">
+      <p className="text-muted-foreground/60 flex items-center px-4 py-1 text-[13px] font-medium">
         <FileClock className="mr-1 size-3 shrink-0" />
         Recently opened
       </p>
