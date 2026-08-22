@@ -14,8 +14,6 @@ import { useEffect, useState } from "react";
 import { deleteFile, isManagedFileUrl, uploadFile } from "@/lib/storage";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useParams } from "next/navigation";
-import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CoverGallery } from "./CoverGallery";
@@ -44,8 +42,6 @@ const COVER_COLORS = [
 ];
 
 export const CoverImageModal = () => {
-  const params = useParams();
-
   const [file, setFile] = useState<File>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -102,7 +98,11 @@ export const CoverImageModal = () => {
   };
 
   const onChange = async (file?: File) => {
-    if (file) {
+    // Kapak, popover'ın açıldığı ana route değil, açılışta sabitlenen
+    // `coverImage.documentId`ye uygulanır — PeekModal içinden (bir alt
+    // sayfadan) açıldığında bile doğru dokümanı hedefler.
+    if (file && coverImage.documentId) {
+      const documentId = coverImage.documentId;
       setIsSubmitting(true);
       setFile(file);
 
@@ -112,7 +112,7 @@ export const CoverImageModal = () => {
         const url = await uploadFile(file);
 
         await update({
-          id: params.documentId as Id<"documents">,
+          id: documentId,
           coverImage: url,
         });
 
@@ -132,18 +132,20 @@ export const CoverImageModal = () => {
   };
 
   const onSelectColor = async (color: string) => {
+    if (!coverImage.documentId) return;
     await deleteFile(coverImage.url);
     await update({
-      id: params.documentId as Id<"documents">,
+      id: coverImage.documentId,
       coverImage: color,
     });
     onClose();
   };
 
   const onSelectGalleryImage = async (url: string) => {
+    if (!coverImage.documentId) return;
     await deleteFile(coverImage.url);
     await update({
-      id: params.documentId as Id<"documents">,
+      id: coverImage.documentId,
       coverImage: url,
     });
     onClose();

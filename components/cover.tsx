@@ -10,7 +10,6 @@ import { useCoverImage } from "@/hooks/useCoverImage";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useParams } from "next/navigation";
 import { Id } from "@/convex/_generated/dataModel";
 import { deleteFile, isFileUrl } from "@/lib/storage";
 import { Skeleton } from "./ui/skeleton";
@@ -23,14 +22,24 @@ import {
 } from "./ui/dropdown-menu";
 
 interface CoverImageProps {
+  documentId: Id<"documents">;
   url?: string;
   positionY?: number;
   preview?: boolean;
-  /** Peek modalı gibi dar alanlarda kapak yokken boş bir şerit ayırmaz. */
+  /**
+   * Peek modalı gibi dar alanlarda kapak YOKKEN boş bir şerit ayırmaz.
+   * Kapak yüksekliğini etkilemez — kapak her yüzeyde aynı yükseklikte.
+   */
   compact?: boolean;
 }
 
-export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => {
+export const Cover = ({
+  documentId,
+  url,
+  positionY,
+  preview,
+  compact,
+}: CoverImageProps) => {
   const [isRemoving, setIsRemoving] = useState(false);
   const [isRepositioning, setIsRepositioning] = useState(false);
   const [isSavingPosition, setIsSavingPosition] = useState(false);
@@ -39,11 +48,8 @@ export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => 
   const [draftY, setDraftY] = useState(savedY);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startClientY: number; startY: number } | null>(
-    null,
-  );
+  const dragRef = useRef<{ startClientY: number; startY: number } | null>(null);
 
-  const params = useParams();
   const coverImage = useCoverImage();
   const { focusMode } = useFocusMode({ enabled: !preview });
 
@@ -56,7 +62,7 @@ export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => 
     setIsRemoving(true);
     try {
       await removeCoverImage({
-        id: params.documentId as Id<"documents">,
+        id: documentId,
       });
       await deleteFile(url);
     } catch (err) {
@@ -101,7 +107,7 @@ export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => 
     setIsSavingPosition(true);
     try {
       await update({
-        id: params.documentId as Id<"documents">,
+        id: documentId,
         coverImageY: draftY,
       });
       setIsRepositioning(false);
@@ -127,6 +133,8 @@ export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => 
       ref={containerRef}
       className={cn(
         "group relative z-10 w-full",
+        // Kapak yüksekliği tek bir değer: sayfa, database, preview ve peek
+        // aynı görünsün diye yüzeye göre değişmiyor.
         url && "bg-muted h-[280px]",
         !url && !focusMode && "h-[12vh] md:h-25",
         !url && focusMode && "h-20 md:h-20",
@@ -145,7 +153,8 @@ export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => 
             }}
             className={cn(
               "object-cover",
-              isRepositioning && "cursor-grab touch-none active:cursor-grabbing",
+              isRepositioning &&
+                "cursor-grab touch-none active:cursor-grabbing",
             )}
           />
         ) : (
@@ -182,9 +191,9 @@ export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => 
       )}
 
       {url && !preview && !isRepositioning && canHover && (
-        <div className="divide-white/15 absolute top-16 right-3 z-50 flex h-8 items-center divide-x overflow-hidden rounded-md bg-black/80 text-xs font-medium text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-200 ease-out group-hover:opacity-100">
+        <div className="absolute top-16 right-3 z-50 flex h-8 items-center divide-x divide-white/15 overflow-hidden rounded-md bg-black/80 text-xs font-medium text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-200 ease-out group-hover:opacity-100">
           <button
-            onClick={() => coverImage.onReplace(url)}
+            onClick={() => coverImage.onReplace(documentId, url)}
             className="flex h-full items-center px-3 transition hover:bg-white/10"
           >
             Change
@@ -216,7 +225,9 @@ export const Cover = ({ url, positionY, preview, compact }: CoverImageProps) => 
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" alignOffset={7} sideOffset={5}>
-              <DropdownMenuItem onClick={() => coverImage.onReplace(url)}>
+              <DropdownMenuItem
+                onClick={() => coverImage.onReplace(documentId, url)}
+              >
                 <ImageIcon className="h-4 w-4" />
                 Change cover
               </DropdownMenuItem>

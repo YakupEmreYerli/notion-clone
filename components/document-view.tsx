@@ -126,9 +126,10 @@ export const DocumentView = ({
   return (
     <div className="pb-35">
       <Cover
+        documentId={documentId}
         url={doc.coverImage}
         positionY={doc.coverImageY}
-        compact={!managesDocumentChrome || doc.type === "database"}
+        compact={!managesDocumentChrome}
       />
       <div
         className={`relative mx-auto md:w-[90%] ${

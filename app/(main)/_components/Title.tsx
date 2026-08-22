@@ -6,8 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 import { useMutation } from "convex/react";
-import { ChangeEvent, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { getDocumentLabel } from "@/lib/utils";
+import { useLiveTitleDrafts } from "@/hooks/useLiveTitleDrafts";
 
 interface TitleProps {
   initialData: Doc<"documents">;
@@ -16,9 +17,17 @@ interface TitleProps {
 export const Title = ({ initialData }: TitleProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const update = useMutation(api.documents.update);
+  const setTitleDraft = useLiveTitleDrafts((state) => state.setDraft);
+  const clearTitleDraft = useLiveTitleDrafts((state) => state.clearDraft);
 
   const [title, setTitle] = useState(initialData.title);
   const [isEditing, setIsEditing] = useState(false);
+  // Kaydedilmeyi bekleyen kullanıcı girdisi (yoksa null). Bu input, aynı
+  // dokümanın başlığını düzenleyen tek yer değil — Toolbar'daki büyük başlık
+  // da aynı alanı yazıyor. Bu ref olmadan, Toolbar'dan gelen değişiklik
+  // buradaki eski `title` state'iyle karşılaştırılıp "fark var" diye eski
+  // başlığı geri yazıyor ve kullanıcının yazdığı başlık siliniyordu.
+  const pendingRef = useRef<string | null>(null);
 
   const enableInput = () => {
     setTitle(initialData.title);
@@ -34,12 +43,43 @@ export const Title = ({ initialData }: TitleProps) => {
   };
 
   const onChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setTitle(event.target.value);
-    update({
-      id: initialData._id,
-      title: event.target.value,
-    });
+    const value = event.target.value;
+    setTitle(value);
+    pendingRef.current = value;
+    // Sidebar için anında geri bildirim; backend yazımı aşağıdaki debounce
+    // effect'i üzerinden gider — her tuşta mutation göndermeyiz.
+    setTitleDraft(initialData._id, value);
   };
+
+  // Başlık başka bir yerden (Toolbar, başka sekme) değiştiyse ve burada
+  // kaydedilmemiş girdi yoksa, yerel state'i sunucudaki değere hizala.
+  useEffect(() => {
+    if (pendingRef.current !== null) return;
+    setTitle(initialData.title);
+  }, [initialData.title]);
+
+  useEffect(() => {
+    if (pendingRef.current === null) return;
+
+    if (title === initialData.title) {
+      pendingRef.current = null;
+      clearTitleDraft(initialData._id);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      update({ id: initialData._id, title }).then(() => {
+        // Bu arada yeni tuşa basıldıysa pending'i düşürme, o yazım hâlâ
+        // kaydedilmeyi bekliyor.
+        if (pendingRef.current === title) {
+          pendingRef.current = null;
+          clearTitleDraft(initialData._id);
+        }
+      });
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [title, initialData._id, initialData.title, update, clearTitleDraft]);
 
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === "Enter") {

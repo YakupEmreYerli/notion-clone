@@ -60,7 +60,12 @@ const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
 
   return (
     <div className="pb-40">
-      <Cover preview url={document.coverImage} positionY={document.coverImageY} />
+      <Cover
+        documentId={documentId}
+        preview
+        url={document.coverImage}
+        positionY={document.coverImageY}
+      />
       <div className="mx-auto md:max-w-3xl lg:max-w-4xl">
         <Toolbar
           preview
