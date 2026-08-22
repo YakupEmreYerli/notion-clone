@@ -14,6 +14,9 @@ export default defineSchema({
     parentDocument: v.optional(v.id("documents")),
     content: v.optional(v.string()),
     coverImage: v.optional(v.string()),
+    // Kapak görselinin dikey konumu (0-100, object-position Y%) —
+    // "Drag image to reposition" ile ayarlanır. Varsayılan 50 (ortalanmış).
+    coverImageY: v.optional(v.number()),
     icon: v.optional(v.string()),
     isPublished: v.boolean(),
     order: v.optional(v.number()),
@@ -26,9 +29,17 @@ export default defineSchema({
     lastOpenedAt: v.optional(v.number()),
     // optional: mevcut satırlar migration istemez. undefined => "page"
     type: v.optional(v.union(v.literal("page"), v.literal("database"))),
+    // Başlık + içerikten türetilen düz metin — arama index'i bunun
+    // üzerinde çalışır. `update` mutation'ı her title/content
+    // değişiminde yeniden hesaplar.
+    searchText: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_parent", ["userId", "parentDocument"]),
+    .index("by_user_parent", ["userId", "parentDocument"])
+    .searchIndex("search_text", {
+      searchField: "searchText",
+      filterFields: ["userId"],
+    }),
 
   databaseProperties: defineTable({
     databaseId: v.id("documents"),
