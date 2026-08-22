@@ -1,7 +1,7 @@
 # CLAUDE_HANDOFF.md
 
 Bu dosya, çalışmayı başka bir Claude Code oturumunda kaldığı yerden sürdürmek için yazıldı.
-Son güncelleme: 2026-08-22.
+Son güncelleme: 2026-08-22 (M1 tamamlandı).
 
 ---
 
@@ -9,10 +9,20 @@ Son güncelleme: 2026-08-22.
 
 | # | İş | Durum |
 |---|---|---|
-| **A** | Zotion'ı tamamen self-host edilebilir hale getirmek (Clerk→Better Auth, Convex Cloud→self-hosted Convex, EdgeStore→MinIO, Docker/Dokploy) | ✅ **Bitti ve uçtan uca doğrulandı. Ama HİÇ COMMIT EDİLMEDİ.** |
-| **B** | Notion tarzı **Database (tablo)** özelliği eklemek | 📋 **Sadece plan var. Kullanıcı henüz onaylamadı. Tek satır kod yazılmadı.** |
+| **A** | Zotion'ı tamamen self-host edilebilir hale getirmek (Clerk→Better Auth, Convex Cloud→self-hosted Convex, EdgeStore→MinIO, Docker/Dokploy) | ✅ **Bitti, commit edildi** (`674e67b`→amend `c7637c4`). Push edilmedi. |
+| **B** | Notion tarzı **Database (tablo)** özelliği eklemek | 🚧 **M1 bitti ve commit edildi** (`8cf0731`). M2-M6 kalan aşamalar aşağıda. Kullanıcı onayı alındı ("başla"). |
 
-> ⚠️ **Kritik:** B işine başlamadan önce kullanıcıdan açık onay al. Son mesajda plan sunuldu, kullanıcı "başla" demedi — limiti bittiği için oturum kesildi.
+> Kullanıcı tek branch (`master`) kullanıyor, PR yok — direkt commit'liyoruz. Push için ayrıca onay isteniyor. Kullanıcıyla her zaman Türkçe konuşuluyor (bkz. memory: dil tercihi); kod İngilizce, yorumlar Türkçe.
+
+### İş B — M1 durumu (bitti)
+
+Yapılanlar: şema (`documents.type` + `databaseProperties` + `databaseRows`), `convex/lib/{auth,ordering,cellValue,databaseCascade}.ts`, `convex/databases.ts` (getSchema/getRows/createDatabase/createProperty/createRow/updateCell/deleteRow/deleteProperty), `documents.remove`/`removeAll` cascade temizliği, Navigation'da "New database", `page.tsx` dallanması (`DatabaseView` modül kapsamında `dynamic()` — `useMemo` içinde DEĞİL, çünkü öyle olunca da render-içi component üretimi lint hatası veriyordu), `components/database/{types,database-view,database-grid,grid-cell,database-skeleton}.tsx` (sadece text hücreli grid).
+
+Uçtan uca doğrulandı (Chrome ile): database oluştur → hücreye yaz → yenile → veri kalıcı; çöpe at → kalıcı sil → `npx convex data databaseProperties`/`databaseRows` boş (yetim kayıt yok). `tsc`/`build`/`lint` temiz — lint yeni kodla birlikte hâlâ tam olarak baseline'daki 16 hata/13 uyarı (0 yeni hata).
+
+**Not:** `createDatabase` planın önerdiği "Status (select)" seed sütununu eklemiyor — sadece "Name" (text, isTitle). Select tipi M3'te gerçek editörüne kavuşana kadar seed'e eklenmedi (yarım UX'ten kaçınmak için bilinçli sapma).
+
+**Sıradaki:** M2 (sütun yönetimi: rename/tip değiştir/sil/sırala/genişlik — `column-header.tsx`, `column-menu.tsx`, `add-property-menu.tsx`, `use-column-resize.ts`).
 
 ---
 
