@@ -16,7 +16,10 @@ interface SelectCellProps {
   value: string | string[] | null | undefined;
   multiple: boolean;
   editable: boolean;
+  isActive: boolean;
+  isEditing: boolean;
   onCommit: (value: string | string[] | null) => void;
+  onEditingDone?: () => void;
 }
 
 export const SelectCell = ({
@@ -24,7 +27,10 @@ export const SelectCell = ({
   value,
   multiple,
   editable,
+  isActive,
+  isEditing,
   onCommit,
+  onEditingDone,
 }: SelectCellProps) => {
   const [open, setOpen] = useState(false);
   const addSelectOption = useMutation(api.databases.addSelectOption);
@@ -54,6 +60,9 @@ export const SelectCell = ({
     } else {
       onCommit(selectedIds.includes(optionId) ? null : optionId);
       setOpen(false);
+      // `isEditing` klavyeyle (Enter) açılmışsa `open` state'i tek başına
+      // popover'ı kapatmaya yetmez — grid'i de "editing"den çıkarmak gerekir.
+      onEditingDone?.();
     }
   };
 
@@ -68,11 +77,15 @@ export const SelectCell = ({
     } else {
       onCommit(optionId);
       setOpen(false);
+      onEditingDone?.();
     }
   };
 
   return (
-    <Popover open={editable && open} onOpenChange={setOpen}>
+    <Popover
+      open={editable && isActive && (isEditing || open)}
+      onOpenChange={setOpen}
+    >
       <PopoverTrigger
         disabled={!editable}
         className="flex h-full min-h-9 w-full flex-wrap items-center gap-1 px-3 py-1.5 text-left"

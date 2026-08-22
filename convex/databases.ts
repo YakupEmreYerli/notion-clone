@@ -405,9 +405,11 @@ async function nextRowOrder(
     .withIndex("by_database_order", (q) => q.eq("databaseId", databaseId))
     .collect();
 
+  // afterRowId verilmemişse en başa eklenir — çağıran taraf sona eklemek
+  // istiyorsa son satırın id'sini açıkça geçmeli.
   const afterIndex = afterRowId
     ? rows.findIndex((r) => r._id === afterRowId)
-    : rows.length - 1;
+    : -1;
 
   const prev = afterIndex >= 0 ? rows[afterIndex] : undefined;
   const next = rows[afterIndex + 1];
@@ -451,6 +453,67 @@ export const deleteRow = mutation({
     const userId = await requireUser(ctx);
     await requireOwnedRow(ctx, args.rowId, userId);
     await ctx.db.delete(args.rowId);
+  },
+});
+
+export const duplicateRow = mutation({
+  args: { rowId: v.id("databaseRows") },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const row = await requireOwnedRow(ctx, args.rowId, userId);
+
+    const order = await nextRowOrder(ctx, row.databaseId, args.rowId);
+
+    return await ctx.db.insert("databaseRows", {
+      databaseId: row.databaseId,
+      userId,
+      order,
+      cells: row.cells,
+    });
+  },
+});
+
+export const reorderRow = mutation({
+  args: {
+    rowId: v.id("databaseRows"),
+    beforeRowId: v.optional(v.id("databaseRows")),
+    afterRowId: v.optional(v.id("databaseRows")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const row = await requireOwnedRow(ctx, args.rowId, userId);
+
+    const [before, after] = await Promise.all([
+      args.beforeRowId ? ctx.db.get(args.beforeRowId) : null,
+      args.afterRowId ? ctx.db.get(args.afterRowId) : null,
+    ]);
+
+    let order = orderBetween(before?.order, after?.order);
+    if (order === null) {
+      const siblings = await ctx.db
+        .query("databaseRows")
+        .withIndex("by_database_order", (q) =>
+          q.eq("databaseId", row.databaseId),
+        )
+        .collect();
+      siblings.sort((a, b) => a.order - b.order);
+      await Promise.all(
+        siblings.map((r, i) => ctx.db.patch(r._id, { order: i * ORDER_GAP })),
+      );
+      const beforeIndex = args.beforeRowId
+        ? siblings.findIndex((r) => r._id === args.beforeRowId)
+        : -1;
+      const afterIndex = args.afterRowId
+        ? siblings.findIndex((r) => r._id === args.afterRowId)
+        : siblings.length;
+      order =
+        orderBetween(
+          beforeIndex >= 0 ? beforeIndex * ORDER_GAP : undefined,
+          afterIndex < siblings.length ? afterIndex * ORDER_GAP : undefined,
+        ) ?? 0;
+    }
+
+    await ctx.db.patch(args.rowId, { order });
   },
 });
 
