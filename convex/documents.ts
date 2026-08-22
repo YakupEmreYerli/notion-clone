@@ -249,6 +249,32 @@ export const getSearch = query({
   },
 });
 
+export const searchDocuments = query({
+  args: { query: v.string() },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("Not authenticated");
+    }
+
+    const trimmed = args.query.trim();
+    if (!trimmed) return [];
+
+    const userId = identity.subject;
+
+    const documents = await ctx.db
+      .query("documents")
+      .withSearchIndex("search_text", (q) =>
+        q.search("searchText", trimmed).eq("userId", userId),
+      )
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .take(20);
+
+    return documents;
+  },
+});
+
 export const getById = query({
   args: { documentId: v.id("documents") },
   handler: async (ctx, args) => {
