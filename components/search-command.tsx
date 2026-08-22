@@ -17,14 +17,16 @@ import {
 } from "@/components/ui/command";
 import { useSearch } from "@/hooks/useSearch";
 import { api } from "@/convex/_generated/api";
-import { DialogTitle } from "./ui/dialog";
 import { getDocumentLabel } from "@/lib/utils";
+
+const DEBOUNCE_MS = 200;
 
 export const SearchCommand = () => {
   const { data: session } = authClient.useSession();
   const router = useRouter();
-  const documents = useQuery(api.documents.getSearch);
   const [isMounted, setIsMounted] = useState(false);
+  const [rawQuery, setRawQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
 
   const toggle = useSearch((store) => store.toggle);
   const isOpen = useSearch((store) => store.isOpen);
@@ -46,6 +48,29 @@ export const SearchCommand = () => {
     return () => document.removeEventListener("keydown", down);
   }, [toggle]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(rawQuery.trim()), DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [rawQuery]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setRawQuery("");
+      setDebouncedQuery("");
+    }
+  }, [isOpen]);
+
+  const recent = useQuery(
+    api.documents.getRecentlyOpened,
+    debouncedQuery ? "skip" : {},
+  );
+  const results = useQuery(
+    api.documents.searchDocuments,
+    debouncedQuery ? { query: debouncedQuery } : "skip",
+  );
+
+  const documents = debouncedQuery ? results : recent;
+
   const onSelect = (id: string) => {
     router.push(`/documents/${id}`);
     onClose();
@@ -56,27 +81,31 @@ export const SearchCommand = () => {
   }
 
   return (
-    <CommandDialog open={isOpen} onOpenChange={onClose}>
-      <DialogTitle hidden>Search Documents</DialogTitle>
-      <Command
-        loop
-        filter={(value, search) => {
-          const [documentTitle = ""] = value.split("|");
-          if (documentTitle.toLowerCase().includes(search.toLowerCase()))
-            return 1;
-          return 0;
-        }}
-      >
+    <CommandDialog
+      open={isOpen}
+      onOpenChange={onClose}
+      title="Search Documents"
+      description={`Search ${session?.user?.name ?? ""}'s Zotion`}
+      showCloseButton={false}
+    >
+      <Command shouldFilter={false} loop>
         <CommandInput
+          value={rawQuery}
+          onValueChange={setRawQuery}
           placeholder={`Search ${session?.user?.name}'s Zotion..`}
         />
         <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Documents" className="pb-1">
+          <CommandEmpty>
+            {documents === undefined ? "Searching…" : "No results found."}
+          </CommandEmpty>
+          <CommandGroup
+            heading={debouncedQuery ? "Results" : "Recently opened"}
+            className="pb-1"
+          >
             {documents?.map((document) => (
               <CommandItem
                 key={document._id}
-                value={`${getDocumentLabel(document.title, document.type)}|${document._id}`}
+                value={document._id}
                 title={getDocumentLabel(document.title, document.type)}
                 onSelect={() => onSelect(document._id)}
               >
