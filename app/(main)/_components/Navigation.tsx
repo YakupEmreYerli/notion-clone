@@ -1,6 +1,12 @@
 "use client";
 
-import React, { ComponentRef, useEffect, useRef, useState } from "react";
+import React, {
+  ComponentRef,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useMediaQuery } from "usehooks-ts";
 import { useMutation } from "convex/react";
 import { useParams, usePathname, useRouter } from "next/navigation";
@@ -39,7 +45,11 @@ import { useFocusMode } from "@/hooks/useFocusMode";
 import NavDrawer from "./NavDrawer";
 import RecentList from "./RecentList";
 
+const SIDEBAR_DEFAULT_WIDTH = 270;
+const SIDEBAR_DEFAULT_WIDTH_CSS = `${SIDEBAR_DEFAULT_WIDTH}px`;
+
 const Navigation = () => {
+  const sidebarDefaultWidth = SIDEBAR_DEFAULT_WIDTH_CSS;
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -64,15 +74,6 @@ const Navigation = () => {
   const [isCollapsed, setIsCollapsed] = useState(isMobile);
 
   const [isNavbarHovered, setIsNavbarHovered] = useState(false);
-
-  // sidebar effects
-  useEffect(() => {
-    if (isMobile) {
-      collapse();
-    } else {
-      resetWidth();
-    }
-  }, [isMobile]);
 
   useEffect(() => {
     if (isMobile) {
@@ -154,7 +155,7 @@ const Navigation = () => {
     if (!isResizingRef.current) return;
     let newWidth = e.clientX;
 
-    if (newWidth < 270) newWidth = 270;
+    if (newWidth < SIDEBAR_DEFAULT_WIDTH) newWidth = SIDEBAR_DEFAULT_WIDTH;
     if (newWidth > 480) newWidth = 480;
 
     if (sidebarRef.current && navbarRef.current) {
@@ -179,15 +180,17 @@ const Navigation = () => {
       setIsResetting(true);
       setTimeout(() => {
         if (sidebarRef.current && navbarRef.current) {
-          sidebarRef.current.style.width = isMobile ? "100%" : "270px";
+          sidebarRef.current.style.width = isMobile
+            ? "100%"
+            : sidebarDefaultWidth;
           navbarRef.current.style.removeProperty("width");
           navbarRef.current.style.setProperty(
             "width",
-            isMobile ? "0" : "calc(100%-270px)",
+            isMobile ? "0" : `calc(100% - ${sidebarDefaultWidth})`,
           );
           navbarRef.current.style.setProperty(
             "left",
-            isMobile ? "100%" : "270px",
+            isMobile ? "100%" : sidebarDefaultWidth,
           );
         }
       }, 0);
@@ -206,6 +209,16 @@ const Navigation = () => {
       setTimeout(() => setIsResetting(false), 300);
     }
   };
+
+  // Keep imperative styles in sync when a preserved client layout receives a
+  // new default width (for example after a Fast Refresh).
+  useLayoutEffect(() => {
+    if (isMobile) {
+      collapse();
+    } else {
+      resetWidth();
+    }
+  }, [isMobile, sidebarDefaultWidth]);
 
   const handleCreate = () => {
     const promise = create({ title: "Untitled" }).then((documentId) =>
@@ -236,10 +249,15 @@ const Navigation = () => {
       <aside
         ref={sidebarRef}
         className={cn(
-          "group/sidebar bg-secondary relative z-300 flex h-full w-[270px] flex-col overflow-hidden overflow-x-hidden pb-4",
+          "group/sidebar bg-secondary relative z-300 flex h-full w-[var(--sidebar-default-width)] flex-col overflow-hidden overflow-x-hidden pb-4",
           isResetting && "transition-all duration-300 ease-in-out",
           isMobile && "w-0",
         )}
+        style={
+          {
+            "--sidebar-default-width": sidebarDefaultWidth,
+          } as React.CSSProperties
+        }
       >
         <ActionTooltip label="Close sidebar (Ctrl + \)">
           <div
@@ -312,10 +330,15 @@ const Navigation = () => {
         onMouseEnter={() => setIsNavbarHovered(true)}
         onMouseLeave={() => setIsNavbarHovered(false)}
         className={cn(
-          "absolute top-0 left-[270px] z-40 w-[calc(100%-270px)]",
+          "absolute top-0 left-[var(--sidebar-default-width)] z-40 w-[calc(100%_-_var(--sidebar-default-width))]",
           !isResizingRef.current && "transition-all duration-300 ease-in-out",
           isMobile && "left-0 w-full",
         )}
+        style={
+          {
+            "--sidebar-default-width": sidebarDefaultWidth,
+          } as React.CSSProperties
+        }
       >
         {!!params.documentId ? (
           (!isMobile || isCollapsed) && (
