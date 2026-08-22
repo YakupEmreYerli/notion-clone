@@ -45,7 +45,7 @@ import { useFocusMode } from "@/hooks/useFocusMode";
 import NavDrawer from "./NavDrawer";
 import RecentList from "./RecentList";
 
-const SIDEBAR_DEFAULT_WIDTH = 270;
+const SIDEBAR_DEFAULT_WIDTH = 280;
 const SIDEBAR_DEFAULT_WIDTH_CSS = `${SIDEBAR_DEFAULT_WIDTH}px`;
 
 const Navigation = () => {
