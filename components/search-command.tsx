@@ -96,7 +96,11 @@ export const SearchCommand = () => {
         />
         <CommandList>
           <CommandEmpty>
-            {documents === undefined ? "Searching…" : "No results found."}
+            {documents === undefined
+              ? debouncedQuery
+                ? "Searching…"
+                : "Loading…"
+              : "No results found."}
           </CommandEmpty>
           <CommandGroup
             heading={debouncedQuery ? "Results" : "Recently opened"}

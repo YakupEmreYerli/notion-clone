@@ -1,8 +1,8 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { cascadeDeleteDatabase } from "./databases";
-import { extractPlainText } from "./lib/searchText";
+import { buildSearchText } from "./lib/searchText";
 
 export const archive = mutation({
   args: { id: v.id("documents") },
@@ -112,6 +112,7 @@ export const create = mutation({
       showToc: true,
       isArchived: false,
       isPublished: false,
+      searchText: buildSearchText(args.title, undefined),
     });
 
     return document;
@@ -271,7 +272,12 @@ export const searchDocuments = query({
       .filter((q) => q.eq(q.field("isArchived"), false))
       .take(20);
 
-    return documents;
+    return documents.map((document) => ({
+      _id: document._id,
+      title: document.title,
+      icon: document.icon,
+      type: document.type,
+    }));
   },
 });
 
@@ -348,7 +354,7 @@ export const update = mutation({
     if (args.title !== undefined || args.content !== undefined) {
       const title = args.title ?? existingDocument.title;
       const content = args.content ?? existingDocument.content;
-      patch.searchText = `${title}\n${extractPlainText(content)}`;
+      patch.searchText = buildSearchText(title, content);
     }
 
     const document = await ctx.db.patch(args.id, patch);
@@ -568,9 +574,11 @@ export const duplicate = mutation({
       throw new Error("Unauthorized");
     }
 
+    const copyTitle = `${existingDocument.title} (Copy)`;
+
     const document = await ctx.db.insert("documents", {
       userId,
-      title: `${existingDocument.title} (Copy)`,
+      title: copyTitle,
       parentDocument: existingDocument.parentDocument,
       content: existingDocument.content,
       coverImage: existingDocument.coverImage,
@@ -583,6 +591,7 @@ export const duplicate = mutation({
       isArchived: false,
       isFavorite: false,
       isPublished: false,
+      searchText: buildSearchText(copyTitle, existingDocument.content),
     });
 
     return document;
@@ -636,25 +645,19 @@ export const getRecentlyOpened = query({
   },
 });
 
-// Var olan belgeler için searchText'i doldurur. UI'da çağrılmaz — bir kez
-// `npx convex run documents:backfillSearchText` ile elle tetiklenir.
-export const backfillSearchText = mutation({
+// Var olan TÜM kullanıcıların belgeleri için searchText'i doldurur. Client'tan
+// erişilemez (internal) — UI'da çağrılmaz, bir kez
+// `npx convex run documents:backfillSearchText` ile elle tetiklenir (CLI
+// çağrıları için `ctx.auth` kimliği yoktur, bu yüzden internalMutation
+// olarak tanımlanmıştır — auth kontrolüne ihtiyaç duymaz).
+export const backfillSearchText = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const userId = identity.subject;
-
-    const documents = await ctx.db
-      .query("documents")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
+    const documents = await ctx.db.query("documents").collect();
 
     for (const doc of documents) {
       await ctx.db.patch(doc._id, {
-        searchText: `${doc.title}\n${extractPlainText(doc.content)}`,
+        searchText: buildSearchText(doc.title, doc.content),
       });
     }
 
