@@ -16,7 +16,7 @@ import { SlidersIcon } from "./icons/SlidersIcon";
 import { useRouter } from "next/navigation";
 
 const actionRowBase =
-  "flex h-[28px] cursor-pointer items-center rounded-[6px] px-[6px] transition-colors duration-150 select-none hover:bg-[rgba(255,255,255,0.055)]";
+  "flex h-[28px] cursor-pointer items-center rounded-[6px] px-[6px] transition-colors duration-150 select-none hover:bg-sidebar-hover";
 
 export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
   const router = useRouter();
@@ -48,8 +48,8 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
         <div
           className={cn(
             // workspace-switcher spec: 32px pill, radius 9999, hover rgba(255,255,255,0.05)
-            "group flex h-[32px] w-full items-center rounded-full bg-transparent transition-colors duration-100 ease-out hover:bg-[rgba(255,255,255,0.05)]",
-            "text-[#E6E6E6]",
+            "group flex h-[32px] w-full items-center rounded-full bg-transparent transition-colors duration-100 ease-out hover:bg-sidebar-hover",
+            "text-sidebar-workspace-text",
           )}
         >
           {/* workspace-switcher-inner: 30px / min 27, padding 4px 8px, 14px/500 */}
@@ -67,25 +67,25 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
             >
               {/* Avatar slot 22x22 mr-8; gerçek avatar 20x20 radius 4 */}
               <span className="mr-[8px] flex h-[22px] w-[22px] shrink-0 items-center justify-center">
-                <Avatar className="size-[20px] shrink-0 rounded-[4px] ring-1 ring-[rgba(255,255,255,0.08)]">
+                <Avatar className="size-[20px] shrink-0 rounded-[4px] ring-1 ring-sidebar-border">
                   <AvatarImage
                     src={user?.image ?? undefined}
                     className="rounded-[4px]"
                   />
-                  <AvatarFallback className="rounded-[4px] bg-[#3f3f3f] text-[13px] font-medium leading-none text-[#E6E6E6]">
+                  <AvatarFallback className="rounded-[4px] bg-muted text-[13px] font-medium leading-none text-muted-foreground">
                     {initial}
                   </AvatarFallback>
                 </Avatar>
               </span>
               {/* workspace-title: 14px/500 line-height 20, ellipsis, wrapper mr-6 */}
-              <span className="mr-[6px] truncate whitespace-nowrap text-[14px] font-[500] leading-[20px] text-[#E6E6E6] overflow-hidden text-ellipsis">
+              <span className="mr-[6px] truncate whitespace-nowrap text-[14px] font-[500] leading-[20px] text-sidebar-workspace-text overflow-hidden text-ellipsis">
                 {user?.name ? `${user.name}'s Zotion` : "Zotion"}
               </span>
             </div>
             <div className="ml-auto flex shrink-0 items-center pl-[3px]">
               <ChevronDownSmallIcon
                 className={cn(
-                  "h-3 w-auto shrink-0 text-[rgba(255,255,255,0.45)] transition-colors group-hover:text-[rgba(255,255,255,0.7)]",
+                  "h-3 w-auto shrink-0 text-sidebar-icon transition-colors group-hover:text-sidebar-text-active",
                   navDrawer && "hidden",
                 )}
               />
@@ -99,7 +99,7 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
         align="start"
         alignOffset={8}
         forceMount
-        className="w-[300px] overflow-visible rounded-[6px] border border-[rgba(255,255,255,0.08)] bg-[#252525] p-0 text-[#E6E6E6] shadow-2xl"
+        className="w-[300px] overflow-visible rounded-[6px] border border-sidebar-border bg-popover p-0 text-popover-foreground shadow-[var(--popup-shadow)]"
         style={{ transform: "translateX(-4px)" }}
       >
         <div className="p-2">
@@ -110,15 +110,15 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
                 src={user?.image ?? undefined}
                 className="rounded-[4px]"
               />
-              <AvatarFallback className="rounded-[4px] bg-[#3f3f3f] text-[18px] font-medium leading-none text-[#E6E6E6]">
+              <AvatarFallback className="rounded-[4px] bg-muted text-[18px] font-medium leading-none text-muted-foreground">
                 {initial}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-[500] leading-[1.2] text-[#E6E6E6] overflow-hidden text-ellipsis whitespace-nowrap">
+              <p className="truncate text-[14px] font-[500] leading-[1.2] text-popover-foreground overflow-hidden text-ellipsis whitespace-nowrap">
                 {user?.name ? `${user.name}'s Space` : "Space"}
               </p>
-              <p className="truncate text-[12px] leading-[1.3] text-[rgba(255,255,255,0.45)]">
+              <p className="truncate text-[12px] leading-[1.3] text-muted-foreground">
                 Free Plan · 1 member
               </p>
             </div>
@@ -126,7 +126,7 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
 
           {/* Header separator */}
           <div className="pt-1 pb-2">
-            <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
+            <div className="h-px w-full bg-sidebar-border" />
           </div>
 
           {/* Settings — çalışan tek üst aksiyon */}
@@ -136,17 +136,17 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
               setInnerPopoverOpen(false);
               account.onOpen();
             }}
-            className={cn(actionRowBase, "text-[#E6E6E6]")}
+            className={cn(actionRowBase, "text-popover-foreground")}
           >
-            <SlidersIcon className="mr-[6px] size-4 shrink-0 text-[rgba(255,255,255,0.45)]" />
-            <span className="text-[13px] font-[500] text-[#E6E6E6]">
+            <SlidersIcon className="mr-[6px] size-4 shrink-0 text-muted-foreground" />
+            <span className="text-[13px] font-[500] text-popover-foreground">
               Settings
             </span>
           </button>
 
           {/* İkinci separator */}
           <div className="py-2">
-            <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
+            <div className="h-px w-full bg-sidebar-border" />
           </div>
 
           {/* Workspace bilgisi: aktif workspace + checkmark */}
@@ -156,29 +156,29 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
                 src={user?.image ?? undefined}
                 className="rounded-[4px]"
               />
-              <AvatarFallback className="rounded-[4px] bg-[#3f3f3f] text-[12px] font-medium leading-none text-[#E6E6E6]">
+              <AvatarFallback className="rounded-[4px] bg-muted text-[12px] font-medium leading-none text-muted-foreground">
                 {initial}
               </AvatarFallback>
             </Avatar>
-            <span className="min-w-0 flex-1 truncate text-[13px] font-[400] text-[#E6E6E6] overflow-hidden text-ellipsis whitespace-nowrap">
+            <span className="min-w-0 flex-1 truncate text-[13px] font-[400] text-popover-foreground overflow-hidden text-ellipsis whitespace-nowrap">
               {user?.name ? `${user.name}'s Space` : "Space"}
             </span>
             <span className="ml-auto flex shrink-0 items-center">
-              <Check className="size-4 text-[#E6E6E6]" strokeWidth={2} />
+              <Check className="size-4 text-popover-foreground" strokeWidth={2} />
             </span>
           </div>
 
           {/* Logout footer: separator + Log out */}
           <div className="pt-2">
-            <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
+            <div className="h-px w-full bg-sidebar-border" />
           </div>
           <button
             type="button"
             onClick={onSignOut}
-            className="mt-2 flex h-[28px] w-full cursor-pointer items-center gap-[6px] rounded-[6px] px-[6px] text-left transition-colors duration-150 hover:bg-[rgba(255,255,255,0.055)]"
+            className="mt-2 flex h-[28px] w-full cursor-pointer items-center gap-[6px] rounded-[6px] px-[6px] text-left transition-colors duration-150 hover:bg-sidebar-hover"
           >
-            <LogOut className="size-4 shrink-0 text-[rgba(255,255,255,0.45)]" />
-            <span className="text-[12px] font-[400] whitespace-nowrap text-[rgba(255,255,255,0.6)]">
+            <LogOut className="size-4 shrink-0 text-muted-foreground" />
+            <span className="text-[12px] font-[400] whitespace-nowrap text-muted-foreground">
               Log out
             </span>
           </button>

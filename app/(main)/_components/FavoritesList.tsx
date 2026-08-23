@@ -135,7 +135,7 @@ export const FavoritesList = ({ navDrawer }: { navDrawer?: boolean }) => {
     <div className="mb-[12px] flex w-full flex-col gap-[1px]">
       {/* Section header - spec: height 30, padding-inline 8, gap 4, radius 6, font 12/500/1 */}
       <div className="sidebar-section-header group/section flex h-[30px] items-center justify-between gap-[4px] rounded-[6px] px-[8px]">
-        <p className="flex flex-1 items-center gap-[4px] truncate text-[12px] font-[500] leading-[1] text-[rgba(255,255,255,0.45)] whitespace-nowrap overflow-hidden text-ellipsis">
+        <p className="flex flex-1 items-center gap-[4px] truncate text-[12px] font-[500] leading-[1] text-sidebar-muted whitespace-nowrap overflow-hidden text-ellipsis">
           <Star className="size-[12px] shrink-0 fill-yellow-400/80 text-yellow-400/80" />
           Favorites
         </p>
@@ -144,7 +144,7 @@ export const FavoritesList = ({ navDrawer }: { navDrawer?: boolean }) => {
             type="button"
             onClick={newPage.onOpen}
             aria-label="Add a page"
-            className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.35)] opacity-0 invisible transition-all duration-100 hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.7)] group-hover/section:visible group-hover/section:opacity-100"
+            className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-sidebar-muted opacity-0 invisible transition-all duration-100 hover:bg-sidebar-hover hover:text-sidebar-text-active group-hover/section:visible group-hover/section:opacity-100"
           >
             <PlusIcon className="h-[16px] w-[16px]" />
           </button>

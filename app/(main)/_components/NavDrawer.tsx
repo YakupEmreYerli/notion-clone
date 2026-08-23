@@ -46,7 +46,7 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
 
   const handleCreate = () => {
     const promise = create({ title: "" }).then((documentId) =>
-      router.push(`/documents/${documentId}`),
+      router.push(`/documents/${documentId}?fresh=1`),
     );
 
     toast.promise(promise, {
@@ -70,7 +70,7 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
           side="right"
           align="center"
           sideOffset={-24}
-          className="w-75 rounded-tl-none rounded-bl-none border border-[rgba(255,255,255,0.08)] bg-[#202020] pt-2 pr-0 pb-3 pl-2 shadow-[4px_0_24px_rgba(0,0,0,0.5)]"
+          className="w-75 rounded-tl-none rounded-bl-none border border-sidebar-border bg-sidebar pt-2 pr-0 pb-3 pl-2 shadow-[4px_0_24px_rgba(0,0,0,0.5)]"
           onMouseEnter={() => setIsDrawerOpen(true)}
           onMouseLeave={() => setIsDrawerOpen(false)}
         >
@@ -82,7 +82,7 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
                 onClick={resetWidth}
                 aria-label="Open full sidebar"
                 className={cn(
-                  "flex h-6 w-6 items-center justify-center rounded-full text-[rgba(255,255,255,0.45)] transition-colors hover:bg-[rgba(255,255,255,0.08)] hover:text-[#E6E6E6]",
+                  "flex h-6 w-6 items-center justify-center rounded-full text-sidebar-icon transition-colors hover:bg-sidebar-hover hover:text-sidebar-text-active",
                 )}
               >
                 <SidebarCollapseIcon className="h-4 w-4 rotate-180" />
@@ -114,15 +114,15 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
             <FavoritesList navDrawer />
             <div className="flex flex-col gap-[1px]">
               <div className="flex h-[30px] items-center gap-[4px] rounded-[6px] px-[8px]">
-                <Notebook className="size-[12px] shrink-0 text-[rgba(255,255,255,0.35)]" />
-                <p className="truncate text-[12px] font-[500] leading-[1] text-[rgba(255,255,255,0.45)] whitespace-nowrap overflow-hidden text-ellipsis">
+                <Notebook className="size-[12px] shrink-0 text-sidebar-muted" />
+                <p className="truncate text-[12px] font-[500] leading-[1] text-sidebar-muted whitespace-nowrap overflow-hidden text-ellipsis">
                   Notes
                 </p>
               </div>
               <DocumentList navDrawer height={280} />
               <Item onClick={handleCreate} icon={PlusIcon} label="Add a page" />
             </div>
-            <div className="flex flex-col gap-[1px] border-t border-[rgba(255,255,255,0.06)] pt-[6px]">
+            <div className="flex flex-col gap-[1px] border-t border-sidebar-border pt-[6px]">
               <Popover onOpenChange={setInnerPopoverOpen}>
                 <PopoverTrigger className="w-full">
                   <Item label="Trash" icon={TrashIcon} />

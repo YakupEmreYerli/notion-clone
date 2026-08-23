@@ -242,8 +242,8 @@ export const Item = ({
         // 30px row, min 27px, 5px 8px padding, radius 6
         "group relative flex h-[30px] min-h-[27px] w-full items-center rounded-[6px] text-[14px] font-[500] select-none transition-colors duration-[20ms] ease-out",
         "whitespace-nowrap overflow-hidden text-ellipsis",
-        "text-[#E6E6E6]/90 hover:bg-[rgba(255,255,255,0.055)] hover:text-[#E6E6E6]",
-        active && "bg-[rgba(255,255,255,0.065)] text-[#E6E6E6]",
+        "text-sidebar-text hover:bg-sidebar-hover hover:text-sidebar-text-active",
+        active && "bg-sidebar-accent text-sidebar-text-active",
         navDrawer && !id && "rounded-full",
       )}
     >
@@ -270,8 +270,8 @@ export const Item = ({
                   : isPlusIcon
                     ? "h-[16px] w-[16px]"
                     : "h-[20px] w-[20px]",
-                "text-[rgba(255,255,255,0.55)]",
-                active && "text-[#E6E6E6]/90",
+                "text-sidebar-icon",
+                active && "text-sidebar-text-active",
               )}
             />
           )}
@@ -294,7 +294,7 @@ export const Item = ({
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.75)] transition-colors duration-[20ms] focus:outline-none"
+              className="flex h-[20px] w-[20px] items-center justify-center rounded-[4px] text-sidebar-chevron hover:bg-sidebar-hover hover:text-sidebar-text-active transition-colors duration-[20ms] focus:outline-none"
             >
               <ChevronIcon expanded={!!expanded} />
             </button>
@@ -321,7 +321,7 @@ export const Item = ({
                 setIsRenaming(false);
               }
             }}
-            className="w-full min-w-0 truncate bg-transparent text-[14px] font-[500] text-[#E6E6E6] outline-none"
+            className="w-full min-w-0 truncate bg-transparent text-[14px] font-[500] text-sidebar-text-active outline-none"
           />
         ) : (
           label && (
@@ -341,7 +341,7 @@ export const Item = ({
       </div>
 
       {shortcut && (
-        <kbd className="pointer-events-none ml-auto hidden h-5 items-center gap-1 rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.06)] px-1.5 font-mono text-[10px] font-medium text-[rgba(255,255,255,0.45)] select-none md:inline-flex">
+        <kbd className="pointer-events-none ml-auto hidden h-5 items-center gap-1 rounded border border-sidebar-border bg-sidebar-hover px-1.5 font-mono text-[10px] font-medium text-sidebar-muted select-none md:inline-flex">
           {shortcut}
         </kbd>
       )}
@@ -349,9 +349,13 @@ export const Item = ({
       {!!id && (
         <div
           className={cn(
-            "ml-auto flex shrink-0 items-center gap-[2px] pl-[3px]",
-            "invisible opacity-0 transition-all duration-100",
-            "group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+            "ml-auto flex shrink-0 items-center gap-[2px] overflow-hidden pl-[3px]",
+            // Notion: aksiyon butonları rest'te yer kaplamaz (0 genişlik) — başlık
+            // satırın tam genişliğine kadar uzanır ve en sağda ellipsis alır.
+            // Hover'da butonlar görünür ve başlığı daraltır. visibility:hidden
+            // yerine width:0 kullanıyoruz çünkü visibility layout'tan düşmez.
+            "w-0 opacity-0 transition-[width,opacity] duration-100",
+            "group-hover:w-auto group-hover:opacity-100 group-focus-within:w-auto group-focus-within:opacity-100",
           )}
         >
           <ActionTooltip label="Add sub-page">
@@ -363,7 +367,7 @@ export const Item = ({
                 e.preventDefault();
                 e.stopPropagation();
               }}
-              className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.45)] outline-none transition-colors hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.8)] focus-visible:opacity-100"
+              className="flex h-[20px] w-[20px] items-center justify-center rounded-[4px] text-sidebar-icon outline-none transition-colors hover:bg-sidebar-hover hover:text-sidebar-text-active focus-visible:opacity-100"
             >
               <PlusIcon className="h-[16px] w-[16px]" />
             </button>
@@ -378,17 +382,17 @@ export const Item = ({
                   role="button"
                   aria-label="More actions"
                   tabIndex={0}
-                  className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.45)] outline-none transition-colors hover:bg-[rgba(255,255,255,0.09)] hover:text-[rgba(255,255,255,0.8)] focus-visible:opacity-100"
+                  className="flex h-[20px] w-[20px] items-center justify-center rounded-[4px] text-sidebar-icon outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-text-active focus-visible:opacity-100"
                 >
                   <MoreHorizontal
-                    className="h-[12px] w-[12px]"
+                    className="h-[16px] w-[16px]"
                     strokeWidth={1.8}
                   />
                 </div>
               </DropdownMenuTrigger>
             </ActionTooltip>
             <DropdownMenuContent
-              className="w-64 border-[rgba(255,255,255,0.08)] bg-[#252525] text-[#E6E6E6]"
+              className="w-64 border-sidebar-border bg-popover text-popover-foreground"
               align="start"
               side="right"
               forceMount
@@ -398,7 +402,7 @@ export const Item = ({
                   e.stopPropagation();
                   onFavorite?.();
                 }}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)] focus:text-[#E6E6E6]"
+                className="text-[13px] focus:bg-accent focus:text-accent-foreground"
               >
                 <Star
                   className={cn(
@@ -413,14 +417,14 @@ export const Item = ({
                   e.stopPropagation();
                   onCopyLink();
                 }}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+                className="text-[13px] focus:bg-accent"
               >
                 <LinkIcon className="mr-2 h-4 w-auto" />
                 Copy link
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={onDuplicate}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+                className="text-[13px] focus:bg-accent"
               >
                 <Files className="mr-2 h-4 w-4" />
                 Duplicate
@@ -430,7 +434,7 @@ export const Item = ({
                   e.stopPropagation();
                   onStartRename();
                 }}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+                className="text-[13px] focus:bg-accent"
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Rename
@@ -439,7 +443,7 @@ export const Item = ({
                 onSelect={() => {
                   setTimeout(() => setIsMoveToOpen(true), 0);
                 }}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+                className="text-[13px] focus:bg-accent"
               >
                 <FolderInput className="mr-2 h-4 w-4" />
                 Move to
@@ -449,7 +453,7 @@ export const Item = ({
                   e.stopPropagation();
                   onOpenInNewTab();
                 }}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+                className="text-[13px] focus:bg-accent"
               >
                 <ArrowDiagonalUpRightIcon className="mr-2 h-4 w-auto" />
                 Open in new tab
@@ -459,20 +463,20 @@ export const Item = ({
                   e.stopPropagation();
                   onOpenInSidePeek();
                 }}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+                className="text-[13px] focus:bg-accent"
               >
                 <SidebarRightIcon className="mr-2 h-4 w-4" />
                 Open in side peek
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={onArchive}
-                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+                className="text-[13px] focus:bg-accent"
               >
                 <TrashIcon className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-[rgba(255,255,255,0.08)]" />
-              <div className="space-y-0.5 p-2 text-[11px] text-[rgba(255,255,255,0.45)]">
+              <DropdownMenuSeparator className="bg-sidebar-border" />
+              <div className="space-y-0.5 p-2 text-[11px] text-sidebar-muted">
                 <p>
                   Last edited on{" "}
                   {document
@@ -526,8 +530,8 @@ Item.Skeleton = function ItemSkeleton({ level }: { level?: number }) {
       style={{ paddingLeft: `${8 + (level ?? 0) * 8}px` }}
       className="flex h-[30px] min-h-[27px] items-center px-[8px] py-[5px]"
     >
-      <Skeleton className="mr-[8px] h-[18px] w-[22px] rounded-[4px] bg-[rgba(255,255,255,0.08)]" />
-      <Skeleton className="h-3 w-[50%] rounded-[3px] bg-[rgba(255,255,255,0.08)]" />
+      <Skeleton className="mr-[8px] h-[18px] w-[22px] rounded-[4px] bg-sidebar-hover" />
+      <Skeleton className="h-3 w-[50%] rounded-[3px] bg-sidebar-hover" />
     </div>
   );
 };

@@ -40,7 +40,7 @@ export const EmptyChildrenRow = ({ level, style }: EmptyChildrenRowProps) => {
     >
       <span
         style={{ flex: "1 1 auto", minWidth: 0, paddingLeft: 16 }}
-        className="truncate whitespace-nowrap text-[14px] font-normal text-[rgba(255,255,255,0.45)] overflow-hidden text-ellipsis"
+        className="truncate whitespace-nowrap text-[14px] font-normal text-sidebar-muted overflow-hidden text-ellipsis"
       >
         No pages inside
       </span>
