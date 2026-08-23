@@ -156,7 +156,7 @@ export const CoverImageModal = () => {
       <DialogTitle>
         <span className="sr-only">Change Cover Image</span>
       </DialogTitle>
-      <DialogContent className="dark:bg-dark">
+      <DialogContent>
         <DialogHeader>
           <h2 className="text-center text-lg font-semibold">Cover Image</h2>
         </DialogHeader>

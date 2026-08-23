@@ -6,46 +6,50 @@
 
 :root {
   --radius: 0.625rem;
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Notion Light semantic tokens (docs/notion-research/theme-parity.md) */
+  --background: #ffffff;
+  --foreground: #2c2c2b;
+  --card: #ffffff;
+  --card-foreground: #2c2c2b;
+  --popover: #ffffff;
+  --popover-foreground: #2c2c2b;
+  --primary: #2c2c2b;
+  --primary-foreground: #ffffff;
+  --secondary: #f9f8f7;
+  --secondary-foreground: #2c2c2b;
+  --muted: #f4f3f3;
+  --muted-foreground: #7d7a75;
+  --accent: #f3f3f2;
+  --accent-foreground: #2c2c2b;
   --destructive: oklch(58.302% 0.23867 28.465);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #e6e5e3;
+  --input: #e6e5e3;
+  --ring: #2383e2;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #f8f8f7;
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: rgba(0, 0, 0, 0.06);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --sidebar-hover: rgba(0, 0, 0, 0.04);
-  --sidebar-text: rgba(0, 0, 0, 0.81);
-  --sidebar-text-active: rgba(0, 0, 0, 0.95);
-  --sidebar-muted: rgba(0, 0, 0, 0.46);
-  --sidebar-icon: rgba(0, 0, 0, 0.46);
-  --sidebar-workspace-text: rgba(0, 0, 0, 0.81);
-  --sidebar-scrollbar-thumb: rgba(0, 0, 0, 0.15);
-  --sidebar-scroll-shadow: rgba(0, 0, 0, 0.12);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --dark: oklch(23.929% 0.00003 271.152);
+  --sidebar: #f9f8f7;
+  --sidebar-foreground: #2c2c2b;
+  --sidebar-primary: #2c2c2b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(55, 53, 47, 0.06);
+  --sidebar-accent-foreground: #2c2c2b;
+  --sidebar-border: rgba(0, 0, 0, 0.08);
+  --sidebar-ring: #2383e2;
+  --sidebar-hover: rgba(55, 53, 47, 0.04);
+  --sidebar-text: #5f5e59;
+  --sidebar-text-active: #2c2c2b;
+  --sidebar-muted: #a19e99;
+  --sidebar-icon: #8e8b86;
+  --sidebar-chevron: #ada9a3;
+  --sidebar-workspace-text: #2c2c2b;
+  --sidebar-scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --sidebar-scroll-shadow: rgba(0, 0, 0, 0.1);
+  --popup-shadow: 0px 14px 28px -6px rgba(0, 0, 0, 0.1),
+    0px 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(28, 19, 1, 0.11);
+  --dark: #191919;
 
   /* Notion compact tokens - ortak spacing sistemi */
   --sidebar-row-height: 30px;
@@ -66,24 +70,25 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Notion Dark semantic tokens (docs/notion-research/theme-parity.md) */
+  --background: #191919;
+  --foreground: #f0efed;
+  --card: #202020;
+  --card-foreground: #f0efed;
+  --popover: #252525;
+  --popover-foreground: #f0efed;
+  --primary: #f0efed;
+  --primary-foreground: #191919;
+  --secondary: #202020;
+  --secondary-foreground: #f0efed;
+  --muted: #262626;
+  --muted-foreground: #ada9a3;
+  --accent: rgba(255, 255, 255, 0.055);
+  --accent-foreground: #f0efed;
   --destructive: oklch(62.813% 0.25739 28.782);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #2383e2;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -91,22 +96,26 @@
   --chart-5: oklch(0.645 0.246 16.439);
   /* Notion Dark Theme - final adjusted opacity per review (0.09 -> 0.065 more subtle) */
   --sidebar: #202020;
-  --sidebar-foreground: #E6E6E6;
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: rgba(255, 255, 255, 0.065);
-  --sidebar-accent-foreground: #E6E6E6;
+  --sidebar-foreground: #f0efed;
+  --sidebar-primary: #f0efed;
+  --sidebar-primary-foreground: #191919;
+  --sidebar-accent: rgba(255, 255, 255, 0.055);
+  --sidebar-accent-foreground: #f0efed;
   --sidebar-border: rgba(255, 255, 255, 0.06);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: #2383e2;
   --sidebar-hover: rgba(255, 255, 255, 0.055);
-  --sidebar-text: #E6E6E6;
-  --sidebar-text-active: #E6E6E6;
-  --sidebar-muted: rgba(255, 255, 255, 0.45);
-  --sidebar-icon: rgba(255, 255, 255, 0.45);
-  --sidebar-workspace-text: #E6E6E6;
+  --sidebar-text: #bcbab6;
+  --sidebar-text-active: #f0efed;
+  --sidebar-muted: #7d7a75;
+  --sidebar-icon: #ada9a3;
+  --sidebar-chevron: #7d7a75;
+  --sidebar-workspace-text: #f0efed;
   --sidebar-scrollbar-thumb: rgba(255, 255, 255, 0.15);
   --sidebar-scroll-shadow: rgba(0, 0, 0, 0.35);
-  --dark: oklch(23.929% 0.00003 271.152);
+  --popup-shadow: rgb(56, 56, 54) 0 0 0 1px,
+    rgba(25, 25, 25, 0.2) 0px 14px 28px -6px,
+    rgba(25, 25, 25, 0.118) 0px 2px 4px -1px;
+  --dark: #191919;
 }
 
 @theme inline {
@@ -152,6 +161,7 @@
   --color-sidebar-text-active: var(--sidebar-text-active);
   --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar-icon: var(--sidebar-icon);
+  --color-sidebar-chevron: var(--sidebar-chevron);
   --color-sidebar-workspace: var(--sidebar-workspace-text);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
@@ -215,6 +225,16 @@
 }
 .cursor-grabbing * {
   cursor: grabbing !important;
+}
+
+/* Notion text selection — ölçülen: rgba(35,131,226,.28) arka plan, metin
+   rengi değişmez (light #2c2c2b / dark #f0efed). Chrome'un dark color-scheme
+   UA seçimi gri arka plan + karartılmış metin üretiyor ve seçili metin
+   okunmaz hale geliyordu. Unlayered (cascade layer dışı) — en yüksek author
+   önceliği. */
+::selection {
+  background-color: rgba(35, 131, 226, 0.28);
+  color: inherit;
 }
 
 /* Notion-style compact vertical text selection menu (components/editor/TextSelectionMenu.tsx).
@@ -516,10 +536,146 @@
   color: rgb(125, 122, 117);
 }
 
+/* Notion popup surfaces — shadcn/Radix dropdown, context menu ve popover'lara
+   Notion popup gölgesini + 10px radius'u uygular. Dialog'lar (search modal
+   vb.) kendi radius'larını korur; gölge token'ı yine ortak. Zotion'un kendi
+   token'larından (--popup-shadow) beslenir; light/dark ayrımı token'da. */
+[data-slot="dropdown-menu-content"],
+[data-slot="context-menu-content"],
+[data-slot="popover-content"] {
+  border-radius: 10px;
+  box-shadow: var(--popup-shadow);
+}
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"] {
+  box-shadow: var(--popup-shadow);
+}
+
+/* BlockNote editor — Notion sayfa bg'si ile editor surface'ı aynıdır
+   (light #fff, dark #191919). BlockNote'un kendi editor yüzeyi ve menüleri
+   Zotion token'larından beslenir; editor metni Notion text-primary. */
+.bn-editor {
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: var(--foreground);
+  --bn-colors-menu-background: var(--popover);
+  --bn-colors-menu-text: var(--popover-foreground);
+  --bn-colors-hovered-background: var(--accent);
+  --bn-colors-hovered-text: var(--accent-foreground);
+  --bn-colors-selected-background: var(--accent);
+  --bn-colors-selected-text: var(--accent-foreground);
+  --bn-colors-disabled-background: var(--muted);
+  --bn-colors-disabled-text: var(--muted-foreground);
+  --bn-colors-tooltip-background: var(--popover);
+  --bn-colors-tooltip-text: var(--popover-foreground);
+  --bn-colors-border: var(--border);
+  background: transparent;
+}
+
+/* BlockNote menüleri (slash/suggestion, formatting toolbar, side menu, tooltip)
+   body'e portal ile render edilir — `.bn-editor` scope'u dışında kalır, o
+   yüzden doğrudan class hedefli override gerekir. Zotion popup token'larıyla
+   beslenir (Notion popup surface #fff / #252525). */
+.bn-suggestion-menu,
+.bn-formatting-toolbar,
+.bn-tooltip,
+.bn-color-picker-dropdown {
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border-color: var(--border) !important;
+  box-shadow: var(--popup-shadow) !important;
+}
+.bn-side-menu {
+  background: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+}
+.bn-suggestion-menu-item:hover,
+.bn-formatting-toolbar button:hover {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+.bn-suggestion-menu-item {
+  color: var(--popover-foreground) !important;
+}
+
+/* Light tema text selection menu — Notion light popup (#fff, yumuşak ring).
+   Dark değerler (.zsm-menu bloğunda) zaten Notion dark ölçümleriyle aynı. */
+:root:not(.dark) .zsm-menu {
+  background: #ffffff;
+  box-shadow:
+    rgba(28, 19, 1, 0.11) 0 0 0 1px,
+    rgba(0, 0, 0, 0.1) 0px 14px 28px -6px,
+    rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
+  color: rgb(45, 44, 42);
+}
+:root:not(.dark) .zsm-divider {
+  background: rgba(28, 19, 1, 0.11);
+}
+:root:not(.dark) .zsm-label {
+  color: rgb(125, 122, 117);
+}
+:root:not(.dark) .zsm-menu .mantine-Button-root,
+:root:not(.dark) .zsm-menu .mantine-ActionIcon-root {
+  --button-hover: rgba(55, 53, 47, 0.06) !important;
+  --ai-hover: rgba(55, 53, 47, 0.08) !important;
+}
+:root:not(.dark) .zsm-blocktype-row .mantine-Button-root:hover {
+  background: rgba(55, 53, 47, 0.06) !important;
+}
+:root:not(.dark) .zsm-blocktype-row .mantine-Menu-dropdown {
+  background: #ffffff !important;
+  border: 1px solid rgba(28, 19, 1, 0.11) !important;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.2),
+    0 2px 8px rgba(0, 0, 0, 0.14) !important;
+}
+:root:not(.dark) .zsm-blocktype-row .mantine-Menu-item {
+  color: rgba(45, 44, 42, 0.85) !important;
+}
+:root:not(.dark) .zsm-blocktype-row .mantine-Menu-item:hover {
+  background: rgba(55, 53, 47, 0.06) !important;
+}
+:root:not(.dark) .zsm-icon-row .mantine-ActionIcon-root,
+:root:not(.dark) .zsm-icon-btn {
+  color: rgb(45, 44, 42);
+}
+:root:not(.dark) .zsm-icon-row .mantine-ActionIcon-root:hover,
+:root:not(.dark) .zsm-icon-btn:not(:disabled):hover {
+  background: rgba(55, 53, 47, 0.06) !important;
+}
+:root:not(.dark) .zsm-icon-row .mantine-ActionIcon-root[data-selected] {
+  background: rgba(55, 53, 47, 0.06) !important;
+  color: rgb(35, 131, 226) !important;
+}
+:root:not(.dark) .zsm-icon-btn:disabled {
+  color: rgb(45, 44, 42);
+}
+:root:not(.dark) .zsm-comment-row .zsm-row-btn {
+  color: rgb(45, 44, 42);
+}
+:root:not(.dark) .zsm-row-btn {
+  color: rgb(45, 44, 42);
+}
+:root:not(.dark) .zsm-row-btn:not(:disabled):hover {
+  background: rgba(55, 53, 47, 0.06);
+}
+:root:not(.dark) .zsm-row-btn:disabled {
+  color: rgb(45, 44, 42);
+}
+:root:not(.dark) .zsm-ai-input {
+  color: rgb(125, 122, 117);
+}
+:root:not(.dark) .zsm-shortcut {
+  color: rgb(125, 122, 117);
+}
+:root:not(.dark) .zsm-blocktype-row .mantine-Button-section[data-position="right"] {
+  color: rgb(45, 44, 42);
+}
+
 /* Sidebar Notion compact system - spec exact */
 .sidebar-scroll {
   padding-top: 6px;
   scrollbar-width: none;
+  overflow-x: hidden;
 }
 .sidebar-scroll::-webkit-scrollbar {
   width: 0;
@@ -642,26 +798,26 @@
   text-transform: none;
 }
 
-/* Notion Dark sidebar spec refinements */
+/* Notion sidebar spec refinements */
 [data-sidebar-root] {
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
     "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #202020;
+  background: var(--sidebar);
 }
 
 [data-sidebar-root] .notion-sidebar-text {
-  color: #E6E6E6;
+  color: var(--sidebar-text);
   font-weight: 500;
   font-size: var(--sidebar-font-size);
 }
 [data-sidebar-root] .notion-sidebar-text-active {
-  color: #E6E6E6;
+  color: var(--sidebar-text-active);
   font-weight: 500;
 }
 [data-sidebar-root] .notion-sidebar-muted {
-  color: rgba(255,255,255,0.45);
+  color: var(--sidebar-muted);
   font-size: var(--sidebar-section-font-size);
   font-weight: 500;
   line-height: 1;
@@ -669,11 +825,11 @@
 }
 
 .notion-row-hover {
-  background: rgba(255,255,255,0.055);
+  background: var(--sidebar-hover);
   border-radius: var(--sidebar-row-radius);
 }
 .notion-row-active {
-  background: rgba(255,255,255,0.09);
+  background: var(--sidebar-accent);
   border-radius: var(--sidebar-row-radius);
 }
 
@@ -681,6 +837,15 @@
 [data-sidebar-root] [data-tree-row] {
   height: var(--sidebar-row-height) !important;
   min-height: var(--sidebar-row-min-height) !important;
+}
+
+/* react-arborist satırlara inline `min-width: max-content` koyar; uzun
+   başlıkta satır içerik genişliğine (yüzlerce px) şişer ve ağaçta yatay
+   scrollbar belirir. Notion'da uzun başlık ellipsis ile kırpılır — satırı
+   container genişliğine sabitleyip kırpmayı label'a bırakıyoruz. */
+[data-sidebar-root] [role="treeitem"] {
+  min-width: 0 !important;
+  max-width: 100% !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

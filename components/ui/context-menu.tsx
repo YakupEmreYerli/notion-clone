@@ -84,7 +84,7 @@ export const ContextMenu = ({
       role="menu"
       style={{ left: position.left, top: position.top }}
       className={cn(
-        "fixed z-[10000] w-[250px] rounded-[10px] border border-[rgba(255,255,255,0.08)] bg-[#2a2a2a] p-1.5 text-[#E6E6E6] shadow-[0_10px_28px_rgba(0,0,0,0.45)] select-none",
+        "fixed z-[10000] w-[250px] rounded-[10px] border border-border bg-popover p-1.5 text-popover-foreground shadow-[var(--popup-shadow)] select-none",
         className,
       )}
     >
@@ -126,9 +126,9 @@ export const ContextMenuItem = ({
       className={cn(
         "flex h-[30px] w-full items-center gap-2 rounded-[6px] px-2 text-[14px] outline-none transition-colors duration-100",
         disabled
-          ? "cursor-default text-[rgba(255,255,255,0.3)]"
+          ? "cursor-default text-muted-foreground/60"
           : cn(
-              "cursor-pointer text-[rgba(255,255,255,0.85)] hover:bg-[rgba(255,255,255,0.06)]",
+              "cursor-pointer text-popover-foreground hover:bg-accent",
               danger && "text-red-400 hover:bg-red-500/10 hover:text-red-400",
             ),
         className,
@@ -137,7 +137,7 @@ export const ContextMenuItem = ({
       {icon && (
         <span
           className={cn(
-            "flex size-[18px] shrink-0 items-center justify-center text-[rgba(255,255,255,0.5)] [&_svg]:size-[15px] [&_svg]:shrink-0",
+            "flex size-[18px] shrink-0 items-center justify-center text-muted-foreground [&_svg]:size-[15px] [&_svg]:shrink-0",
             danger && !disabled && "text-red-400/70",
           )}
         >
@@ -146,12 +146,12 @@ export const ContextMenuItem = ({
       )}
       <span className="min-w-0 flex-1 truncate text-left">{label}</span>
       {shortcut && (
-        <span className="shrink-0 text-[12px] text-[rgba(255,255,255,0.35)]">
+        <span className="shrink-0 text-[12px] text-muted-foreground/70">
           {shortcut}
         </span>
       )}
       {trailing && (
-        <span className="flex shrink-0 items-center text-[rgba(255,255,255,0.4)]">
+        <span className="flex shrink-0 items-center text-muted-foreground/70">
           {trailing}
         </span>
       )}
@@ -160,7 +160,7 @@ export const ContextMenuItem = ({
 };
 
 export const ContextMenuSeparator = () => (
-  <div className="mx-1 my-1 h-px bg-[rgba(255,255,255,0.07)]" />
+  <div className="mx-1 my-1 h-px bg-border" />
 );
 
 export const ContextMenuLabel = ({
@@ -172,7 +172,7 @@ export const ContextMenuLabel = ({
 }) => (
   <p
     className={cn(
-      "px-3 py-1 text-[11px] font-[500] text-[rgba(255,255,255,0.4)] select-none",
+      "px-3 py-1 text-[11px] font-[500] text-muted-foreground select-none",
       className,
     )}
   >

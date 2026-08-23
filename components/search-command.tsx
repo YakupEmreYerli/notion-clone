@@ -99,12 +99,12 @@ type SearchResult = {
 };
 
 const chipBase =
-  "inline-flex h-[24px] shrink-0 items-center justify-center gap-[6px] rounded-full px-2 text-[14px] whitespace-nowrap transition-colors duration-150 select-none text-[rgba(255,255,255,0.6)] hover:bg-[rgba(255,255,255,0.055)] hover:text-[#E6E6E6]";
+  "inline-flex h-[24px] shrink-0 items-center justify-center gap-[6px] rounded-full px-2 text-[14px] whitespace-nowrap transition-colors duration-150 select-none text-muted-foreground hover:bg-accent hover:text-popover-foreground";
 
 const chipActive = "bg-[rgba(77,157,224,0.1)] text-[#5DB1FF]";
 
 const pickerRow =
-  "flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-[6px] px-2 text-[13px] text-[#E6E6E6] transition-colors duration-150 hover:bg-[rgba(255,255,255,0.055)] data-[active=true]:bg-[rgba(255,255,255,0.07)]";
+  "flex h-[30px] w-full cursor-pointer items-center gap-2 rounded-[6px] px-2 text-[13px] text-popover-foreground transition-colors duration-150 hover:bg-accent data-[active=true]:bg-accent";
 
 type Grouped = { label: string; items: SearchResult[] }[];
 
@@ -330,7 +330,7 @@ export const SearchCommand = () => {
       <DialogContent
         showCloseButton={false}
         className={cn(
-          "top-[9vh] flex h-[700px] max-h-[85vh] translate-y-0 flex-col items-stretch gap-0 overflow-hidden rounded-[20px] border border-[rgba(255,255,255,0.08)] bg-[#252525] p-0 text-[#E6E6E6] shadow-2xl transition-[width] duration-200 ease-out",
+          "top-[9vh] flex h-[700px] max-h-[85vh] translate-y-0 flex-col items-stretch gap-0 overflow-hidden rounded-[20px] border border-popover bg-popover p-0 text-popover-foreground shadow-[var(--popup-shadow)] transition-[width] duration-200 ease-out",
           "max-w-none sm:max-w-none",
         )}
         style={{ width: showPreview ? "1006px" : "600px" }}
@@ -338,15 +338,15 @@ export const SearchCommand = () => {
         <Command
           shouldFilter={false}
           loop
-          className="flex h-full flex-col bg-[#252525] text-[#E6E6E6] **:[[cmdk-group]]:px-0"
+          className="flex h-full flex-col bg-popover text-popover-foreground **:[[cmdk-group]]:px-0"
           value={selectedValue}
           onValueChange={setSelectedValue}
         >
           {/* ── Header: modal-level, tam genişlik. Search solda, controls en sağda ── */}
           <div className="flex w-full items-center gap-2 px-3 py-3">
-            <MagnifyingGlassIcon className="mx-1 size-5 shrink-0 text-[rgba(255,255,255,0.55)]" />
+            <MagnifyingGlassIcon className="mx-1 size-5 shrink-0 text-muted-foreground" />
             <CommandPrimitive.Input
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-[#E6E6E6] outline-none placeholder:text-[rgba(255,255,255,0.35)]"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-popover-foreground outline-none placeholder:text-muted-foreground/70"
               placeholder={`Search or ask a question in ${user?.name ?? ""}'s Space…`}
               value={rawQuery}
               onValueChange={setRawQuery}
@@ -365,10 +365,10 @@ export const SearchCommand = () => {
                   onClick={() => setPreviewOpen((v) => !v)}
                   data-active={previewOpen}
                   className={cn(
-                    "flex size-[28px] shrink-0 items-center justify-center rounded-[6px] bg-transparent p-0 transition-colors duration-100 hover:bg-[rgba(255,255,255,0.055)]",
+                    "flex size-[28px] shrink-0 items-center justify-center rounded-[6px] bg-transparent p-0 transition-colors duration-100 hover:bg-accent",
                     previewOpen
                       ? "text-[#5DB1FF] data-[active=true]:hover:bg-[rgba(77,157,224,0.1)]"
-                      : "text-[rgba(255,255,255,0.45)] hover:text-[#E6E6E6]",
+                      : "text-muted-foreground hover:text-popover-foreground",
                   )}
                 >
                   <SidebarRightIcon className="size-5" />
@@ -381,10 +381,10 @@ export const SearchCommand = () => {
                 onClick={() => setFiltersOpen((v) => !v)}
                 data-active={filtersOpen}
                 className={cn(
-                  "flex size-[28px] shrink-0 items-center justify-center rounded-[6px] bg-transparent p-0 transition-colors duration-100 hover:bg-[rgba(255,255,255,0.055)]",
+                  "flex size-[28px] shrink-0 items-center justify-center rounded-[6px] bg-transparent p-0 transition-colors duration-100 hover:bg-accent",
                   filtersOpen
                     ? "text-[#5DB1FF] data-[active=true]:hover:bg-[rgba(77,157,224,0.1)]"
-                    : "text-[rgba(255,255,255,0.45)] hover:text-[#E6E6E6]",
+                    : "text-muted-foreground hover:text-popover-foreground",
                 )}
               >
                 <FilterCircleIcon className="size-5" />
@@ -410,7 +410,7 @@ export const SearchCommand = () => {
               <button
                 type="button"
                 onClick={() => setTitleOnly((v) => !v)}
-                className={cn(chipBase, titleOnly ? chipActive : "text-[rgba(255,255,255,0.6)]")}
+                className={cn(chipBase, titleOnly ? chipActive : "text-muted-foreground")}
                 aria-pressed={titleOnly}
               >
                 <TextFormatIcon className="h-4 w-auto opacity-80" />
@@ -424,7 +424,7 @@ export const SearchCommand = () => {
                     type="button"
                     className={cn(
                       chipBase,
-                      scopeId ? chipActive : "text-[rgba(255,255,255,0.6)]",
+                      scopeId ? chipActive : "text-muted-foreground",
                     )}
                   >
                     In{scopeLabel ? `: ${scopeLabel}` : ""}
@@ -433,7 +433,7 @@ export const SearchCommand = () => {
                 </PopoverTrigger>
                 <PopoverContent
                   align="start"
-                  className="max-h-[300px] w-64 overflow-y-auto border-[rgba(255,255,255,0.08)] bg-[#2a2a2a] p-1.5"
+                  className="max-h-[300px] w-64 overflow-y-auto border-border bg-muted p-1.5"
                 >
                   <div className="flex flex-col gap-[2px]">
                     <button
@@ -442,7 +442,7 @@ export const SearchCommand = () => {
                         setScopeId(undefined);
                         setScopeLabel(undefined);
                       }}
-                      className={cn(pickerRow, !scopeId && "data-[active=true]:bg-[rgba(255,255,255,0.07)]")}
+                      className={cn(pickerRow, !scopeId && "data-[active=true]:bg-accent")}
                       data-active={!scopeId}
                     >
                       <span className="min-w-0 flex-1 truncate">Everywhere</span>
@@ -460,7 +460,7 @@ export const SearchCommand = () => {
                         className={cn(
                           pickerRow,
                           scopeId === doc._id &&
-                            "data-[active=true]:bg-[rgba(255,255,255,0.07)]",
+                            "data-[active=true]:bg-accent",
                         )}
                         data-active={scopeId === doc._id}
                       >
@@ -470,9 +470,9 @@ export const SearchCommand = () => {
                               {doc.icon}
                             </span>
                           ) : doc.type === "database" ? (
-                            <DatabaseIcon className="size-[16px] text-[rgba(255,255,255,0.55)]" />
+                            <DatabaseIcon className="size-[16px] text-muted-foreground" />
                           ) : (
-                            <PageIcon className="size-[15px] text-[rgba(255,255,255,0.55)]" />
+                            <PageIcon className="size-[15px] text-muted-foreground" />
                           )}
                         </span>
                         <span className="min-w-0 flex-1 truncate">
@@ -492,7 +492,7 @@ export const SearchCommand = () => {
                 type="button"
                 disabled
                 title="More filters (coming soon)"
-                className="inline-flex h-[24px] shrink-0 cursor-not-allowed items-center gap-1 rounded-[12px] px-[5px] pr-[9px] text-[14px] whitespace-nowrap transition-colors duration-150 select-none text-[rgba(255,255,255,0.4)] hover:bg-[rgba(255,255,255,0.055)] hover:text-[rgba(255,255,255,0.6)]"
+                className="inline-flex h-[24px] shrink-0 cursor-not-allowed items-center gap-1 rounded-[12px] px-[5px] pr-[9px] text-[14px] whitespace-nowrap transition-colors duration-150 select-none text-muted-foreground/70 hover:bg-accent hover:text-muted-foreground"
               >
                 <PlusIcon className="size-3.5 opacity-60" />
                 Filter
@@ -504,16 +504,16 @@ export const SearchCommand = () => {
           <CommandList className="flex-1 max-h-none scroll-py-2 px-2.5 pb-2">
             <CommandEmpty>
               {isLoading ? (
-                <span className="flex items-center justify-center gap-2 py-6 text-[13px] text-[rgba(255,255,255,0.45)]">
+                <span className="flex items-center justify-center gap-2 py-6 text-[13px] text-muted-foreground">
                   <Loader2 className="size-4 animate-spin" />
                   Loading…
                 </span>
               ) : (
                 <div className="flex flex-col items-center gap-1 py-6 text-[13px]">
-                  <span className="text-[rgba(255,255,255,0.6)]">
+                  <span className="text-muted-foreground">
                     No results
                   </span>
-                  <span className="text-[rgba(255,255,255,0.35)]">
+                  <span className="text-muted-foreground/70">
                     Try another search or remove filters.
                   </span>
                   {(titleOnly || scopeId) && (
@@ -537,7 +537,7 @@ export const SearchCommand = () => {
               <CommandGroup
                 key={group.label}
                 heading={group.label}
-                className="p-0 **:[[cmdk-group-heading]]:mt-[14px] **:[[cmdk-group-heading]]:mb-2.5 **:[[cmdk-group-heading]]:px-4 **:[[cmdk-group-heading]]:py-0 **:[[cmdk-group-heading]]:text-[12px] **:[[cmdk-group-heading]]:text-[rgba(255,255,255,0.45)]"
+                className="p-0 **:[[cmdk-group-heading]]:mt-[14px] **:[[cmdk-group-heading]]:mb-2.5 **:[[cmdk-group-heading]]:px-4 **:[[cmdk-group-heading]]:py-0 **:[[cmdk-group-heading]]:text-[12px] **:[[cmdk-group-heading]]:text-muted-foreground"
               >
                 {group.items.map((doc) => {
                   const title = getDocumentLabel(doc.title, doc.type);
@@ -549,7 +549,7 @@ export const SearchCommand = () => {
                       key={doc._id}
                       value={doc._id}
                       onSelect={() => onOpenDoc(doc._id)}
-                      className="group/result my-[1px] flex min-h-[36px] cursor-pointer items-center gap-2 rounded-[12px] px-2 py-1 hover:bg-[rgba(255,255,255,0.045)] data-[selected=true]:bg-[rgba(255,255,255,0.065)] data-[selected=true]:hover:bg-[rgba(255,255,255,0.075)]"
+                      className="group/result my-[1px] flex min-h-[36px] cursor-pointer items-center gap-2 rounded-[12px] px-2 py-1 hover:bg-accent data-[selected=true]:bg-accent data-[selected=true]:hover:bg-accent"
                     >
                       {/* Gerçek sonuç ikonu: emoji / database / page */}
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center">
@@ -558,18 +558,18 @@ export const SearchCommand = () => {
                             {doc.icon}
                           </span>
                         ) : doc.type === "database" ? (
-                          <DatabaseIcon className="size-5 text-[rgba(255,255,255,0.55)]" />
+                          <DatabaseIcon className="size-5 text-muted-foreground" />
                         ) : (
-                          <PageIcon className="size-[18px] text-[rgba(255,255,255,0.55)]" />
+                          <PageIcon className="size-[18px] text-muted-foreground" />
                         )}
                       </span>
 
                       <span className="flex min-w-0 flex-1 items-center gap-1">
-                        <span className="truncate text-[14px] font-[500] leading-[20px] text-[#E6E6E6]">
+                        <span className="truncate text-[14px] font-[500] leading-[20px] text-popover-foreground">
                           {title}
                         </span>
                         {path && (
-                          <span className="hidden max-w-[45%] shrink-0 truncate text-[12px] text-[rgba(255,255,255,0.45)] md:inline">
+                          <span className="hidden max-w-[45%] shrink-0 truncate text-[12px] text-muted-foreground md:inline">
                             <span aria-hidden className="mr-1">
                               —
                             </span>
@@ -578,7 +578,7 @@ export const SearchCommand = () => {
                         )}
                       </span>
 
-                      <EnterIcon className="size-3 shrink-0 text-[rgba(255,255,255,0.4)] opacity-0 transition-opacity duration-100 group-hover/result:opacity-60 group-data-[selected=true]/result:opacity-60" />
+                      <EnterIcon className="size-3 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity duration-100 group-hover/result:opacity-60 group-data-[selected=true]/result:opacity-60" />
                     </CommandItem>
                   );
                 })}
@@ -597,7 +597,7 @@ export const SearchCommand = () => {
           )}
         >
           <div className="h-full w-[406px] overflow-hidden pl-6 pr-10 pt-[34px]">
-            <div className="relative flex h-[420px] w-[340px] flex-col overflow-hidden rounded-[12px] border border-[rgba(255,255,255,0.06)] bg-[#2a2a2a] shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
+            <div className="relative flex h-[420px] w-[340px] flex-col overflow-hidden rounded-[12px] border border-border bg-muted shadow-[0_12px_28px_rgba(0,0,0,0.28)]">
               {/* Floating action toolbar: sticky top-8, cover üzerine biner */}
               <div
                 className={cn(
@@ -610,7 +610,7 @@ export const SearchCommand = () => {
                     type="button"
                     title="Copy link"
                     onClick={onCopyLink}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[rgba(255,255,255,0.62)] transition-colors duration-100 hover:bg-[rgba(255,255,255,0.1)] hover:text-[rgba(255,255,255,0.9)] active:bg-[rgba(255,255,255,0.14)]"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-popover-foreground active:bg-muted"
                   >
                     <LinkIcon className="h-4 w-auto" />
                   </button>
@@ -618,7 +618,7 @@ export const SearchCommand = () => {
                     type="button"
                     title="Open page"
                     onClick={onOpenInNewTab}
-                    className="flex size-7 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[rgba(255,255,255,0.62)] transition-colors duration-100 hover:bg-[rgba(255,255,255,0.1)] hover:text-[rgba(255,255,255,0.9)] active:bg-[rgba(255,255,255,0.14)]"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-muted-foreground transition-colors duration-100 hover:bg-accent hover:text-popover-foreground active:bg-muted"
                   >
                     <ArrowDiagonalUpRightIcon className="h-4 w-auto" />
                   </button>
@@ -635,22 +635,22 @@ export const SearchCommand = () => {
                     className="h-full w-full object-cover"
                     style={{ objectPosition: `center ${previewCoverY}%` }}
                   />
-                  <div className="absolute right-0 bottom-0 left-0 border-b border-[rgba(255,255,255,0.06)]" />
+                  <div className="absolute right-0 bottom-0 left-0 border-b border-border" />
                 </div>
               )}
 
               {/* Body: 28px / 24px / 24px, gap 6px — taşarsa içerik scroll eder, bar görünmez */}
               <div className="flex flex-grow min-h-0 flex-col gap-[6px] overflow-x-hidden overflow-y-auto p-6 pt-7 [scrollbar-width:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0">
                 {previewParentPath && (
-                  <p className="truncate text-[12px] text-[rgba(255,255,255,0.45)] whitespace-nowrap overflow-hidden text-ellipsis">
+                  <p className="truncate text-[12px] text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
                     {previewParentPath}
                   </p>
                 )}
-                <h4 className="text-[20px] leading-[24px] font-[600] break-words text-[#E6E6E6]">
+                <h4 className="text-[20px] leading-[24px] font-[600] break-words text-popover-foreground">
                   {previewTitle}
                 </h4>
                 {previewContent && (
-                  <div className="pt-3 text-[13px] leading-[18px] text-[rgba(255,255,255,0.6)] whitespace-pre-wrap">
+                  <div className="pt-3 text-[13px] leading-[18px] text-muted-foreground whitespace-pre-wrap">
                     {previewContent}
                   </div>
                 )}
@@ -661,13 +661,13 @@ export const SearchCommand = () => {
           </div>
 
           {/* ── Footer: modal-level, tam genişlik ── */}
-          <div className="mt-px flex items-center justify-between border-t border-[rgba(255,255,255,0.06)] py-2 pr-3 pl-4 text-[12px] text-[rgba(255,255,255,0.45)]">
+          <div className="mt-px flex items-center justify-between border-t border-border py-2 pr-3 pl-4 text-[12px] text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <kbd className="rounded-[4px] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 font-mono text-[11px] text-[rgba(255,255,255,0.6)]">
+              <kbd className="rounded-[4px] border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                 Ctrl
               </kbd>
               +
-              <kbd className="rounded-[4px] border border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.06)] px-1.5 py-0.5 font-mono text-[11px] text-[rgba(255,255,255,0.6)]">
+              <kbd className="rounded-[4px] border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                 ↵
               </kbd>
               Open in new tab
@@ -676,7 +676,7 @@ export const SearchCommand = () => {
               type="button"
               aria-label="Settings"
               title="Settings"
-              className="flex size-[28px] items-center justify-center rounded-[6px] bg-transparent p-0 text-[rgba(255,255,255,0.4)] transition-colors duration-100 hover:bg-[rgba(255,255,255,0.055)] hover:text-[#E6E6E6]"
+              className="flex size-[28px] items-center justify-center rounded-[6px] bg-transparent p-0 text-muted-foreground/70 transition-colors duration-100 hover:bg-accent hover:text-popover-foreground"
             >
               <SlidersIcon className="size-5" />
             </button>

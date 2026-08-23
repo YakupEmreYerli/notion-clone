@@ -68,7 +68,7 @@ export const AuthModal = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
-      <DialogContent className="dark:bg-dark sm:max-w-96">
+      <DialogContent className="sm:max-w-96">
         <DialogHeader className="items-center">
           <Image
             src="/logo.svg"

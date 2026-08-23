@@ -33,7 +33,7 @@ export const SettingsModal = () => {
   return (
     <Dialog open={settings.isOpen} onOpenChange={settings.onClose}>
       <DialogTitle hidden>Settings</DialogTitle>
-      <DialogContent className="dark:bg-dark">
+      <DialogContent>
         <DialogHeader className="border-b pb-2">
           <h2 className="text-lg font-medium">My settings</h2>
         </DialogHeader>

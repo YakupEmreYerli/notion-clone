@@ -82,7 +82,7 @@ export const AccountModal = () => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
-      <DialogContent className="dark:bg-dark">
+      <DialogContent>
         <DialogHeader className="border-b pb-2">
           <DialogTitle className="text-lg font-medium">My account</DialogTitle>
           <DialogDescription className="sr-only">
