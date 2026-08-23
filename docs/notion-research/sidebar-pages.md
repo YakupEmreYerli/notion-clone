@@ -86,6 +86,69 @@ Move to Trash, Small text / Full width / Lock page toggle'ları, Use with AI, Su
 edits, Translate, Undo, Import, Export, Turn into wiki, Updates & analytics,
 Version history.
 
+## Ölçülen sidebar metrikleri (2026-08-24, dark tema)
+
+Gerçek Notion'da `getBoundingClientRect()` + `getComputedStyle()` ile ölçüldü.
+Zotion farkları ve düzeltmeleri bu konuşmanın parity raporundadır.
+
+### Container
+- Genişlik: **270px** (varsayılan). Resize sınırları: **min 270, max 600**.
+  Resize ile 270'in altına inilemez; genişlik reload sonrası korunur.
+- bg `#202020`, border YOK — sağ kenar `inset 0 -1px 0 0 rgb(44,44,43)` shadow ile.
+- Collapse transition: `width 0.2s`.
+- İçerik üst padding 6px.
+
+### Dikey anatomi (dark, ölçülen y'ler)
+- Workspace switcher: y=6, h=32 (avatar 20x20, text 14px)
+- Nav tabları (Home/Chat/Meetings): y=52, h=32, pill radius 9999, gap 2px.
+  Aktif pill bg `rgba(255,255,255,.07)`, text `#f0efed`; pasif text `#ada9a3`.
+- Private section header: y=98, h=30, padding-x 8, radius 6. Label 12px/500/lh-12,
+  renk text-tertiary (dark `#7d7a75`, light `#a19e99`).
+- Tree rows: y=129'dan başlar, **h=30 (min 27), padding 5px 8px, radius 6,
+  gap 1px**, text 14px/500/lh-21.
+
+### Satır state'leri
+- Default: bg transparent, text `#bcbab6` (dark) / `#5f5e59` (light).
+- Aktif (aria-current=page): bg `rgba(255,255,255,.055)`, text `#f0efed`.
+- Hover: bg `rgba(255,255,255,.055)` — aktif ile aynı güçte.
+- Action ikonları (chevron, `+`, `...`) hover'da visibility ile belirir.
+
+### Satır içi ölçüler
+- İkon slotu: 22x18, margin-right 8. İndent: **seviye başına 8px**.
+  Level 0 text x=38, level 1 text x=46 (row-relative).
+- Chevron: SVG 12x12, hit 20x20 radius **4px**, fill icon-tertiary
+  (dark `#7d7a75`, light `#ada9a3`), transition transform 200ms, kapalıyken -90°.
+- `+` (Add a page inside): SVG 16x16, hit 20x20 radius 4, fill `#ada9a3`.
+- `...` (More): SVG 16x16, hit 20x20 radius 4, fill `#ada9a3`.
+- Action hover: hit alanı bg `rgba(255,255,255,.055)`.
+
+### Notion'da ölçülen → Zotion'da düzeltilen farklar
+- Varsayılan genişlik 240 → **270**; min 180 → **270**; max 480 → **600**.
+- Nav → Private arası dikey boşluk 20px → **14px** (Private header y=98,
+  ilk row y=129 — Notion ile birebir).
+- Section label rengi: dark `#9b9b9b`→`#7d7a75`, light `#91918e`→`#a19e99`.
+- Chevron rengi `#ada9a3` → icon-tertiary (`#7d7a75` dark / `#ada9a3` light),
+  radius 9999 → **4px**.
+- `+` / `...` butonları radius 9999 → **4px**; `...` SVG 12x12 → **16x16**.
+- Home nav pill'inden ring kaldırıldı (Notion pill'lerinde ring yok).
+- Collapse transition `all 300ms` → **`width 200ms`** (Notion `width 0.2s`).
+
+### Uzun başlık / ellipsis davranışı (2026-08-24, ölçüldü)
+
+Uzun başlıklı sayfada (satır 254px, dark):
+- **Rest**: aksiyon butonları yer kaplamaz (1px clipped / absolute) → başlık satırın
+  tam genişliğine kadar uzanır (sağ kenar x=246) ve **en sağda ellipsis** alır.
+- **Hover**: `+`/`...` butonları görünür ve yer kaplar (Add x=204, More x=226) →
+  başlık x=201'e kadar daralır, orada ellipsis. Butonlar daralmış başlığın sağına biner.
+- Başlık element: `flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; font-weight:500`. Satır `min-width:max-content` değil —
+  react-arborist bunu inline `min-width:max-content` ile dayatır, o yüzden Zotion'da
+  satırı `min-width:0 !important` ile sabitlemek gerekir (aksi halde uzun başlık
+  satırı yüzlerce px'e şişirir ve ağaçta yatay scrollbar belirir).
+- Zotion düzeltmesi: aksiyon container'ı rest'te `w-0 overflow-hidden` (visibility:hidden
+  layout'tan düşmez), hover'da `group-hover:w-auto` → rest'te başlık sağ kenara kadar
+  (242), hover'da 200'e daralır (Notion 246/201 ile aynı davranış).
+
 ---
 
 Not: DnD nest-eşiği (tam olarak hangi drop bölgesi nest vs. reorder tetikliyor) pixel

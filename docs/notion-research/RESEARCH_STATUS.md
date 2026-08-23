@@ -5,11 +5,68 @@
 
 ## Son güncelleme
 
-2026-08-23 — sidebar + sayfa ağacı alanı tamamlandı ve doğrulandı.
+2026-08-24 — dark/light theme parity tamamlandı ve tarayıcıda doğrulandı
+(detay: `docs/notion-research/theme-parity.md`).
 
 ## Tamamlanan alanlar
 
+### 2. Dark/light theme parity — TAMAMLANDI (2026-08-24)
+
+Gerçek Notion (app.notion.com, giriş yapılmış oturum) üzerinde `getComputedStyle()`
++ pixel okuma ile ölçüldü; tahmin yok. Kayıt: `docs/notion-research/theme-parity.md`.
+
+**Notion tema davranışı (doğrulandı):**
+- Settings → Appearance → Theme: Use system setting / Light / Dark.
+- Tema değişimi **reload yapmaz**, açık dialog/menu açık kalır ve anında geçer.
+- Kalıcılık: `localStorage["theme"]` (resolved) + appearance key (tercih). Reload
+  ve sayfa geçişinde korunur.
+- System seçiliyken `prefers-color-scheme` canlı takip edilir (reload yok).
+- Hydration flash yok: `body`/`notion-app-inner` theme class'ı server HTML'inde
+  inline; document-start MutationObserver ile doğrulandı.
+
+**Uygulanan Zotion değişiklikleri:**
+- `app/globals.css`: `:root`/`.dark` shadcn token'ları Notion ölçümlerine çekildi
+  (`--background` #fff/#191919, `--foreground` #2c2c2b/#f0efed, `--popover`
+  #fff/#252525, `--border` #e6e5e3/rgba(255,255,255,.1), `--ring` #2383e2,
+  `--muted-foreground` #7d7a75/#ada9a3, `--dark` #191919). `--sidebar-*` light
+  değerleri Notion'a göre düzeltildi (sidebar #f9f8f7, text #5f5e59/#2c2c2b,
+  hover rgba(55,53,47,.04), accent rgba(55,53,47,.06), muted #91918e,
+  icon #8e8b86). Yeni `--popup-shadow` token'ı (Notion `--c-shaMDPriOut`).
+- Sidebar componentleri (Navigation, Item, UserItem, NavDrawer, FavoritesList,
+  EmptyChildrenRow) hardcoded dark renklerden `bg-sidebar` / `text-sidebar-text`
+  / `hover:bg-sidebar-hover` vb. token sınıflarına geçirildi → **light temada da
+  doğru sidebar** (önceden hep #202020 idi).
+- shadcn/Radix popup'ları: dropdown/context-menu/popover radius 10px +
+  `--popup-shadow`; dialog/alert-dialog popover yüzeyi + gölge; overlay
+  rgba(15,15,15,.6). Modallardan `dark:bg-dark` override'ları kaldırıldı.
+- BlockNote: editor surface transparent (sayfa bg'siyle aynı), editor metni
+  `--foreground`, portal'lanan slash/formatting/side-menu/tooltip yüzeyleri
+  `--popover` + `--popup-shadow`.
+- zsm text-selection menu'ye light tema bloğu (`:root:not(.dark)`) eklendi.
+- search-command (arama modalı), toaster, toolbar başlığı token'lara geçirildi.
+
+**Tarayıcı doğrulaması (computed + DOM + interaction):**
+- Light: sidebar #f9f9f6, hover rgba(55,53,47,.04), text #2c2c2b, page bg #fff,
+  zsm-menu #fff + Notion light shadow, slash menu #fff.
+- Dark: sidebar #202020, hover/selected rgba(255,255,255,.055), page bg #191919,
+  editor metni #f0efed, popover #252525, dialog shadow Notion ile birebir
+  (`rgb(56,56,54) 0 0 0 1px, rgba(25,25,25,.2) 0 14px 28px -6px, ...`),
+  zsm-menu #252525, slash menu #252525.
+- No-flash: stored light + system dark emülasyonunda ilk mutation'dan itibaren
+  doğru class/bg; system live-tracking reload'suz çalışıyor.
+
 ### 1. Sidebar + page tree — TAMAMLANDI
+
+**Ölçü/metrik parity geçişi (2026-08-24):** Notion sidebar'ın pixel ölçüleri
+(`getBoundingClientRect` + `getComputedStyle`) çıkarıldı ve Zotion'a uygulandı:
+- Genişlik 240→**270** (min 270, max 600 — Notion ile aynı), collapse `width 0.2s`.
+- Nav→Private dikey boşluğu 14px'e çekildi (Private header y=98, ilk row y=129 = birebir).
+- Section label rengi text-tertiary'ye çekildi (dark `#7d7a75`, light `#a19e99`).
+- Chevron: icon-tertiary rengi + **4px radius** + 12px SVG; `+`/`...` 4px radius,
+  `...` SVG 16x16.
+- Home pill'inden ring kaldırıldı.
+- DnD (drag+nest+toast), page oluşturma, silme ve collapse/reopen tarayıcıda doğrulandı.
+  Detay: `docs/notion-research/sidebar-pages.md`.
 
 Kaynak: `docs/notion-research/sidebar-pages.md` (2026-08-22 tarihli, gerçek Notion
 gözlemi). Bu session'dan önceki bir session'da büyük ölçüde uygulanmıştı (uncommitted

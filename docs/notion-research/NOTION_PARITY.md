@@ -5,6 +5,7 @@
 
 | Alan | Davranış | Durum | Öncelik | Research dosyası |
 |---|---|---|---|---|
+| Theme (dark/light/system) | Semantic token sistemi, popup/menu yüzeyleri, hover/selected, persistence, system live-tracking, no-flash | TAM PARITY (2026-08-24) | P0 | theme-parity.md |
 | Sidebar | Sayfa oluşturma, ikon, alt sayfa (peek+empty-cleanup), expand/collapse, `...` menü sırası, DnD nest/reorder+undo, breadcrumb senk., trash akışı+30gün retention | TAM PARITY | P0/P1 | sidebar-pages.md |
 | Sidebar | Restore → listenin sonuna eklenir | TAM PARITY (bu session'da uygulandı) | P2 | sidebar-pages.md |
 | Sidebar | `...` menüsü kısayol etiketleri (Ctrl+D vb.) ve gerçek kısayollar | EKSİK | P3 | sidebar-pages.md |
