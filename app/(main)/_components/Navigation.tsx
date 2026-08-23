@@ -8,26 +8,20 @@ import React, {
   useState,
 } from "react";
 import { useMediaQuery } from "usehooks-ts";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { DocumentList } from "./DocumentList";
 import { Item } from "./Item";
 import { UserItem } from "./UserItem";
-import { DndContext, closestCenter } from "@dnd-kit/core";
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { useSidebarDragAndDrop } from "@/hooks/useSidebarDragAndDrop";
 
-import {
-  ChevronsLeft,
-  MenuIcon,
-  Notebook,
-  Plus,
-  PlusCircle,
-  Search,
-  Settings,
-  Trash,
-} from "lucide-react";
+import { MenuIcon } from "lucide-react";
+import { PlusIcon } from "./icons/PlusIcon";
+import { SidebarCollapseIcon } from "./icons/SidebarCollapseIcon";
+import { MagnifyingGlassIcon } from "./icons/MagnifyingGlassIcon";
+import { SlidersIcon } from "./icons/SlidersIcon";
+import { TrashIcon } from "./icons/TrashIcon";
+import { HomeIcon } from "./icons/HomeIcon";
 import {
   Popover,
   PopoverContent,
@@ -38,20 +32,36 @@ import { useSearch } from "@/hooks/useSearch";
 import { useNewPage } from "@/hooks/useNewPage";
 import { useSettings } from "@/hooks/useSettingsModal";
 import { Navbar } from "./Navbar";
-import { ScrollableList } from "@/components/scrollable-list";
 import { FavoritesList } from "./FavoritesList";
 import { ActionTooltip } from "@/components/action-tooltip";
 import { useFocusMode } from "@/hooks/useFocusMode";
 import { useArchivingDoc } from "@/hooks/useArchivingDoc";
 import NavDrawer from "./NavDrawer";
 
-const SIDEBAR_DEFAULT_WIDTH = 280;
-const SIDEBAR_DEFAULT_WIDTH_CSS = `${SIDEBAR_DEFAULT_WIDTH}px`;
+const SIDEBAR_DEFAULT_WIDTH = 240;
+const SIDEBAR_MIN_WIDTH = 180;
+const SIDEBAR_MAX_WIDTH = 480;
+const SIDEBAR_WIDTH_STORAGE_KEY = "zotion:sidebar-width";
+
+function readStoredSidebarWidth(): number {
+  if (typeof window === "undefined") return SIDEBAR_DEFAULT_WIDTH;
+  const stored = Number(window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
+  if (
+    !Number.isFinite(stored) ||
+    stored < SIDEBAR_MIN_WIDTH ||
+    stored > SIDEBAR_MAX_WIDTH
+  ) {
+    return SIDEBAR_DEFAULT_WIDTH;
+  }
+  return stored;
+}
 
 const Navigation = () => {
-  const sidebarDefaultWidth = SIDEBAR_DEFAULT_WIDTH_CSS;
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
+  const sidebarDefaultWidth = `${sidebarWidth}px`;
   const params = useParams();
   const pathname = usePathname();
+  const router = useRouter();
 
   const isMobile = useMediaQuery("(max-width: 768px)");
   const isDesktop = useMediaQuery("(min-width: 1020px)");
@@ -59,7 +69,6 @@ const Navigation = () => {
   const search = useSearch();
   const settings = useSettings();
   const newPage = useNewPage();
-  const sidebarDnd = useSidebarDragAndDrop();
 
   const { focusMode, setFocusMode } = useFocusMode();
   const archivingId = useArchivingDoc((state) => state.archivingId);
@@ -82,14 +91,12 @@ const Navigation = () => {
     }
   }, [pathname, isMobile]);
 
-  // arşivleme sonrası navigasyon tamamlandığında çöp kutusu bandını serbest bırak
   useEffect(() => {
     if (archivingId && archivingId !== params.documentId) {
       clearArchiving();
     }
   }, [archivingId, params.documentId, clearArchiving]);
 
-  // focus mode effects
   useEffect(() => {
     if (isMobile) return;
 
@@ -102,7 +109,6 @@ const Navigation = () => {
     }
 
     prevFocusMode.current = focusMode;
-    // Bu efektler layout fonksiyonlarını kasıtlı olarak güncel state ile çağırır.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.documentId, focusMode, isMobile, isCollapsed]);
 
@@ -125,7 +131,6 @@ const Navigation = () => {
     }
   }, [focusMode, params.documentId, isMobile, isNavbarHovered, isCollapsed]);
 
-  // key binds effects
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.ctrlKey && e.key === "\\") {
@@ -168,8 +173,8 @@ const Navigation = () => {
     if (!isResizingRef.current) return;
     let newWidth = e.clientX;
 
-    if (newWidth < SIDEBAR_DEFAULT_WIDTH) newWidth = SIDEBAR_DEFAULT_WIDTH;
-    if (newWidth > 480) newWidth = 480;
+    if (newWidth < SIDEBAR_MIN_WIDTH) newWidth = SIDEBAR_MIN_WIDTH;
+    if (newWidth > SIDEBAR_MAX_WIDTH) newWidth = SIDEBAR_MAX_WIDTH;
 
     if (sidebarRef.current && navbarRef.current) {
       sidebarRef.current.style.width = `${newWidth}px`;
@@ -186,6 +191,17 @@ const Navigation = () => {
     setIsResizing(false);
     document.removeEventListener("mousemove", handleMouseMove);
     document.removeEventListener("mouseup", handleMouseUp);
+
+    const finalWidth = sidebarRef.current
+      ? parseInt(sidebarRef.current.style.width, 10)
+      : NaN;
+    if (Number.isFinite(finalWidth)) {
+      setSidebarWidth(finalWidth);
+      window.localStorage.setItem(
+        SIDEBAR_WIDTH_STORAGE_KEY,
+        String(finalWidth),
+      );
+    }
   };
 
   function resetWidth() {
@@ -224,8 +240,11 @@ const Navigation = () => {
     }
   }
 
-  // Keep imperative styles in sync when a preserved client layout receives a
-  // new default width (for example after a Fast Refresh).
+  useLayoutEffect(() => {
+    setSidebarWidth(readStoredSidebarWidth());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useLayoutEffect(() => {
     if (isMobile) {
       collapse();
@@ -235,14 +254,17 @@ const Navigation = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, sidebarDefaultWidth]);
 
+  const isHomeActive = pathname === "/documents";
+
   return (
     <>
       <aside
         ref={sidebarRef}
+        data-sidebar-root
         className={cn(
-          "group/sidebar bg-secondary relative z-300 flex h-full w-[var(--sidebar-default-width)] flex-col overflow-hidden overflow-x-hidden pb-4",
+          "group/sidebar relative z-[300] flex h-full w-[var(--sidebar-default-width)] flex-col overflow-hidden overflow-x-hidden border-r border-[rgba(255,255,255,0.06)] bg-[#202020] font-[Inter,var(--font-inter),-apple-system,BlinkMacSystemFont,sans-serif]",
           isResetting && "transition-all duration-300 ease-in-out",
-          isMobile && "w-0",
+          isMobile && "w-0 border-none",
         )}
         style={
           {
@@ -250,77 +272,130 @@ const Navigation = () => {
           } as React.CSSProperties
         }
       >
-        <ActionTooltip label="Close sidebar (Ctrl + \)">
-          <div
-            onClick={collapse}
-            role="button"
-            aria-label="Close sidebar"
-            className={cn(
-              "text-muted-foreground absolute top-3 right-2 h-6 w-6 rounded-sm opacity-0 transition group-hover/sidebar:opacity-100 hover:bg-neutral-300 dark:hover:bg-neutral-600",
-              isMobile && "opacity-100",
-            )}
-          >
-            <ChevronsLeft className="h-6 w-6" />
-          </div>
-        </ActionTooltip>
-        <div>
-          <UserItem />
-          <Item
-            label="Search"
-            icon={Search}
-            onClick={search.onOpen}
-            shortcut="Ctrl + K"
-          />
-          <Item label="Settings" icon={Settings} onClick={settings.onOpen} />
-          <Item onClick={newPage.onOpen} label="New page" icon={PlusCircle} />
-        </div>
-        <div className="mt-4">
-          <div>
-            <ScrollableList>
-              <FavoritesList />
-              <div className="mt-3">
-                <p className="text-muted-foreground/60 flex items-center px-4 py-1 text-[13px] font-medium">
-                  <Notebook className="mr-1 size-3 shrink-0" />
-                  Notes
-                </p>
-                <DndContext
-                  sensors={sidebarDnd.sensors}
-                  onDragStart={sidebarDnd.onDragStart}
-                  onDragEnd={sidebarDnd.onDragEnd}
-                  // restrictToParentElement KULLANMIYORUZ: sidebar ağacı çok
-                  // seviyeli, her satırın DOM ebeveyni kendi seviyesindeki
-                  // kardeş listesi. O modifier'la sürüklenen öğe görsel
-                  // olarak kendi seviyesinin sınırlarının dışına hiç
-                  // çıkamıyordu — bu da bir alt sayfayı üst seviyeye/başka
-                  // bir ebeveyne sürükleyerek taşımayı (reparent) yapısal
-                  // olarak imkânsız kılıyordu.
-                  modifiers={[restrictToVerticalAxis]}
-                  collisionDetection={closestCenter}
-                >
-                  <DocumentList />
-                </DndContext>
+        {/* Main scroll area - per spec: padding-top 6px */}
+        <div className="sidebar-scroll flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* Content - per spec: padding-inline 8px, padding-bottom 12px, gap 12px sections, gap 1px rows */}
+          <div className="sidebar-content flex min-h-0 flex-1 flex-col gap-[12px]">
+            {/* Workspace + Nav bar - spec ritmi: 6px top, 32px workspace pill, 6px mb,
+                nav 8px py, 32px items, 8px pb. Divider/border YOK. */}
+            <div className="flex flex-col">
+              <div className="mb-[6px] flex items-center gap-[2px]">
+                <div className="min-w-0 flex-1">
+                  <UserItem />
+                </div>
+                <ActionTooltip label="Close sidebar (Ctrl + \)">
+                  <button
+                    type="button"
+                    onClick={collapse}
+                    aria-label="Close sidebar"
+                    className={cn(
+                      "flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-full text-[rgba(255,255,255,0.35)] transition-all duration-100 hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.7)]",
+                      isMobile && "opacity-100",
+                    )}
+                  >
+                    <SidebarCollapseIcon className="h-[16px] w-[16px]" />
+                  </button>
+                </ActionTooltip>
               </div>
-            </ScrollableList>
+              {/* sidebar-nav: py-8, sol 8px sidebar-content'ten, sağ 12px, gap 2px */}
+              <div className="flex items-center gap-[2px] py-[8px] pr-[12px]">
+                <button
+                  type="button"
+                  onClick={() => router.push("/documents")}
+                  aria-label="Home"
+                  className={cn(
+                    // sidebar-tab: 32px, gap 6px, pill 9999, subtle outline ring
+                    "flex h-[32px] shrink-0 items-center gap-[6px] rounded-full pl-[8px] pr-[12px] text-[14px] font-[500] transition-colors duration-100 ease-out ring-1 ring-inset ring-[rgba(255,255,255,0.07)]",
+                    isHomeActive
+                      ? "bg-[rgba(255,255,255,0.07)] text-[#E6E6E6] ring-[rgba(255,255,255,0.14)] hover:bg-[rgba(255,255,255,0.09)]"
+                      : "text-[rgba(255,255,255,0.7)] hover:bg-[rgba(255,255,255,0.05)] hover:ring-[rgba(255,255,255,0.12)] hover:text-[#E6E6E6]",
+                  )}
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  <span className="flex h-[20px] w-[20px] shrink-0 items-center justify-center">
+                    <HomeIcon className="h-[20px] w-[20px]" />
+                  </span>
+                  <span className="truncate">Home</span>
+                </button>
+                <div className="ml-auto flex items-center gap-[2px]">
+                  <ActionTooltip label="Search (Ctrl + K)">
+                    <button
+                      type="button"
+                      onClick={search.onOpen}
+                      aria-label="Search"
+                      className="flex h-[32px] w-[32px] min-w-[32px] items-center justify-center rounded-full text-[rgba(255,255,255,0.45)] transition-colors duration-100 hover:bg-[rgba(255,255,255,0.05)] hover:text-[rgba(255,255,255,0.8)]"
+                    >
+                      <MagnifyingGlassIcon className="h-[20px] w-[20px]" />
+                    </button>
+                  </ActionTooltip>
+                </div>
+              </div>
+            </div>
+
+            {/* Favorites + Private - section spacing 12px, gap 1px per spec */}
+            <div className="flex min-h-0 flex-1 flex-col gap-[12px]">
+              <FavoritesList />
+
+              <div className="mb-[12px] flex min-h-0 flex-1 flex-col gap-[1px]">
+                {/* Section header - spec: height 30, padding-inline 8, gap 4, radius 6, font 12/500 line-height 1 */}
+                <div className="sidebar-section-header group/section flex h-[30px] items-center gap-[4px] rounded-[6px] px-[8px]">
+                  <p className="flex-1 truncate text-[12px] font-[500] leading-[1] text-[rgba(255,255,255,0.45)] whitespace-nowrap overflow-hidden text-ellipsis">
+                    Private
+                  </p>
+                  <ActionTooltip label="Add a page">
+                      <button
+                        type="button"
+                        onClick={newPage.onOpen}
+                        aria-label="Add a page"
+                        className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.35)] opacity-0 invisible transition-all duration-100 hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.7)] group-hover/section:visible group-hover/section:opacity-100"
+                      >
+                        <PlusIcon className="h-[16px] w-[16px]" />
+                      </button>
+                    </ActionTooltip>
+                </div>
+
+                {/* Page tree - spec: flex-col gap 1px, 8px nested indent step */}
+                <div className="flex min-h-0 flex-1 flex-col gap-[1px] overflow-hidden">
+                  <div className="min-h-0 flex-1">
+                    <DocumentList />
+                  </div>
+                  <div className="flex flex-col gap-[1px]">
+                    {/* Add New - spec: height 30 min 27 padding 4/5 8 font 14/500 radius 6, icon box 22x22 mr 8 radius 4, plus icon well placed 16px centered */}
+                    <Item onClick={newPage.onOpen} icon={PlusIcon} label="New page" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <Item onClick={newPage.onOpen} icon={Plus} label="Add a page" />
+        </div>
+
+        {/* Footer - Trash, Settings - gap 1px, section bottom 12px */}
+        <div className="sidebar-content flex shrink-0 flex-col gap-[1px] border-t border-[rgba(255,255,255,0.06)] pb-[12px] pt-[6px]">
           <Popover>
-            <PopoverTrigger className="mt-3 w-full">
-              <Item label="Trash" icon={Trash} />
+            <PopoverTrigger className="w-full">
+              <Item label="Trash" icon={TrashIcon} />
             </PopoverTrigger>
             <PopoverContent
               side={isMobile ? "bottom" : "right"}
-              className="w-72 p-0"
+              className="w-72 border-[rgba(255,255,255,0.08)] bg-[#252525] p-0 text-[#E6E6E6]"
               collisionPadding={16}
             >
               <TrashBox />
             </PopoverContent>
           </Popover>
+          <Item label="Settings" icon={SlidersIcon} onClick={settings.onOpen} />
         </div>
+
+        {/* Resize handle */}
         <div
           onMouseDown={handleMouseDown}
           onClick={resetWidth}
-          className="bg-primary/10 absolute top-0 right-0 h-full w-1 cursor-ew-resize opacity-0 transition group-hover/sidebar:opacity-100"
-        ></div>
+          className="absolute right-0 top-0 h-full w-[3px] cursor-ew-resize bg-transparent opacity-0 transition-all hover:bg-[rgba(255,255,255,0.08)] group-hover/sidebar:opacity-100"
+        />
       </aside>
       {isCollapsed && isDesktop && !focusMode && (
         <NavDrawer resetWidth={resetWidth} isMobile={isMobile} />
@@ -353,14 +428,23 @@ const Navigation = () => {
           >
             {isCollapsed && (
               <ActionTooltip label="Open sidebar (Ctrl + \)">
-                <button onClick={resetWidth}>
-                  <MenuIcon className="text-muted-foreground h-6 w-6" />
+                <button
+                  onClick={resetWidth}
+                  className="flex h-7 w-7 items-center justify-center rounded-[6px] hover:bg-[rgba(0,0,0,0.06)] dark:hover:bg-[rgba(255,255,255,0.08)]"
+                >
+                  <MenuIcon className="h-5 w-5 text-muted-foreground" />
                 </button>
               </ActionTooltip>
             )}
           </nav>
         )}
       </div>
+      <style jsx global>{`
+        [data-sidebar-root] .group\\/section:hover .group\\/section-btn,
+        [data-sidebar-root]:hover .group\\/section-btn {
+          opacity: 1 !important;
+        }
+      `}</style>
     </>
   );
 };

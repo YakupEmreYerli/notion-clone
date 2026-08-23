@@ -8,7 +8,11 @@ import { ModalProvider } from "@/components/providers/modal-provider";
 import { ToasterProvider } from "@/components/providers/toaster-provider";
 import { getConvexUrl } from "@/lib/env";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  weight: ["400", "500"],
+});
 const lora = Lora({ subsets: ["latin"], variable: "--font-lora" });
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],

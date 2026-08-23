@@ -45,6 +45,13 @@ export default defineSchema({
     .searchIndex("search_text", {
       searchField: "searchText",
       filterFields: ["userId"],
+    })
+    // "Title only" filtresi için başlık-üzeri arama index'i — normal arama
+    // `searchText` (başlık + içerik) üzerinde çalışır, bu index yalnızca
+    // `title` üzerinde eşleşme yapar (Notion'ın Title only toggle'ı).
+    .searchIndex("search_title", {
+      searchField: "title",
+      filterFields: ["userId"],
     }),
 
   databaseProperties: defineTable({

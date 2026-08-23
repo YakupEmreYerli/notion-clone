@@ -9,7 +9,9 @@ import { Id } from "@/convex/_generated/dataModel";
 import { deleteFiles, getDocumentUrls } from "@/lib/storage";
 import { getDocumentLabel } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
-import { Coffee, Search, Trash, Trash2, Undo } from "lucide-react";
+import { Coffee, Undo } from "lucide-react";
+import { MagnifyingGlassIcon } from "./icons/MagnifyingGlassIcon";
+import { TrashIcon } from "./icons/TrashIcon";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -105,7 +107,7 @@ export const TrashBox = () => {
   return (
     <section className="text-sm">
       <div className="flex items-center gap-x-1 p-2">
-        <Search className="h-4 w-4" />
+        <MagnifyingGlassIcon className="h-4 w-4" />
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -121,7 +123,7 @@ export const TrashBox = () => {
                   role="button"
                   className="rounded-sm p-2 hover:bg-neutral-200 dark:hover:bg-neutral-600"
                 >
-                  <Trash2 className="size-4 text-rose-500" />
+                  <TrashIcon className="size-4 text-rose-500" />
                 </div>
               </ActionTooltip>
             </div>
@@ -171,7 +173,7 @@ export const TrashBox = () => {
                         className="rounded-sm p-2 hover:bg-neutral-200 dark:hover:bg-neutral-600"
                         aria-label="Delete Permanently"
                       >
-                        <Trash className="text-muted-foreground h-4 w-4" />
+                        <TrashIcon className="text-muted-foreground h-4 w-4" />
                       </button>
                     </ActionTooltip>
                   </div>

@@ -324,7 +324,13 @@ export const getSearch = query({
 });
 
 export const searchDocuments = query({
-  args: { query: v.string() },
+  args: {
+    query: v.string(),
+    // Notion "Title only" filtresi — yalnızca başlık üzerinde eşleşme.
+    titleOnly: v.optional(v.boolean()),
+    // Notion "In" filtresi — yalnızca bu sayfa/database alt ağacında ara.
+    scopeId: v.optional(v.id("documents")),
+  },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
 
@@ -337,20 +343,90 @@ export const searchDocuments = query({
 
     const userId = identity.subject;
 
-    const documents = await ctx.db
-      .query("documents")
-      .withSearchIndex("search_text", (q) =>
-        q.search("searchText", trimmed).eq("userId", userId),
-      )
-      .filter((q) => q.eq(q.field("isArchived"), false))
-      .take(20);
+    // "In" filtresi: seçilen sayfa/database alt ağacını topla.
+    let scopeIds: Id<"documents">[] | undefined;
+    if (args.scopeId) {
+      const all = await ctx.db
+        .query("documents")
+        .withIndex("by_user", (q) => q.eq("userId", userId))
+        .filter((q) => q.eq(q.field("isArchived"), false))
+        .collect();
+      const byParent = new Map<string, Doc<"documents">[]>();
+      for (const d of all) {
+        const key = d.parentDocument ?? "root";
+        byParent.set(key, [...(byParent.get(key) ?? []), d]);
+      }
+      const set = new Set<Id<"documents">>();
+      const stack: Id<"documents">[] = [args.scopeId];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        if (set.has(cur)) continue;
+        set.add(cur);
+        for (const child of byParent.get(cur) ?? []) stack.push(child._id);
+      }
+      scopeIds = [...set];
+    }
 
-    return documents.map((document) => ({
-      _id: document._id,
-      title: document.title,
-      icon: document.icon,
-      type: document.type,
-    }));
+    let base = ctx.db
+      .query("documents")
+      .withSearchIndex(
+        args.titleOnly ? "search_title" : "search_text",
+        (q) =>
+          q
+            .search(args.titleOnly ? "title" : "searchText", trimmed)
+            .eq("userId", userId),
+      )
+      .filter((q) => q.eq(q.field("isArchived"), false));
+
+    // Convex filtresinde `in` operatörü yok — scope filtrelemesini sonuç
+    // üzerinde yapıyoruz. Arama `take` limitine takılmadan scope içindeki
+    // eşleşmeleri korumak için daha geniş bir pencere alıp daraltıyoruz.
+    const docs = await base.take(100);
+
+    // Breadcrumb / parent path için ebeveyn zincirini çöz (Notion'un
+    // "Main Hub / Kitaplar" gösterimi — search dışında da link picker,
+    // move-page gibi yerlerde yeniden kullanılabilir).
+    const results = [];
+    for (const document of docs) {
+      if (scopeIds && !scopeIds.includes(document._id)) continue;
+
+      const breadcrumbs: {
+        id: string;
+        title: string;
+        icon?: string;
+        type?: "page" | "database";
+      }[] = [];
+      let current: Doc<"documents"> = document;
+      let guard = 0;
+      while (current.parentDocument && guard < 50) {
+        const parent = await ctx.db.get(current.parentDocument);
+        if (!parent || parent.userId !== userId) break;
+        breadcrumbs.unshift({
+          id: parent._id,
+          title: parent.title,
+          icon: parent.icon,
+          type: parent.type,
+        });
+        current = parent;
+        guard++;
+      }
+
+      results.push({
+        _id: document._id,
+        title: document.title,
+        icon: document.icon,
+        type: document.type,
+        parentId: document.parentDocument ?? undefined,
+        breadcrumbs,
+        createdAt: document._creationTime,
+        updatedAt: document.updatedAt,
+        createdBy: document.userId,
+      });
+
+      if (results.length >= 50) break;
+    }
+
+    return results;
   },
 });
 
@@ -755,10 +831,45 @@ export const getRecentlyOpened = query({
       )
       .collect();
 
-    return documents
-      .filter((doc) => doc.lastOpenedAt)
-      .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
-      .slice(0, 4);
+    return Promise.all(
+      documents
+        .filter((doc) => doc.lastOpenedAt)
+        .sort((a, b) => (b.lastOpenedAt ?? 0) - (a.lastOpenedAt ?? 0))
+        .slice(0, 4)
+        .map(async (document) => {
+          const breadcrumbs: {
+            id: string;
+            title: string;
+            icon?: string;
+            type?: "page" | "database";
+          }[] = [];
+          let current: Doc<"documents"> = document;
+          let guard = 0;
+          while (current.parentDocument && guard < 50) {
+            const parent = await ctx.db.get(current.parentDocument);
+            if (!parent || parent.userId !== userId) break;
+            breadcrumbs.unshift({
+              id: parent._id,
+              title: parent.title,
+              icon: parent.icon,
+              type: parent.type,
+            });
+            current = parent;
+            guard++;
+          }
+          return {
+            _id: document._id,
+            title: document.title,
+            icon: document.icon,
+            type: document.type,
+            parentId: document.parentDocument ?? undefined,
+            breadcrumbs,
+            createdAt: document._creationTime,
+            updatedAt: document.updatedAt,
+            createdBy: document.userId,
+          };
+        }),
+    );
   },
 });
 

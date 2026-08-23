@@ -4,16 +4,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useNavDrawer } from "@/hooks/useNavDrawer";
 import { cn } from "@/lib/utils";
 import { useAccountModal } from "@/hooks/useAccountModal";
 import { authClient } from "@/lib/auth-client";
-import { ChevronsLeftRight, LogOut, Settings } from "lucide-react";
+import { Check, LogOut } from "lucide-react";
+import { ChevronDownSmallIcon } from "./icons/ChevronDownSmallIcon";
+import { SlidersIcon } from "./icons/SlidersIcon";
 import { useRouter } from "next/navigation";
+
+const actionRowBase =
+  "flex h-[28px] cursor-pointer items-center rounded-[6px] px-[6px] transition-colors duration-150 select-none hover:bg-[rgba(255,255,255,0.055)]";
 
 export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
   const router = useRouter();
@@ -39,82 +42,147 @@ export const UserItem = ({ navDrawer }: { navDrawer?: boolean }) => {
 
   return (
     <DropdownMenu onOpenChange={navDrawer ? onOpenChange : undefined}>
-      <DropdownMenuTrigger className={navDrawer ? "w-full" : ""}>
+      <DropdownMenuTrigger
+        className={cn("w-full focus:outline-none", navDrawer && "w-full")}
+      >
         <div
-          role="button"
           className={cn(
-            "hover:bg-primary/5 flex w-full items-center p-3 text-sm",
-            navDrawer ? "justify-between rounded-full" : "rounded-none",
+            // workspace-switcher spec: 32px pill, radius 9999, hover rgba(255,255,255,0.05)
+            "group flex h-[32px] w-full items-center rounded-full bg-transparent transition-colors duration-100 ease-out hover:bg-[rgba(255,255,255,0.05)]",
+            "text-[#E6E6E6]",
           )}
         >
+          {/* workspace-switcher-inner: 30px / min 27, padding 4px 8px, 14px/500 */}
           <div
             className={cn(
-              "flex items-center gap-x-2",
-              navDrawer ? "w-full" : "max-w-39",
+              "flex h-[30px] min-h-[27px] w-full min-w-0 items-center rounded-full px-[8px] py-[4px]",
+              navDrawer ? "justify-between" : "",
             )}
           >
-            <Avatar className="h-5 w-5 rounded-md">
-              <AvatarImage src={user?.image ?? undefined} />
-              <AvatarFallback className="bg-primary text-primary-foreground rounded-md text-[0.625rem] font-semibold">
+            <div
+              className={cn(
+                "flex min-w-0 flex-1 items-center overflow-hidden",
+                navDrawer ? "w-full" : "",
+              )}
+            >
+              {/* Avatar slot 22x22 mr-8; gerçek avatar 20x20 radius 4 */}
+              <span className="mr-[8px] flex h-[22px] w-[22px] shrink-0 items-center justify-center">
+                <Avatar className="size-[20px] shrink-0 rounded-[4px] ring-1 ring-[rgba(255,255,255,0.08)]">
+                  <AvatarImage
+                    src={user?.image ?? undefined}
+                    className="rounded-[4px]"
+                  />
+                  <AvatarFallback className="rounded-[4px] bg-[#3f3f3f] text-[13px] font-medium leading-none text-[#E6E6E6]">
+                    {initial}
+                  </AvatarFallback>
+                </Avatar>
+              </span>
+              {/* workspace-title: 14px/500 line-height 20, ellipsis, wrapper mr-6 */}
+              <span className="mr-[6px] truncate whitespace-nowrap text-[14px] font-[500] leading-[20px] text-[#E6E6E6] overflow-hidden text-ellipsis">
+                {user?.name ? `${user.name}'s Zotion` : "Zotion"}
+              </span>
+            </div>
+            <div className="ml-auto flex shrink-0 items-center pl-[3px]">
+              <ChevronDownSmallIcon
+                className={cn(
+                  "h-3 w-auto shrink-0 text-[rgba(255,255,255,0.45)] transition-colors group-hover:text-[rgba(255,255,255,0.7)]",
+                  navDrawer && "hidden",
+                )}
+              />
+            </div>
+          </div>
+        </div>
+      </DropdownMenuTrigger>
+
+      {/* workspace-modal: 300px, translateX(-4px), 8px inner padding */}
+      <DropdownMenuContent
+        align="start"
+        alignOffset={8}
+        forceMount
+        className="w-[300px] overflow-visible rounded-[6px] border border-[rgba(255,255,255,0.08)] bg-[#252525] p-0 text-[#E6E6E6] shadow-2xl"
+        style={{ transform: "translateX(-4px)" }}
+      >
+        <div className="p-2">
+          {/* Workspace header: 36x36 avatar + name/plan */}
+          <div className="flex items-center gap-2 pb-1">
+            <Avatar className="size-9 shrink-0 rounded-[4px]">
+              <AvatarImage
+                src={user?.image ?? undefined}
+                className="rounded-[4px]"
+              />
+              <AvatarFallback className="rounded-[4px] bg-[#3f3f3f] text-[18px] font-medium leading-none text-[#E6E6E6]">
                 {initial}
               </AvatarFallback>
             </Avatar>
-            <span className="text-foreground line-clamp-1 text-start font-semibold">
-              {user?.name}&apos;s Zotion
-            </span>
-          </div>
-          <ChevronsLeftRight className="text-muted-foreground ml-2 h-4 w-4 rotate-90" />
-        </div>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="w-80"
-        align="start"
-        alignOffset={11}
-        forceMount
-      >
-        <div className="flex flex-col space-y-4 p-2">
-          <p className="text-muted-foreground text-xs leading-none font-medium">
-            {user?.email}
-          </p>
-          <div className="flex items-center gap-x-2">
-            <div className="bg-secondary rounded-md p-1">
-              <Avatar>
-                <AvatarImage src={user?.image ?? undefined} />
-                <AvatarFallback>{initial}</AvatarFallback>
-              </Avatar>
-            </div>
-            <div className="space-y-1">
-              <p className="line-clamp-1 text-sm">{user?.name}&apos;s Zotion</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-[500] leading-[1.2] text-[#E6E6E6] overflow-hidden text-ellipsis whitespace-nowrap">
+                {user?.name ? `${user.name}'s Space` : "Space"}
+              </p>
+              <p className="truncate text-[12px] leading-[1.3] text-[rgba(255,255,255,0.45)]">
+                Free Plan · 1 member
+              </p>
             </div>
           </div>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          asChild
-          className="text-muted-foreground w-full cursor-pointer"
-        >
+
+          {/* Header separator */}
+          <div className="pt-1 pb-2">
+            <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
+          </div>
+
+          {/* Settings — çalışan tek üst aksiyon */}
           <button
+            type="button"
             onClick={() => {
               setInnerPopoverOpen(false);
               account.onOpen();
             }}
+            className={cn(actionRowBase, "text-[#E6E6E6]")}
           >
-            <Settings className="text-muted-foreground size-4" />
-            Manage Account
-          </button>
-        </DropdownMenuItem>
-
-        <DropdownMenuItem
-          asChild
-          className="group w-full cursor-pointer hover:text-black dark:hover:text-white!"
-        >
-          <button onClick={onSignOut}>
-            <LogOut className="text-muted-foreground size-4" />
-            <span className="text-muted-foreground transition-colors group-hover:text-black dark:group-hover:text-white">
-              Log Out
+            <SlidersIcon className="mr-[6px] size-4 shrink-0 text-[rgba(255,255,255,0.45)]" />
+            <span className="text-[13px] font-[500] text-[#E6E6E6]">
+              Settings
             </span>
           </button>
-        </DropdownMenuItem>
+
+          {/* İkinci separator */}
+          <div className="py-2">
+            <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
+          </div>
+
+          {/* Workspace bilgisi: aktif workspace + checkmark */}
+          <div className="flex h-[28px] w-full items-center gap-[6px] rounded-[6px] px-[4px] py-[2px] pl-[6px]">
+            <Avatar className="size-[20px] shrink-0 rounded-[4px]">
+              <AvatarImage
+                src={user?.image ?? undefined}
+                className="rounded-[4px]"
+              />
+              <AvatarFallback className="rounded-[4px] bg-[#3f3f3f] text-[12px] font-medium leading-none text-[#E6E6E6]">
+                {initial}
+              </AvatarFallback>
+            </Avatar>
+            <span className="min-w-0 flex-1 truncate text-[13px] font-[400] text-[#E6E6E6] overflow-hidden text-ellipsis whitespace-nowrap">
+              {user?.name ? `${user.name}'s Space` : "Space"}
+            </span>
+            <span className="ml-auto flex shrink-0 items-center">
+              <Check className="size-4 text-[#E6E6E6]" strokeWidth={2} />
+            </span>
+          </div>
+
+          {/* Logout footer: separator + Log out */}
+          <div className="pt-2">
+            <div className="h-px w-full bg-[rgba(255,255,255,0.08)]" />
+          </div>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="mt-2 flex h-[28px] w-full cursor-pointer items-center gap-[6px] rounded-[6px] px-[6px] text-left transition-colors duration-150 hover:bg-[rgba(255,255,255,0.055)]"
+          >
+            <LogOut className="size-4 shrink-0 text-[rgba(255,255,255,0.45)]" />
+            <span className="text-[12px] font-[400] whitespace-nowrap text-[rgba(255,255,255,0.6)]">
+              Log out
+            </span>
+          </button>
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

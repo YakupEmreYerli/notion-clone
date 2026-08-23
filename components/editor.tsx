@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorFont } from "@/hooks/useEditorFont";
 import { useCoverImage } from "@/hooks/useCoverImage";
 import { useWordCount } from "@/hooks/useWordCount";
@@ -13,12 +13,14 @@ import {
 } from "@blocknote/core";
 import { useCreateBlockNote } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
+import { TextSelectionMenuController } from "@/components/editor/TextSelectionMenuController";
 import { useTheme } from "next-themes";
 import { deleteFile, uploadFile } from "@/lib/storage";
 import { codeBlockOptions } from "@blocknote/code-block";
 import "@blocknote/core/style.css";
 import "@blocknote/mantine/style.css";
 import { Doc } from "@/convex/_generated/dataModel";
+import { ImageContextMenu } from "@/components/image-context-menu";
 
 interface EditorProps {
   onChange: (value: string) => void;
@@ -85,6 +87,13 @@ const Editor = ({
 
   const wrapperRef = useRef<HTMLDivElement>(null);
   const trackedUrlsRef = useRef<Set<string>>(new Set());
+
+  // Image sağ tık context menu — açıkken imleç konumu + hedef block id.
+  const [imageMenu, setImageMenu] = useState<{
+    x: number;
+    y: number;
+    blockId: string;
+  } | null>(null);
 
   const handleUpload = async (file: File) => uploadFile(file);
 
@@ -235,6 +244,80 @@ const Editor = ({
     editor.focus();
   };
 
+  // Image block üzerinde sağ tık → browser default menu'yü kapat, imlecin
+  // yanında Notion tarzı context menu aç. Sadece image'lar; diğer bloklarda
+  // default davranış korunur.
+  const handleContextMenu = (e: React.MouseEvent) => {
+    const imgEl = (e.target as HTMLElement).closest<HTMLElement>(
+      "[data-content-type='image']",
+    );
+    if (!imgEl) return;
+
+    const blockEl = imgEl.closest<HTMLElement>(
+      "[data-node-type='blockContainer']",
+    );
+    const blockId = blockEl?.getAttribute("data-id");
+    if (!blockId) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    setImageMenu({ x: e.clientX, y: e.clientY, blockId });
+  };
+
+  const getImageUrl = (blockId: string): string | undefined => {
+    const block = editor.getBlock(blockId);
+    return (block?.props as { url?: string } | undefined)?.url;
+  };
+
+  // En iyi çaba implementasyonlar; başarısızlıkta sessizce geç (sahte toast
+  // göstermeyiz).
+  const handleCopyImage = async (blockId: string) => {
+    const url = getImageUrl(blockId);
+    if (!url || typeof ClipboardItem === "undefined") return;
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type || "image/png"]: blob }),
+      ]);
+    } catch {
+      // sessiz
+    }
+  };
+
+  const handleDownload = async (blockId: string) => {
+    const url = getImageUrl(blockId);
+    if (!url) return;
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = url.split("/").pop()?.split("?")[0] || "image";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // sessiz
+    }
+  };
+
+  const handleCopyBlockLink = async (blockId: string) => {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}${window.location.pathname}#${blockId}`,
+      );
+    } catch {
+      // sessiz
+    }
+  };
+
+  const handleDeleteBlock = (blockId: string) => {
+    editor.removeBlocks([blockId]);
+  };
+
   return (
     <div
       ref={wrapperRef}
@@ -249,6 +332,7 @@ const Editor = ({
       onDragOverCapture={handleCapture}
       onMouseDown={handleMouseDown}
       onKeyDown={handleEditorKeyDown}
+      onContextMenu={handleContextMenu}
     >
       <BlockNoteView
         editable={editable && !coverImage.isOpen}
@@ -256,6 +340,27 @@ const Editor = ({
         theme={resolvedTheme === "dark" ? "dark" : "light"}
         onChange={handleEditorChange}
         className="wrap-break-word"
+        formattingToolbar={false}
+      >
+        <TextSelectionMenuController />
+      </BlockNoteView>
+      <ImageContextMenu
+        open={!!imageMenu}
+        x={imageMenu?.x ?? 0}
+        y={imageMenu?.y ?? 0}
+        onClose={() => setImageMenu(null)}
+        onCopyImage={
+          imageMenu ? () => handleCopyImage(imageMenu.blockId) : undefined
+        }
+        onDownload={
+          imageMenu ? () => handleDownload(imageMenu.blockId) : undefined
+        }
+        onCopyLink={
+          imageMenu ? () => handleCopyBlockLink(imageMenu.blockId) : undefined
+        }
+        onDelete={
+          imageMenu ? () => handleDeleteBlock(imageMenu.blockId) : undefined
+        }
       />
     </div>
   );

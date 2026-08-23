@@ -16,21 +16,12 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import {
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  ExternalLink,
   Files,
   FolderInput,
-  GripVertical,
   LucideIcon,
   MoreHorizontal,
-  PanelRight,
   Pencil,
-  Plus,
-  Settings,
   Star,
-  Trash,
 } from "lucide-react";
 
 import { ActionTooltip } from "@/components/action-tooltip";
@@ -39,6 +30,17 @@ import { usePeek } from "@/hooks/usePeek";
 import { useOrigin } from "@/hooks/useOrigin";
 import { useArchivingDoc } from "@/hooks/useArchivingDoc";
 import { PagePicker } from "@/components/page-picker";
+import { PageIcon } from "./icons/PageIcon";
+import { ChevronIcon } from "./icons/ChevronIcon";
+import { PlusIcon } from "./icons/PlusIcon";
+import { LinkIcon } from "./icons/LinkIcon";
+import { ArrowDiagonalUpRightIcon } from "./icons/ArrowDiagonalUpRightIcon";
+import { SidebarRightIcon } from "./icons/SidebarRightIcon";
+import { TrashIcon } from "./icons/TrashIcon";
+
+type SidebarIconType =
+  | LucideIcon
+  | React.ComponentType<{ className?: string; strokeWidth?: number }>;
 
 interface ItemProps {
   id?: Id<"documents">;
@@ -49,12 +51,14 @@ interface ItemProps {
   onExpand?: () => void;
   label?: string;
   onClick?: (event: React.MouseEvent) => void;
-  icon: LucideIcon;
+  icon: SidebarIconType;
   isFavorite?: boolean;
   onFavorite?: () => void;
   shortcut?: string;
   showDragHandle?: boolean;
   navDrawer?: boolean;
+  hasChildren?: boolean;
+  applyIndent?: boolean;
 }
 
 export const Item = ({
@@ -70,8 +74,10 @@ export const Item = ({
   isFavorite,
   onFavorite,
   shortcut,
-  showDragHandle = true,
+  showDragHandle = false,
   navDrawer,
+  hasChildren = false,
+  applyIndent = true,
 }: ItemProps) => {
   const router = useRouter();
   const params = useParams();
@@ -142,7 +148,7 @@ export const Item = ({
     }
   };
 
-  const onArchive = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const onArchive = (event: React.MouseEvent<HTMLElement, MouseEvent>) => {
     event.stopPropagation();
     if (!id) return;
 
@@ -169,13 +175,13 @@ export const Item = ({
   };
 
   const handleExpand = (
-    event: React.MouseEvent<HTMLDivElement, MouseEvent>,
+    event: React.MouseEvent<HTMLElement, MouseEvent>,
   ) => {
     event.stopPropagation();
     onExpand?.();
   };
 
-  const onCreate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const onCreate = (event: React.MouseEvent<HTMLElement, MouseEvent>) => {
     event.stopPropagation();
     if (!id) return;
 
@@ -184,11 +190,6 @@ export const Item = ({
         if (!expanded) {
           onExpand?.();
         }
-
-        // "Full page"/"New tab" tek seferlik bir aksiyondur, kalıcı tercih
-        // değildir — yeni alt sayfa her zaman peek (center/side) ile açılır.
-        // pendingEmpty: PeekModal bu belgeyi başlıksız+içeriksiz kapatılırsa
-        // sessizce siler (Notion'da doğrulanan davranış).
         peek.onOpen(documentId, { pendingEmpty: true });
       },
     );
@@ -200,7 +201,7 @@ export const Item = ({
     });
   };
 
-  const onDuplicate = (event: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+  const onDuplicate = (event: React.MouseEvent<HTMLElement, MouseEvent>) => {
     event.stopPropagation();
     if (!id) return;
 
@@ -220,44 +221,89 @@ export const Item = ({
     setInnerPopoverOpen(open);
   };
 
-  const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+  // Spec: Level 0 → 8px, Level 1 → 16px, Level 2 → 24px, Level 3 → 32px (8px step)
+  const indentPx = applyIndent ? 8 + level * 8 : 8;
+  const isPageIcon = Icon === PageIcon;
+  const isPlusIcon = Icon === PlusIcon;
 
   return (
     <div
       onClick={onClick}
       role="button"
-      style={{ paddingLeft: level ? `${level * 12 + 12}px` : "12px" }}
+      tabIndex={0}
+      style={{
+        paddingLeft: `${indentPx}px`,
+        paddingRight: "8px",
+        paddingTop: "5px",
+        paddingBottom: "5px",
+      }}
       className={cn(
-        "group text-foreground/80 relative mx-2 flex min-h-8 w-[calc(100%-1rem)] items-center rounded-md py-1.5 pr-3 text-sm font-medium hover:bg-neutral-200 dark:hover:bg-neutral-700/60",
-        active &&
-          "text-foreground bg-neutral-200 font-semibold dark:bg-neutral-700/60",
+        // Final spec per user: 14px / 500, no tracking, no leading-none
+        // 30px row, min 27px, 5px 8px padding, radius 6
+        "group relative flex h-[30px] min-h-[27px] w-full items-center rounded-[6px] text-[14px] font-[500] select-none transition-colors duration-[20ms] ease-out",
+        "whitespace-nowrap overflow-hidden text-ellipsis",
+        "text-[#E6E6E6]/90 hover:bg-[rgba(255,255,255,0.055)] hover:text-[#E6E6E6]",
+        active && "bg-[rgba(255,255,255,0.065)] text-[#E6E6E6]",
         navDrawer && !id && "rounded-full",
       )}
     >
-      <div className="group flex items-center justify-center truncate">
-        {!!id && showDragHandle && (
-          <GripVertical className="text-muted-foreground/50 absolute left-0.5 size-3 opacity-0 group-hover:opacity-100" />
-        )}
-        {!!id && (
+      {/* Single 22px icon slot where page icon and chevron overlay - Notion DOM: width 22 height 18 margin-right 8 grid, good placement */}
+      <div className="relative grid h-[18px] w-[22px] shrink-0 place-items-center mr-[8px]">
+        {/* Page / database / generic icon - default visible, hidden on hover when hasChildren, no pointer events when hidden to avoid pır pır */}
+        <div
+          className={cn(
+            "col-start-1 row-start-1 flex h-[18px] w-[22px] items-center justify-center transition-opacity duration-100",
+            hasChildren && "group-hover:opacity-0 group-hover:pointer-events-none",
+          )}
+        >
+          {documentIcon ? (
+            <span className="text-[16px] leading-none grid place-items-center pointer-events-none">
+              {documentIcon}
+            </span>
+          ) : (
+            <Icon
+              strokeWidth={1.8}
+              className={cn(
+                "shrink-0",
+                isPageIcon
+                  ? "h-[18px] w-[18px]"
+                  : isPlusIcon
+                    ? "h-[16px] w-[16px]"
+                    : "h-[20px] w-[20px]",
+                "text-[rgba(255,255,255,0.55)]",
+                active && "text-[#E6E6E6]/90",
+              )}
+            />
+          )}
+        </div>
+
+        {/* Chevron overlay - 20x20 hit area, 12x12 SVG, -90 closed 0 open, 200ms ease-out, filled style, pointer-events fix */}
+        {hasChildren && (
           <div
-            role="button"
-            aria-label={expanded ? "Collapse page" : "Expand page"}
-            aria-expanded={!!expanded}
-            className="mr-1 h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600"
-            onClick={handleExpand}
+            className={cn(
+              "col-start-1 row-start-1 flex h-[18px] w-[22px] items-center justify-center opacity-0 pointer-events-none transition-opacity duration-100",
+              "group-hover:opacity-100 group-hover:pointer-events-auto",
+            )}
           >
-            <ChevronIcon className="text-muted-foreground/50 h-4 w-4 shrink-0" />
+            <button
+              type="button"
+              aria-label={expanded ? "Collapse" : "Expand"}
+              aria-expanded={!!expanded}
+              onClick={handleExpand}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.75)] transition-colors duration-[20ms] focus:outline-none"
+            >
+              <ChevronIcon expanded={!!expanded} />
+            </button>
           </div>
         )}
-        {documentIcon ? (
-          <div className="mr-1 shrink-0 text-[1.125rem] leading-none">
-            {documentIcon}
-          </div>
-        ) : (
-          <Icon
-            className={`text-foreground/70 h-4.5 w-4.5 shrink-0 ${navDrawer && Icon === Settings ? "mr-0" : "mr-2"}`}
-          />
-        )}
+      </div>
+
+      {/* Label - 14px/500, no tracking, no leading-none, nowrap ellipsis */}
+      <div className="flex min-w-0 flex-1 items-center">
         {isRenaming ? (
           <input
             ref={renameInputRef}
@@ -275,47 +321,74 @@ export const Item = ({
                 setIsRenaming(false);
               }
             }}
-            className="w-full min-w-0 truncate bg-transparent outline-none"
+            className="w-full min-w-0 truncate bg-transparent text-[14px] font-[500] text-[#E6E6E6] outline-none"
           />
         ) : (
           label && (
-            <span className="truncate" title={label}>
+            <span
+              className="truncate whitespace-nowrap text-[14px] font-[500]"
+              title={label}
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
               {label}
             </span>
           )
         )}
       </div>
+
       {shortcut && (
-        <kbd className="bg-muted text-muted-foreground pointer-events-none ml-auto hidden h-5 items-center gap-1 rounded border px-1.5 font-mono text-[.625rem] font-medium opacity-100 select-none md:inline-flex dark:bg-neutral-700">
+        <kbd className="pointer-events-none ml-auto hidden h-5 items-center gap-1 rounded border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.06)] px-1.5 font-mono text-[10px] font-medium text-[rgba(255,255,255,0.45)] select-none md:inline-flex">
           {shortcut}
         </kbd>
       )}
+
       {!!id && (
-        <div className="ml-auto flex items-center gap-x-2">
+        <div
+          className={cn(
+            "ml-auto flex shrink-0 items-center gap-[2px] pl-[3px]",
+            "invisible opacity-0 transition-all duration-100",
+            "group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100",
+          )}
+        >
           <ActionTooltip label="Add sub-page">
-            <div
-              role="button"
+            <button
+              type="button"
               aria-label="Add sub-page"
               onClick={onCreate}
-              className="ml-auto h-full rounded-sm opacity-100 transition hover:bg-neutral-300 md:opacity-0 md:group-hover:opacity-100 dark:hover:bg-neutral-600"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.45)] outline-none transition-colors hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.8)] focus-visible:opacity-100"
             >
-              <Plus className="text-muted-foreground h-4 w-4" />
-            </div>
+              <PlusIcon className="h-[16px] w-[16px]" />
+            </button>
           </ActionTooltip>
           <DropdownMenu onOpenChange={navDrawer ? onOpenChange : undefined}>
             <ActionTooltip label="More actions">
-              <DropdownMenuTrigger onClick={(e) => e.stopPropagation()} asChild>
+              <DropdownMenuTrigger
+                onClick={(e) => e.stopPropagation()}
+                asChild
+              >
                 <div
                   role="button"
                   aria-label="More actions"
-                  className="ml-auto h-full rounded-sm opacity-100 transition hover:bg-neutral-300 md:opacity-0 md:group-hover:opacity-100 dark:hover:bg-neutral-600"
+                  tabIndex={0}
+                  className="flex h-[20px] w-[20px] items-center justify-center rounded-full text-[rgba(255,255,255,0.45)] outline-none transition-colors hover:bg-[rgba(255,255,255,0.09)] hover:text-[rgba(255,255,255,0.8)] focus-visible:opacity-100"
                 >
-                  <MoreHorizontal className="text-muted-foreground h-4 w-4" />
+                  <MoreHorizontal
+                    className="h-[12px] w-[12px]"
+                    strokeWidth={1.8}
+                  />
                 </div>
               </DropdownMenuTrigger>
             </ActionTooltip>
             <DropdownMenuContent
-              className="w-65"
+              className="w-64 border-[rgba(255,255,255,0.08)] bg-[#252525] text-[#E6E6E6]"
               align="start"
               side="right"
               forceMount
@@ -325,6 +398,7 @@ export const Item = ({
                   e.stopPropagation();
                   onFavorite?.();
                 }}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)] focus:text-[#E6E6E6]"
               >
                 <Star
                   className={cn(
@@ -339,11 +413,15 @@ export const Item = ({
                   e.stopPropagation();
                   onCopyLink();
                 }}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
               >
-                <Copy className="mr-2 h-4 w-4" />
+                <LinkIcon className="mr-2 h-4 w-auto" />
                 Copy link
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onDuplicate}>
+              <DropdownMenuItem
+                onClick={onDuplicate}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+              >
                 <Files className="mr-2 h-4 w-4" />
                 Duplicate
               </DropdownMenuItem>
@@ -352,17 +430,16 @@ export const Item = ({
                   e.stopPropagation();
                   onStartRename();
                 }}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
               >
                 <Pencil className="mr-2 h-4 w-4" />
                 Rename
               </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {
-                  // Menü önce kapanır; ikinci Radix katmanı bir sonraki tick'te
-                  // açılarak iki DismissableLayer'ın aynı pointer olayını
-                  // paylaşması engellenir.
                   setTimeout(() => setIsMoveToOpen(true), 0);
                 }}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
               >
                 <FolderInput className="mr-2 h-4 w-4" />
                 Move to
@@ -372,8 +449,9 @@ export const Item = ({
                   e.stopPropagation();
                   onOpenInNewTab();
                 }}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
               >
-                <ExternalLink className="mr-2 h-4 w-4" />
+                <ArrowDiagonalUpRightIcon className="mr-2 h-4 w-auto" />
                 Open in new tab
               </DropdownMenuItem>
               <DropdownMenuItem
@@ -381,17 +459,21 @@ export const Item = ({
                   e.stopPropagation();
                   onOpenInSidePeek();
                 }}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
               >
-                <PanelRight className="mr-2 h-4 w-4" />
+                <SidebarRightIcon className="mr-2 h-4 w-4" />
                 Open in side peek
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={onArchive}>
-                <Trash className="mr-2 h-4 w-4" />
+              <DropdownMenuItem
+                onClick={onArchive}
+                className="text-[13px] focus:bg-[rgba(255,255,255,0.08)]"
+              >
+                <TrashIcon className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <div className="space-y-0.5 p-2 text-[.6875rem]">
-                <p className="text-muted-foreground/70">
+              <DropdownMenuSeparator className="bg-[rgba(255,255,255,0.08)]" />
+              <div className="space-y-0.5 p-2 text-[11px] text-[rgba(255,255,255,0.45)]">
+                <p>
                   Last edited on{" "}
                   {document
                     ? new Date(
@@ -406,14 +488,17 @@ export const Item = ({
                       })
                     : "..."}
                 </p>
-                <p className="text-muted-foreground/70">
+                <p>
                   Created on{" "}
                   {document
-                    ? new Date(document._creationTime).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
+                    ? new Date(document._creationTime).toLocaleString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        },
+                      )
                     : "..."}
                 </p>
               </div>
@@ -438,11 +523,11 @@ export const Item = ({
 Item.Skeleton = function ItemSkeleton({ level }: { level?: number }) {
   return (
     <div
-      style={{ paddingLeft: level ? `${level * 12 + 25}px` : "12px" }}
-      className="flex gap-x-2 py-0.75"
+      style={{ paddingLeft: `${8 + (level ?? 0) * 8}px` }}
+      className="flex h-[30px] min-h-[27px] items-center px-[8px] py-[5px]"
     >
-      <Skeleton className="h-4 w-4" />
-      <Skeleton className="h-4 w-[30%]" />
+      <Skeleton className="mr-[8px] h-[18px] w-[22px] rounded-[4px] bg-[rgba(255,255,255,0.08)]" />
+      <Skeleton className="h-3 w-[50%] rounded-[3px] bg-[rgba(255,255,255,0.08)]" />
     </div>
   );
 };

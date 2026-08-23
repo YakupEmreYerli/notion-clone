@@ -11,7 +11,7 @@ import { useFocusMode } from "@/hooks/useFocusMode";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { deleteFile, isFileUrl } from "@/lib/storage";
+import { deleteFile, isFileUrl, isOptimizableImageUrl } from "@/lib/storage";
 import { Skeleton } from "./ui/skeleton";
 import { Spinner } from "./spinner";
 import {
@@ -142,21 +142,43 @@ export const Cover = ({
     >
       {!!url &&
         (isUrl ? (
-          <Image
-            src={url}
-            fill
-            alt="cover"
-            priority
-            onPointerDown={onPointerDownDrag}
-            style={{
-              objectPosition: `center ${isRepositioning ? draftY : savedY}%`,
-            }}
-            className={cn(
-              "object-cover",
-              isRepositioning &&
-                "cursor-grab touch-none active:cursor-grabbing",
-            )}
-          />
+          isOptimizableImageUrl(url) ? (
+            <Image
+              src={url}
+              fill
+              alt="cover"
+              priority
+              onPointerDown={onPointerDownDrag}
+              style={{
+                objectPosition: `center ${isRepositioning ? draftY : savedY}%`,
+              }}
+              className={cn(
+                "object-cover",
+                isRepositioning &&
+                  "cursor-grab touch-none active:cursor-grabbing",
+              )}
+            />
+          ) : (
+            // next/image, next.config.mjs'de allowlist'lenmemiş bir host'tan
+            // görsel istendiğinde crash ediyor (next-image-unconfigured-host).
+            // Her olası host'u önceden eklemek pratik değil — bilinmeyen
+            // host'lu bir kapak (ör. eski/manuel eklenmiş veri) burada
+            // optimize edilmeden düz <img> ile gösteriliyor.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt="cover"
+              onPointerDown={onPointerDownDrag}
+              style={{
+                objectPosition: `center ${isRepositioning ? draftY : savedY}%`,
+              }}
+              className={cn(
+                "absolute inset-0 h-full w-full object-cover",
+                isRepositioning &&
+                  "cursor-grab touch-none active:cursor-grabbing",
+              )}
+            />
+          )
         ) : (
           <div className="h-full w-full" style={{ background: url }} />
         ))}
@@ -168,20 +190,26 @@ export const Cover = ({
               Drag image to reposition
             </span>
           </div>
+          {/* Diğer kapak overlay kontrolleri (Change/Reposition/Remove) sabit
+              koyu/cam bir pill (bg-black/80 + backdrop-blur-sm) kullanıyor —
+              hangi kapak görseli veya uygulama teması olursa olsun okunaklı
+              kalıyor. Bu iki buton eskiden generic, temaya göre değişen
+              shadcn stilini kullanıyordu; aynı cam-pill diline geçirildi. */}
           <div className="absolute top-16 right-3 z-50 flex items-center gap-x-2">
             <Button
               onClick={onCancelReposition}
-              className="text-muted-foreground dark:bg-dark dark:hover:bg-dark/80 text-xs"
-              variant="outline"
+              variant="ghost"
               size="sm"
+              className="h-8 rounded-md bg-black/80 text-xs text-white shadow-sm backdrop-blur-sm hover:bg-black/70 hover:text-white"
               disabled={isSavingPosition}
             >
               Cancel
             </Button>
             <Button
               onClick={onSavePosition}
-              className="text-xs"
+              variant="ghost"
               size="sm"
+              className="h-8 rounded-md bg-white text-xs text-black shadow-sm hover:bg-white/90 hover:text-black"
               disabled={isSavingPosition}
             >
               {isSavingPosition ? <Spinner size="sm" /> : "Save position"}

@@ -18,10 +18,10 @@ import {
   FolderInput,
   Maximize2,
   MoreHorizontal,
-  Settings,
   TableOfContents,
-  Trash,
 } from "lucide-react";
+import { SlidersIcon } from "./icons/SlidersIcon";
+import { TrashIcon } from "./icons/TrashIcon";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSettings } from "@/hooks/useSettingsModal";
@@ -130,7 +130,7 @@ export const Menu = ({ documentId }: MenuProps) => {
         />
         <DropdownMenuSeparator className="mx-1.5" />
         <DropdownMenuItem onClick={settings.onOpen}>
-          <Settings className="mr-2 h-4 w-4" />
+          <SlidersIcon className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -140,7 +140,7 @@ export const Menu = ({ documentId }: MenuProps) => {
           Move to
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onArchive}>
-          <Trash className="mr-2 h-4 w-4" />
+          <TrashIcon className="mr-2 h-4 w-4" />
           Move to Trash
         </DropdownMenuItem>
         <DropdownMenuSeparator className="mx-1.5" />

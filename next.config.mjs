@@ -7,11 +7,12 @@ const nextConfig = {
   serverExternalPackages: ["pg"],
   images: {
     // Uploads are served from the app itself (/api/files/<key>) — no remote
-    // host needed for those. The two entries below are for the built-in
-    // cover image gallery (Met Museum + NASA open-access artwork).
+    // host needed for those. The entries below are for the built-in cover
+    // image gallery (lib/coverGallery.ts): The Met + Cleveland Museum of Art
+    // open-access (CC0) CDNs.
     remotePatterns: [
       { protocol: "https", hostname: "images.metmuseum.org" },
-      { protocol: "https", hostname: "images-assets.nasa.gov" },
+      { protocol: "https", hostname: "openaccess-cdn.clevelandart.org" },
     ],
   },
   async rewrites() {

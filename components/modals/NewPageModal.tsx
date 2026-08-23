@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "convex/react";
-import { ChevronDown, File, Lock, Table2, X } from "lucide-react";
+import { ChevronDown, File, Lock, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -14,10 +14,11 @@ import { useNewPage } from "@/hooks/useNewPage";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
+import { DatabaseIcon } from "@/app/(main)/_components/icons/DatabaseIcon";
 
 const OPTIONS = [
   { key: "page", label: "Empty page", icon: File },
-  { key: "database", label: "Empty database", icon: Table2 },
+  { key: "database", label: "Empty database", icon: DatabaseIcon },
 ] as const;
 
 export const NewPageModal = () => {

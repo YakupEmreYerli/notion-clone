@@ -13,13 +13,13 @@ interface CoverGalleryProps {
 
 export const CoverGallery = ({ onSelect, selectedUrl }: CoverGalleryProps) => {
   return (
-    <div className="max-h-[360px] space-y-4 overflow-y-auto p-2">
+    <div className="max-h-[380px] space-y-5 overflow-y-auto p-2">
       {GALLERY_CATEGORIES.map((category) => (
         <div key={category.name}>
           <p className="text-muted-foreground mb-2 text-xs font-medium">
             {category.name}
           </p>
-          <div className="grid grid-cols-4 gap-1.5">
+          <div className="grid grid-cols-4 gap-2">
             {category.images.map((image) => (
               <ActionTooltip
                 key={image.url}
@@ -31,7 +31,7 @@ export const CoverGallery = ({ onSelect, selectedUrl }: CoverGalleryProps) => {
                   onClick={() => onSelect(image.url)}
                   aria-label={image.label}
                   className={cn(
-                    "border-border relative aspect-square overflow-hidden rounded-md border transition hover:opacity-80",
+                    "border-border relative aspect-[3/2] overflow-hidden rounded-md border transition hover:opacity-80",
                     selectedUrl === image.url &&
                       "ring-primary ring-2 ring-offset-1",
                   )}
@@ -40,7 +40,7 @@ export const CoverGallery = ({ onSelect, selectedUrl }: CoverGalleryProps) => {
                     src={image.url}
                     alt={image.label}
                     fill
-                    sizes="120px"
+                    sizes="160px"
                     className="object-cover"
                   />
                 </button>

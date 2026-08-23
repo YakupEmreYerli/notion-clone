@@ -16,6 +16,29 @@ export const isFileUrl = (value?: string | null): value is string =>
 export const isManagedFileUrl = (value?: string | null): value is string =>
   !!value && value.startsWith(FILE_ROUTE_PREFIX);
 
+// next.config.mjs'in `images.remotePatterns`'ıyla senkron tutulmalı —
+// next/image, izin verilmeyen bir host'tan görsel istendiğinde crash ediyor
+// (next-image-unconfigured-host). Kapsam dışındaki bir host'tan gelen url
+// (ör. eski/manuel eklenmiş bir kapak, ya da ileride eklenebilecek bir "link
+// yapıştır" özelliği) next/image yerine düz <img>'e düşürülüyor — her olası
+// host'u önceden allowlist'e eklemek pratik değil, next/image'ı `**` ile
+// açık bir proxy'ye çevirmek de güvenlik riski.
+const OPTIMIZABLE_IMAGE_HOSTS = new Set([
+  "images.metmuseum.org",
+  "openaccess-cdn.clevelandart.org",
+]);
+
+/** True if `next/image` can safely optimize this URL (same-origin upload or a whitelisted host). */
+export const isOptimizableImageUrl = (value?: string | null): boolean => {
+  if (!value) return false;
+  if (value.startsWith(FILE_ROUTE_PREFIX)) return true;
+  try {
+    return OPTIMIZABLE_IMAGE_HOSTS.has(new URL(value).hostname);
+  } catch {
+    return false;
+  }
+};
+
 export const uploadFile = async (file: File): Promise<string> => {
   const body = new FormData();
   body.append("file", file);

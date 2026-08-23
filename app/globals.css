@@ -27,17 +27,42 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: #f8f8f7;
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: rgba(0, 0, 0, 0.06);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-hover: rgba(0, 0, 0, 0.04);
+  --sidebar-text: rgba(0, 0, 0, 0.81);
+  --sidebar-text-active: rgba(0, 0, 0, 0.95);
+  --sidebar-muted: rgba(0, 0, 0, 0.46);
+  --sidebar-icon: rgba(0, 0, 0, 0.46);
+  --sidebar-workspace-text: rgba(0, 0, 0, 0.81);
+  --sidebar-scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --sidebar-scroll-shadow: rgba(0, 0, 0, 0.12);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --dark: oklch(23.929% 0.00003 271.152);
+
+  /* Notion compact tokens - ortak spacing sistemi */
+  --sidebar-row-height: 30px;
+  --sidebar-row-min-height: 27px;
+  --sidebar-padding-x: 8px;
+  --sidebar-indent-step: 8px;
+  --sidebar-icon-slot: 22px;
+  --sidebar-icon-size: 20px;
+  --sidebar-page-icon-size: 18px;
+  --sidebar-chevron-size: 12px;
+  --sidebar-icon-text-gap: 8px;
+  --sidebar-row-gap: 1px;
+  --sidebar-section-gap: 12px;
+  --sidebar-row-radius: 6px;
+  --sidebar-control-radius: 9999px;
+  --sidebar-font-size: 14px;
+  --sidebar-section-font-size: 12px;
 }
 
 .dark {
@@ -64,14 +89,23 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
+  /* Notion Dark Theme - final adjusted opacity per review (0.09 -> 0.065 more subtle) */
+  --sidebar: #202020;
+  --sidebar-foreground: #E6E6E6;
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-accent: rgba(255, 255, 255, 0.065);
+  --sidebar-accent-foreground: #E6E6E6;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
   --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-hover: rgba(255, 255, 255, 0.055);
+  --sidebar-text: #E6E6E6;
+  --sidebar-text-active: #E6E6E6;
+  --sidebar-muted: rgba(255, 255, 255, 0.45);
+  --sidebar-icon: rgba(255, 255, 255, 0.45);
+  --sidebar-workspace-text: #E6E6E6;
+  --sidebar-scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --sidebar-scroll-shadow: rgba(0, 0, 0, 0.35);
   --dark: oklch(23.929% 0.00003 271.152);
 }
 
@@ -113,6 +147,12 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-text-active: var(--sidebar-text-active);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-icon: var(--sidebar-icon);
+  --color-sidebar-workspace: var(--sidebar-workspace-text);
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
@@ -175,6 +215,479 @@
 }
 .cursor-grabbing * {
   cursor: grabbing !important;
+}
+
+/* Notion-style compact vertical text selection menu (components/editor/TextSelectionMenu.tsx).
+   Shares surface/shadow/divider language with components/ui/context-menu.tsx so the two
+   popup families read as one system.
+
+   BlockNote's reused buttons (BasicTextStyleButton, ColorStyleButton, CreateLinkButton,
+   BlockTypeSelect) render Mantine's Button/ActionIcon primitives, which set their own
+   background/color/height through CSS custom properties (--button-bg, --ai-hover, ...)
+   applied via an inline `style` attribute at render time. An inline style beats a plain
+   external-stylesheet rule of any specificity, so every visual override below is
+   `!important` — that's the only thing guaranteed to win over Mantine's inline vars,
+   regardless of CSS bundle/import order. Targets Mantine's stable
+   `mantine-<Component>-<part>` classNames (kept on by default; see
+   MantineProvider `withStaticClasses`), not the hashed CSS-module classes. */
+/* Notion text-action-menu, dark theme (ölçülen referans):
+   panel #252525 / radius 14 / 8px padding, border YOK — kenar `box-shadow` ring
+   (rgb(56,56,54) 0 0 0 1px) ile çizilir; dış gölgeler rgba(25,25,25,...).
+   Hover tüm satırlarda rgba(255,255,255,0.055); aktif format ikonu accent mavi
+   rgb(39,131,222); format ikonları 20x20. */
+/* TextSelectionMenuController'ın pozisyon sarmalayıcısı: position:fixed ile
+   viewport'a sabitlenir; 100ms fade + hafif scale (Notion popup hissi). */
+.zsm-floating {
+  animation: zsm-pop 0.1s ease-out;
+}
+@keyframes zsm-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.zsm-menu {
+  width: 192px;
+  box-sizing: border-box;
+  flex: none;
+  padding: 8px;
+  border-radius: 14px;
+  background: #252525;
+  border: none;
+  box-shadow:
+    rgb(56, 56, 54) 0 0 0 1px,
+    rgba(25, 25, 25, 0.2) 0 14px 28px -6px,
+    rgba(25, 25, 25, 0.118) 0 2px 4px -1px;
+  color: rgb(240, 239, 237);
+  font-size: 14px;
+  line-height: 1.2;
+  display: flex;
+  flex-direction: column;
+}
+
+.zsm-divider {
+  height: 1px;
+  margin: 4px 8px;
+  background: rgba(255, 255, 243, 0.082);
+}
+
+.zsm-label {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 4px 0 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: rgb(173, 169, 163);
+}
+
+/* Blanket Mantine reset for every reused button inside the menu — wins over
+   Mantine's inline CSS-variable styling (see comment above). Structural
+   sizing/layout is then reapplied per section below. */
+.zsm-menu .mantine-Button-root,
+.zsm-menu .mantine-ActionIcon-root {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  font: inherit !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  border-radius: 6px !important;
+  --button-bg: transparent !important;
+  --button-hover: rgba(255, 255, 255, 0.055) !important;
+  --button-color: inherit !important;
+  --button-bd: none !important;
+  --ai-bg: transparent !important;
+  --ai-hover: rgba(255, 255, 255, 0.08) !important;
+  --ai-color: inherit !important;
+  --ai-bd: none !important;
+}
+
+/* Row 1 — block type trigger ("Normal Text  >"). Notion'da solda 20x20 blok
+   ikonu + label + sağda 16x16 chevron (chevron koyulaştırılmaz). */
+.zsm-blocktype-row {
+  width: 100%;
+}
+.zsm-blocktype-row .mantine-Button-root {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  height: 28px !important;
+  padding: 0 8px 0 6px !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  text-align: left;
+}
+/* Boş soldaki 16px Mantine section'ı gizle; yerine 20x20 blok ikonunu
+   ::before ile çiz (currentColor'dan renklenir). */
+.zsm-blocktype-row .mantine-Button-section:not([data-position="right"]) {
+  display: none;
+}
+.zsm-blocktype-row .mantine-Button-root::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7V4h16v3'/><path d='M9 20h6'/><path d='M12 4v16'/></svg>")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7V4h16v3'/><path d='M9 20h6'/><path d='M12 4v16'/></svg>")
+    center / contain no-repeat;
+}
+.zsm-blocktype-row .mantine-Button-root:hover {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+.zsm-blocktype-row .mantine-Button-inner {
+  justify-content: space-between !important;
+  gap: 8px;
+  width: 100%;
+}
+.zsm-blocktype-row .mantine-Button-label {
+  flex: 1 !important;
+  justify-content: flex-start !important;
+  text-align: left;
+  margin-left: 28px;
+}
+.zsm-blocktype-row .mantine-Button-section {
+  flex-shrink: 0;
+}
+.zsm-blocktype-row .mantine-Button-section[data-position="right"] {
+  margin-left: auto;
+  color: rgb(240, 239, 237);
+}
+.zsm-blocktype-row .mantine-Button-section[data-position="right"] svg {
+  width: 16px;
+  height: 16px;
+}
+.zsm-blocktype-row .mantine-Menu-dropdown {
+  background: #252525 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 10px !important;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.28) !important;
+  padding: 4px !important;
+}
+.zsm-blocktype-row .mantine-Menu-item {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 14px !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+}
+.zsm-blocktype-row .mantine-Menu-item:hover {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+
+/* Rows 2-3 — formatting icon rows (A/bold/italic/underline, link/strike/code/clear)
+   Notion: 32x28 butonlar, gap 4, iki satır arasında 4px boşluk, ikonlar 20x20. */
+.zsm-icon-row {
+  display: flex;
+  gap: 4px;
+  height: 28px;
+}
+.zsm-icon-row + .zsm-icon-row {
+  margin-top: 4px;
+}
+.zsm-icon-row .mantine-ActionIcon-root,
+.zsm-icon-btn {
+  width: 32px !important;
+  height: 28px !important;
+  padding: 6px !important;
+  flex: 0 0 32px;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(230, 229, 227);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+}
+.zsm-icon-row .mantine-ActionIcon-root:hover,
+.zsm-icon-btn:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.055) !important;
+}
+.zsm-icon-row .mantine-ActionIcon-root[data-selected] {
+  background: rgba(255, 255, 255, 0.055) !important;
+  color: rgb(39, 131, 222) !important;
+}
+.zsm-icon-btn:disabled {
+  color: rgb(230, 229, 227);
+  cursor: default;
+}
+.zsm-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Row 2 sonundaki "more" butonu — Notion'da diğer format ikonlarından farklı
+   olarak 16x16'lık bir ikon kullanır. */
+.zsm-more-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* Text color trigger ("A" swatch) rendered by ColorStyleButton */
+.zsm-icon-row .mantine-ActionIcon-root svg {
+  width: 20px;
+  height: 20px;
+}
+
+.zsm-comment-row {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  gap: 4px;
+}
+.zsm-comment-row .zsm-icon-btn {
+  flex: 0 0 32px;
+}
+/* Notion'da Comment butonu satırı doldurmaz (~108px, padding 0 6). */
+.zsm-comment-row .zsm-row-btn {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  color: rgb(230, 229, 227);
+}
+
+.zsm-row-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgb(240, 239, 237);
+  font-size: 14px;
+  text-align: left;
+  justify-content: flex-start;
+}
+.zsm-row-btn:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+.zsm-row-btn:disabled {
+  color: rgb(240, 239, 237);
+  cursor: default;
+}
+
+.zsm-ai-section {
+  display: flex;
+  flex-direction: column;
+}
+.zsm-ai-skill {
+  margin: 0;
+  width: 100%;
+}
+
+/* Notion'da AI input bir contenteditable'dir — kenarlık yok, placeholder 14px
+   muted, kısayol 12px rgb(125,122,117). */
+.zsm-ai-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgb(125, 122, 117);
+  font-size: 14px;
+}
+.zsm-ai-input:disabled {
+  cursor: default;
+}
+.zsm-ai-input-label {
+  text-align: left;
+}
+.zsm-shortcut {
+  margin-left: auto;
+  font-size: 12px;
+  color: rgb(125, 122, 117);
+}
+
+/* Sidebar Notion compact system - spec exact */
+.sidebar-scroll {
+  padding-top: 6px;
+  scrollbar-width: none;
+}
+.sidebar-scroll::-webkit-scrollbar {
+  width: 0;
+}
+.group\/sidebar:hover .sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-scrollbar-thumb) transparent;
+}
+.group\/sidebar:hover .sidebar-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--sidebar-scrollbar-thumb);
+  border-radius: 9999px;
+}
+
+.sidebar-content {
+  padding-inline: 8px;
+  padding-bottom: 12px;
+}
+
+.sidebar-scroll-shadow {
+  background: linear-gradient(to bottom, var(--sidebar-scroll-shadow), transparent);
+}
+
+/* Tokens-driven base classes - ortak spacing sistemi */
+.sidebar-item {
+  width: 100%;
+  height: var(--sidebar-row-height);
+  min-height: var(--sidebar-row-min-height);
+  display: flex;
+  align-items: center;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-inline: var(--sidebar-padding-x);
+  font-size: var(--sidebar-font-size);
+  font-weight: 500;
+  border-radius: var(--sidebar-row-radius);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-page-item {
+  height: var(--sidebar-row-height);
+  min-height: var(--sidebar-row-min-height);
+  padding: 5px 8px;
+  font-size: var(--sidebar-font-size);
+  border-radius: var(--sidebar-row-radius);
+}
+
+.sidebar-icon-slot {
+  width: var(--sidebar-icon-slot);
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline-end: var(--sidebar-icon-text-gap);
+}
+
+.chevron-button {
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sidebar-control-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chevron-button svg {
+  width: var(--sidebar-chevron-size);
+  height: var(--sidebar-chevron-size);
+  transition: transform 200ms ease-out;
+}
+
+.sidebar-section-header {
+  height: var(--sidebar-row-height);
+  display: flex;
+  align-items: center;
+  padding-inline: var(--sidebar-padding-x);
+  gap: 4px;
+  border-radius: var(--sidebar-row-radius);
+}
+
+.sidebar-section-header span,
+.sidebar-section-header p {
+  font-size: var(--sidebar-section-font-size);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Final typography spec - user provided */
+.sidebar-item,
+.sidebar-page-title,
+.sidebar-navigation-item {
+  font-size: 14px;
+  font-weight: 500;
+  font-style: normal;
+  text-transform: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-section-title {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: none;
+}
+
+.sidebar-section-title,
+.sidebar-section-header {
+  text-transform: none;
+}
+
+/* Notion Dark sidebar spec refinements */
+[data-sidebar-root] {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+    "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #202020;
+}
+
+[data-sidebar-root] .notion-sidebar-text {
+  color: #E6E6E6;
+  font-weight: 500;
+  font-size: var(--sidebar-font-size);
+}
+[data-sidebar-root] .notion-sidebar-text-active {
+  color: #E6E6E6;
+  font-weight: 500;
+}
+[data-sidebar-root] .notion-sidebar-muted {
+  color: rgba(255,255,255,0.45);
+  font-size: var(--sidebar-section-font-size);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.notion-row-hover {
+  background: rgba(255,255,255,0.055);
+  border-radius: var(--sidebar-row-radius);
+}
+.notion-row-active {
+  background: rgba(255,255,255,0.09);
+  border-radius: var(--sidebar-row-radius);
+}
+
+/* Enforce 30px row inside arborist per spec */
+[data-sidebar-root] [data-tree-row] {
+  height: var(--sidebar-row-height) !important;
+  min-height: var(--sidebar-row-min-height) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sidebar-root] * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
 }
 
 @layer base {
