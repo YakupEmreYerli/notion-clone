@@ -120,12 +120,12 @@ export const PeekModal = () => {
           {getDocumentLabel(document?.title, document?.type)}
         </DialogTitle>
         {/* Ana uygulamadaki Navbar ile aynı: tek satır, aynı yükseklik
-            (px-3 py-2.5 + h-9 buton = 56px) ve içeriğin ÜSTÜNE mutlak
+            (px-3 py-1 + h-9 buton = 44px) ve içeriğin ÜSTÜNE mutlak
             konumlanır. Böylece peek'teki kapak da tam sayfadaki gibi panelin
             en üstünden başlar, kapak/başlık/ikon hizası iki tarafta aynı olur.
             Breadcrumb ("Add to ...") de Navbar'daki gibi ayrı bir satır değil,
             aksiyon butonlarıyla aynı satırda. */}
-        <div className="bg-background dark:bg-dark absolute inset-x-0 top-0 z-50 flex items-center justify-between gap-x-2 px-3 py-2.5">
+        <div className="bg-background dark:bg-dark absolute inset-x-0 top-0 z-50 flex items-center justify-between gap-x-2 px-3 py-1">
           <div className="flex min-w-0 items-center gap-x-1">
             <ActionTooltip label="Open as page">
               <Button

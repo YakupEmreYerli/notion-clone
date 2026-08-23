@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
+import { useSearchParams } from "next/navigation";
 
 import { Cover } from "@/components/cover";
 import { Toolbar, ToolbarHandle } from "@/components/toolbar";
@@ -37,6 +38,7 @@ export const DocumentView = ({
   const { resolvedTheme } = useTheme();
   const isMarked = useRef(false);
   const toolbarRef = useRef<ToolbarHandle>(null);
+  const searchParams = useSearchParams();
 
   const Editor = useMemo(
     () => dynamic(() => import("@/components/editor"), { ssr: false }),
@@ -57,6 +59,16 @@ export const DocumentView = ({
     isMarked.current = true;
     markOpened({ id: documentId });
   }, [documentId, markOpened]);
+
+  // Yeni oluşturulan page'de (URL'de ?fresh=1) başlığa otomatik focus —
+  // Notion'da oluşturma sonrası imleç title'dadır. Parametreyi fokusladıktan
+  // sonra URL'den temizleriz ki reload'ta tekrar tetiklenmesin. history.replaceState
+  // kullanılır — router.replace bir re-render tetikleyip focus'u çalardı.
+  useEffect(() => {
+    if (!doc || searchParams.get("fresh") !== "1") return;
+    toolbarRef.current?.focusEnd();
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [doc, searchParams]);
 
   useEffect(() => {
     if (!managesDocumentChrome || !doc) return;
@@ -92,7 +104,7 @@ export const DocumentView = ({
   }, [doc, editorFont, documentId, update]);
 
   const activeFont = doc?.editorFont ?? editorFont;
-  const isFullWidth = doc?.fullWidth ?? true;
+  const isFullWidth = doc?.fullWidth ?? false;
   const isSmallText = doc?.smallText ?? false;
   const showToc = doc?.showToc ?? true;
 
@@ -124,7 +136,7 @@ export const DocumentView = ({
   }
 
   return (
-    <div className="pb-35">
+    <div className="pb-35 pt-11">
       <Cover
         documentId={documentId}
         url={doc.coverImage}
@@ -132,8 +144,13 @@ export const DocumentView = ({
         compact={!managesDocumentChrome}
       />
       <div
-        className={`relative mx-auto md:w-[90%] ${
-          !isFullWidth ? "max-w-200" : ""
+        className={`relative mx-auto md:w-full ${
+          isFullWidth
+            ? // Notion full-width algoritması (1280/1440/1650/1920'de ölçüldü):
+              // kenar boşluğu SABİT 96px — content = main width - 192px.
+              "max-w-[calc(100%-192px)]"
+            : // Notion narrow: content max-width SABİT 720px, ortalanır.
+              "max-w-[720px]"
         }`}
       >
         <Toolbar

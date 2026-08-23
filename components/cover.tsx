@@ -49,6 +49,14 @@ export const Cover = ({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startClientY: number; startY: number } | null>(null);
+  // object-position%'in taşan (crop edilen) piksel miktarına göre
+  // normalize edilmesi için gerekli — bkz. onPointerDownDrag.
+  const naturalSizeRef = useRef<{ w: number; h: number } | null>(null);
+
+  const onImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    naturalSizeRef.current = { w: img.naturalWidth, h: img.naturalHeight };
+  };
 
   const coverImage = useCoverImage();
   const { focusMode } = useFocusMode({ enabled: !preview });
@@ -86,11 +94,26 @@ export const Cover = ({
     const onMove = (moveEvent: PointerEvent) => {
       const drag = dragRef.current;
       const height = containerRef.current?.offsetHeight;
-      if (!drag || !height) return;
+      const width = containerRef.current?.offsetWidth;
+      if (!drag || !height || !width) return;
+
+      // Notion'da ölçüldü: object-position%, container yüksekliğine değil,
+      // object-fit:cover'ın CROP ettiği (taşan) piksel miktarına göre
+      // normalize ediliyor — CSS object-position spesifikasyonuyla aynı
+      // taban. Container'a yakın en/boy oranlı bir görsel az taşar (aynı
+      // sürükleme mesafesi büyük bir % sıçraması yapar); çok geniş/kısa bir
+      // görsel çok taşar (aynı mesafe küçük bir % değişimi yapar). Doğal
+      // boyut henüz yüklenmediyse container yüksekliğine düşülür.
+      const natural = naturalSizeRef.current;
+      let overflow = height;
+      if (natural && natural.w > 0 && natural.h > 0) {
+        const scale = Math.max(width / natural.w, height / natural.h);
+        overflow = Math.max(1, natural.h * scale - height);
+      }
 
       // Aşağı sürüklemek görseli aşağı taşır (görselin üstü görünür hale
       // gelir) — object-position Y%'i buna göre azaltıyoruz.
-      const delta = ((moveEvent.clientY - drag.startClientY) / height) * 100;
+      const delta = ((moveEvent.clientY - drag.startClientY) / overflow) * 100;
       setDraftY(Math.max(0, Math.min(100, drag.startY - delta)));
     };
 
@@ -134,9 +157,9 @@ export const Cover = ({
       className={cn(
         "group relative z-10 w-full",
         // Kapak yüksekliği tek bir değer: sayfa, database, preview ve peek
-        // aynı görünsün diye yüzeye göre değişmiyor.
-        url && "bg-muted h-[280px]",
-        !url && !focusMode && "h-[12vh] md:h-25",
+        // aynı görünsün diye yüzeye göre değişmiyor (Notion ölçümü: min(30vh,280px)).
+        url && "bg-muted h-[min(30vh,280px)]",
+        !url && !focusMode && "h-[12vh] md:h-[72px]",
         !url && focusMode && "h-20 md:h-20",
       )}
     >
@@ -148,14 +171,16 @@ export const Cover = ({
               fill
               alt="cover"
               priority
+              onLoad={onImageLoad}
               onPointerDown={onPointerDownDrag}
               style={{
                 objectPosition: `center ${isRepositioning ? draftY : savedY}%`,
               }}
               className={cn(
                 "object-cover",
-                isRepositioning &&
-                  "cursor-grab touch-none active:cursor-grabbing",
+                // Notion ölçümü: reposition sırasında cursor grab değil,
+                // dikey-sadece taşımayı ifade eden ns-resize.
+                isRepositioning && "cursor-ns-resize touch-none",
               )}
             />
           ) : (
@@ -168,14 +193,14 @@ export const Cover = ({
             <img
               src={url}
               alt="cover"
+              onLoad={onImageLoad}
               onPointerDown={onPointerDownDrag}
               style={{
                 objectPosition: `center ${isRepositioning ? draftY : savedY}%`,
               }}
               className={cn(
                 "absolute inset-0 h-full w-full object-cover",
-                isRepositioning &&
-                  "cursor-grab touch-none active:cursor-grabbing",
+                isRepositioning && "cursor-ns-resize touch-none",
               )}
             />
           )
@@ -186,51 +211,65 @@ export const Cover = ({
       {isRepositioning && (
         <>
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            <span className="rounded-md bg-black/60 px-3 py-1.5 text-xs text-white">
+            <span className="rounded bg-black/40 px-[18px] py-1 text-xs text-white">
               Drag image to reposition
             </span>
           </div>
-          {/* Diğer kapak overlay kontrolleri (Change/Reposition/Remove) sabit
-              koyu/cam bir pill (bg-black/80 + backdrop-blur-sm) kullanıyor —
-              hangi kapak görseli veya uygulama teması olursa olsun okunaklı
-              kalıyor. Bu iki buton eskiden generic, temaya göre değişen
-              shadcn stilini kullanıyordu; aynı cam-pill diline geçirildi. */}
-          <div className="absolute top-16 right-3 z-50 flex items-center gap-x-2">
-            <Button
+          {/* Notion'un düz, bölünmüş metin pill'inden kasıtlı olarak
+              ayrılıyoruz: iki ayrı yüzen cam-pill (Cancel / Save), her biri
+              kendi rounded-full + ring + shadow'una sahip — tek bir uzun
+              çubuk yerine iki net, dokunulabilir hedef. */}
+          <div className="absolute top-4 right-4 z-50 flex items-center gap-x-2">
+            {/* Ham <button> — shadcn ghost variant kullanılmaz: onun
+                hover:bg-accent'ı bg-black/70'i ezip pill'i şeffaflaştırıyordu.
+                Üstteki Change/Reposition grubu gibi ham buton + hover'da
+                background-image olarak bindirilen white/15 overlay. */}
+            <button
+              type="button"
               onClick={onCancelReposition}
-              variant="ghost"
-              size="sm"
-              className="h-8 rounded-md bg-black/80 text-xs text-white shadow-sm backdrop-blur-sm hover:bg-black/70 hover:text-white"
               disabled={isSavingPosition}
+              className="h-8 rounded-full border border-white/15 bg-black/70 px-4 text-xs font-medium text-white/90 shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-[linear-gradient(rgba(255,255,255,0.15),rgba(255,255,255,0.15))] hover:text-white disabled:opacity-60"
             >
               Cancel
-            </Button>
-            <Button
+            </button>
+            <button
+              type="button"
               onClick={onSavePosition}
-              variant="ghost"
-              size="sm"
-              className="h-8 rounded-md bg-white text-xs text-black shadow-sm hover:bg-white/90 hover:text-black"
               disabled={isSavingPosition}
+              className="h-8 rounded-full bg-black/70 px-4 text-xs font-medium text-white/90 shadow-lg shadow-black/20 backdrop-blur-md transition-colors hover:bg-[linear-gradient(rgba(255,255,255,0.15),rgba(255,255,255,0.15))] hover:text-white disabled:opacity-60"
             >
               {isSavingPosition ? <Spinner size="sm" /> : "Save position"}
-            </Button>
+            </button>
           </div>
         </>
       )}
 
+      {/* Notion'un tek çubuk + ince ayraç düzenini kasıtlı olarak
+          büyütüyoruz: her aksiyon kendi rounded-full hedefi olan, aralarında
+          gerçek boşluk bırakan bir segmented pill grubu — daha net tıklama
+          hedefleri, daha yumuşak (scale+opacity) beliriş, Remove için ayrı
+          bir "tehlikeli aksiyon" hover rengi. */}
       {url && !preview && !isRepositioning && canHover && (
-        <div className="absolute top-16 right-3 z-50 flex h-8 items-center divide-x divide-white/15 overflow-hidden rounded-md bg-black/80 text-xs font-medium text-white opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-200 ease-out group-hover:opacity-100">
+        <div
+          className={cn(
+            "absolute top-4 right-4 z-50 flex items-center gap-x-1 rounded-full bg-black/70 p-1",
+            "shadow-lg shadow-black/20 ring-1 ring-white/10 backdrop-blur-md",
+            "scale-95 opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover:scale-100 group-hover:opacity-100",
+          )}
+        >
           <button
             onClick={() => coverImage.onReplace(documentId, url)}
-            className="flex h-full items-center px-3 transition hover:bg-white/10"
+            className="flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-white/90 transition-colors hover:bg-white/15 hover:text-white"
           >
+            <ImageIcon className="size-3.5" />
             Change
           </button>
           {isUrl && (
             <button
               onClick={startReposition}
-              className="flex h-full items-center px-3 transition hover:bg-white/10"
+              className="flex h-7 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-white/90 transition-colors hover:bg-white/15 hover:text-white"
             >
+              <Move className="size-3.5" />
               Reposition
             </button>
           )}
@@ -238,9 +277,9 @@ export const Cover = ({
             onClick={onRemove}
             disabled={isRemoving}
             aria-label="Remove cover"
-            className="flex h-full items-center px-3 transition hover:bg-white/10"
+            className="flex size-7 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-red-500/20 hover:text-red-200"
           >
-            {isRemoving ? <Spinner size="sm" /> : <X className="h-3.5 w-3.5" />}
+            {isRemoving ? <Spinner size="sm" /> : <X className="size-3.5" />}
           </button>
         </div>
       )}

@@ -45,7 +45,9 @@ export const NewPageModal = () => {
       type === "database"
         ? createDatabase({ title: "", parentDocument })
         : create({ title: "", parentDocument, type: "page" })
-    ).then((documentId) => router.push(`/documents/${documentId}`));
+    ).then((documentId) =>
+      router.push(`/documents/${documentId}?fresh=1`),
+    );
 
     toast.promise(promise, {
       loading: type === "database" ? "Creating a new database…" : "Creating a new note…",

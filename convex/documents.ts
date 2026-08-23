@@ -154,7 +154,7 @@ export const create = mutation({
       parentDocument: args.parentDocument,
       userId,
       type: args.type,
-      fullWidth: true,
+      fullWidth: false,
       showToc: true,
       isArchived: false,
       isPublished: false,

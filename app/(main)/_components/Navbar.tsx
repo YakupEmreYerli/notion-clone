@@ -52,7 +52,7 @@ export const Navbar = ({ isCollapsed, onResetWidth }: NavbarProps) => {
   return (
     <>
       <div className="bg-background dark:bg-dark">
-        <nav className="flex w-full items-center gap-x-2 px-3 py-2.5">
+        <nav className="flex w-full items-center gap-x-2 px-3 py-1">
           {isCollapsed && (
             <ActionTooltip label="Open sidebar (Ctrl + \)">
               <button aria-label="Menu" onClick={onResetWidth}>

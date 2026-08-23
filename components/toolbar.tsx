@@ -14,8 +14,6 @@ import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 
-import { useCoverImage } from "@/hooks/useCoverImage";
-
 import { Button } from "./ui/button";
 import TextareaAutosize from "react-textarea-autosize";
 import { IconPicker } from "./icon-picker";
@@ -25,6 +23,7 @@ import { EditorFont, useEditorFont } from "@/hooks/useEditorFont";
 import { fontFamilies } from "@/lib/editorFont";
 import { getDocumentLabel } from "@/lib/utils";
 import { useLiveTitleDrafts } from "@/hooks/useLiveTitleDrafts";
+import { GALLERY_CATEGORIES } from "@/lib/coverGallery";
 
 interface ToolbarProps {
   initialData: Doc<"documents">;
@@ -54,8 +53,6 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
     const removeIcon = useMutation(api.documents.removeIcon);
     const setTitleDraft = useLiveTitleDrafts((state) => state.setDraft);
     const clearTitleDraft = useLiveTitleDrafts((state) => state.clearDraft);
-
-    const coverImage = useCoverImage();
 
     // Kullanıcı yazıp 400ms dolmadan sayfadan ayrılırsa (unmount), bekleyen
     // debounce timer'ı iptal edilir ama taslak store'da kalır kalırdı —
@@ -136,15 +133,14 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
     };
 
     const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      // Notion: başlıkta Enter → ilk block'a geçer (başlık yeni satır almaz).
       if (event.key === "Enter") {
         event.preventDefault();
         update({
           id: initialData._id,
           title: value,
         });
-        setTimeout(() => {
-          inputRef.current?.blur();
-        }, 400);
+        onFocusEditor?.();
         return;
       }
 
@@ -174,16 +170,30 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
       });
     };
 
+    // Notion ölçümü: "Add cover" bir picker açmaz, galeriden rastgele bir
+    // kapak anında atar — kullanıcı beğenmezse "Change" ile değiştirir.
+    const onAddCover = () => {
+      const allImages = GALLERY_CATEGORIES.flatMap((c) => c.images);
+      const random = allImages[Math.floor(Math.random() * allImages.length)];
+      update({
+        id: initialData._id,
+        coverImage: random.url,
+      });
+    };
+
     return (
       <div
-        className={cn("group relative", flushLeft ? "px-4 md:px-8" : "pl-12")}
+        className={cn(
+          "group relative mb-[7px]",
+          flushLeft ? "px-4 md:px-8" : "",
+        )}
       >
         {!!initialData.icon && !preview && (
           <div
             className={cn(
               "group/icon relative z-10 flex w-max items-center gap-x-2",
               !initialData.coverImage && "pt-6",
-              initialData.coverImage && "-mt-8",
+              initialData.coverImage && "-mt-[42px]",
             )}
           >
             <IconPicker
@@ -192,7 +202,7 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
               open={isIconPickerOpen}
               onOpenChange={setIsIconPickerOpen}
             >
-              <p className="text-6xl transition hover:opacity-75">
+              <p className="text-[78px] leading-none transition hover:opacity-75">
                 {initialData.icon}
               </p>
             </IconPicker>
@@ -209,15 +219,22 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
         {!!initialData.icon && preview && (
           <p
             className={cn(
-              "text-6xl",
+              "text-[78px] leading-none",
               !initialData.coverImage && "pt-6",
-              initialData.coverImage && "-mt-8",
+              initialData.coverImage && "-mt-[42px]",
             )}
           >
             {initialData.icon}
           </p>
         )}
-        <div className="flex items-center gap-x-1 py-2">
+        <div
+          className={cn(
+            "flex items-center gap-x-1 py-1",
+            // Notion: cover + icon'suz durumda cover→title boşluğu 48px
+            // (icon→title 40px'ten 8px fazla).
+            initialData.coverImage && !initialData.icon && "mt-2",
+          )}
+        >
           {!initialData.icon && !preview && (
             <IconPicker
               asChild
@@ -231,7 +248,9 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
                 // atanıyordu; bu, trigger'ı "Add icon" butonundan büyük emoji
                 // elemanına çevirip Popover'ı unmount/remount ettiği için
                 // seçici açılırken gözle görülür bir titreme yaratıyordu.
-                className="text-muted-foreground text-xs"
+                // Notion'un düz metin hover'ı yerine kasıtlı olarak dolgun
+                // bir pill: daha net bir tıklama hedefi hissettiriyor.
+                className="text-muted-foreground rounded-full text-xs"
                 variant="ghost"
                 size="sm"
               >
@@ -242,8 +261,8 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
           )}
           {!initialData.coverImage && !preview && (
             <Button
-              onClick={() => coverImage.onOpen(initialData._id)}
-              className="text-muted-foreground text-xs"
+              onClick={onAddCover}
+              className="text-muted-foreground rounded-full text-xs"
               variant="ghost"
               size="sm"
             >
@@ -266,9 +285,14 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
           style={{ fontFamily: fontFamilies[editorFont as EditorFont] }}
           className={cn(
             "w-full resize-none bg-transparent font-bold wrap-break-word outline-hidden",
-            "text-[#3F3F3F] placeholder:text-gray-300 disabled:cursor-default dark:text-[#CFCFCF] dark:placeholder:text-neutral-600",
+            "text-foreground placeholder:text-muted-foreground/50 disabled:cursor-default",
+            // Notion title padding: 0 8px (içerik sütun solundan 8px).
+            "pl-2",
             !isEditing && "cursor-pointer",
-            initialData.smallText ? "text-4xl" : "text-5xl",
+            // Notion başlık tipografisi (ölçülen): 40px/700/lh-48; small text 32px.
+            initialData.smallText
+              ? "text-[32px] leading-[40px]"
+              : "text-[40px] leading-[48px]",
           )}
         />
       </div>

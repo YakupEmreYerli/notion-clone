@@ -47,7 +47,16 @@ export const TextSelectionMenu = (_props: FormattingToolbarProps) => {
   );
 
   return (
-    <div className="zsm-menu" role="toolbar" aria-label="Text formatting">
+    <div
+      className="zsm-menu"
+      role="toolbar"
+      aria-label="Text formatting"
+      // Menü butonuna mousedown yapınca tarayıcı editor'ün DOM selection'ını
+      // temizliyor; BlockNote'un toggleStyles'ı boş/collapsed selection'a
+      // uygulanıyor ve format değişimi ne görünüyor ne de undo history'sine
+      // giriyor. preventDefault selection'ı korur — onClick yine çalışır.
+      onMouseDown={(e) => e.preventDefault()}
+    >
       <div className="zsm-blocktype-row">
         <BlockTypeSelect items={blockTypeItems} />
       </div>
