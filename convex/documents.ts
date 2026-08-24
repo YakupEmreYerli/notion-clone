@@ -9,6 +9,7 @@ import { Doc, Id } from "./_generated/dataModel";
 import { cascadeDeleteDatabase } from "./databases";
 import { buildSearchText } from "./lib/searchText";
 import { requireUser } from "./lib/auth";
+import { deleteFileRefs, syncFileRefs } from "./lib/fileRefs";
 
 // `update`'in parentDocument argümanıyla çağrıldığı her yerde (sidebar
 // drag&drop dahil) çağrılır. Tek-ebeveynli ağaç modelinde döngü sadece bir
@@ -310,6 +311,7 @@ export const remove = mutation({
           await cascadeDeleteDatabase(ctx, child._id);
         }
 
+        await deleteFileRefs(ctx, child._id);
         await ctx.db.delete(child._id);
       }
     };
@@ -319,6 +321,8 @@ export const remove = mutation({
     if (exisingDocument.type === "database") {
       await cascadeDeleteDatabase(ctx, args.id);
     }
+
+    await deleteFileRefs(ctx, args.id);
 
     const document = await ctx.db.delete(args.id);
 
@@ -576,6 +580,19 @@ export const update = mutation({
 
     const document = await ctx.db.patch(args.id, patch);
 
+    // `fileRefs` de `searchText` gibi türetilmiş veridir: kapak veya içerik
+    // değiştiği anda yeniden hesaplanmazsa `/api/files` erişim kontrolü
+    // bayat kalır (silinen görsel erişilebilir kalır, yeni görsel 404 olur).
+    if (args.coverImage !== undefined || args.content !== undefined) {
+      await syncFileRefs(
+        ctx,
+        args.id,
+        userId,
+        args.coverImage ?? existingDocument.coverImage,
+        args.content ?? existingDocument.content,
+      );
+    }
+
     return document;
   },
 });
@@ -636,6 +653,14 @@ export const removeCoverImage = mutation({
       coverImageY: undefined,
       updatedAt: Date.now(),
     });
+
+    await syncFileRefs(
+      ctx,
+      args.id,
+      userId,
+      undefined,
+      existingDocument.content,
+    );
 
     return document;
   },
@@ -708,6 +733,7 @@ export const removeAll = mutation({
       if (document.type === "database") {
         await cascadeDeleteDatabase(ctx, document._id);
       }
+      await deleteFileRefs(ctx, document._id);
       await ctx.db.delete(document._id);
     });
     await Promise.all(promises);
@@ -810,6 +836,16 @@ export const duplicate = mutation({
       isPublished: false,
       searchText: buildSearchText(copyTitle, existingDocument.content),
     });
+
+    // Kopya aynı dosyalara referans verir — eşleme kaydı doküman başına
+    // tutulduğu için kopya için de yazılmalı.
+    await syncFileRefs(
+      ctx,
+      document,
+      userId,
+      existingDocument.coverImage,
+      existingDocument.content,
+    );
 
     return document;
   },
@@ -925,6 +961,7 @@ export const purgeExpiredTrash = internalMutation({
       if (doc.type === "database") {
         await cascadeDeleteDatabase(ctx, doc._id);
       }
+      await deleteFileRefs(ctx, doc._id);
       await ctx.db.delete(doc._id);
     }
 

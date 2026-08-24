@@ -121,6 +121,21 @@ export default defineSchema({
     .index("by_view_row", ["viewId", "rowId"])
     .index("by_row", ["rowId"]),
 
+  // Dosya → doküman eşlemesi. `/api/files/<key>` GET'i "bu dosya yayınlanmış
+  // bir dokümana mı ait?" sorusunu buradan cevaplar; sahibi olmayan bir
+  // ziyaretçiye ancak eşleşen doküman `isPublished && !isArchived` ise servis
+  // edilir. Türetilmiş veridir (kaynak: `coverImage` + BlockNote içeriği),
+  // `searchText` gibi her içerik/kapak yazmasında yeniden hesaplanır —
+  // `convex/lib/fileRefs.ts`. Aynı dosya birden çok dokümanda geçebileceği
+  // için kayıt (key, documentId) çiftidir.
+  fileRefs: defineTable({
+    key: v.string(),
+    documentId: v.id("documents"),
+    userId: v.string(),
+  })
+    .index("by_key", ["key"])
+    .index("by_document", ["documentId"]),
+
   userSettings: defineTable({
     userId: v.string(),
     editorFont: v.optional(v.string()),

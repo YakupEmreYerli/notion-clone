@@ -11,7 +11,12 @@ import { useFocusMode } from "@/hooks/useFocusMode";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
-import { deleteFile, isFileUrl, isOptimizableImageUrl } from "@/lib/storage";
+import {
+  deleteFile,
+  isFileUrl,
+  isManagedFileUrl,
+  isOptimizableImageUrl,
+} from "@/lib/storage";
 import { Skeleton } from "./ui/skeleton";
 import { Spinner } from "./spinner";
 import {
@@ -180,6 +185,13 @@ export const Cover = ({
               fill
               alt="cover"
               priority
+              // Yüklenen dosyalar `/api/files` erişim kontrolünden geçiyor ve
+              // yayınlanmamış bir sayfanın görseli yalnızca sahibinin
+              // oturumuyla açılıyor. next/image optimizer'ı görseli sunucu
+              // tarafından, ziyaretçinin çerezleri OLMADAN çekiyor — optimize
+              // edilirse sahibinin kendi kapağı 400 dönerdi. `unoptimized`
+              // isteği tarayıcıya (dolayısıyla oturuma) geri veriyor.
+              unoptimized={isManagedFileUrl(url)}
               onLoad={onImageLoad}
               onPointerDown={onPointerDownDrag}
               style={{

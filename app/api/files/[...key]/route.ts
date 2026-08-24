@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { api } from "@/convex/_generated/api";
 import { auth } from "@/lib/auth";
+import { getConvexServerClient } from "@/lib/convexServer";
 import { serveHeadersFor } from "@/lib/fileTypes";
 import { deleteObject, getObject } from "@/lib/s3";
 
@@ -18,19 +20,57 @@ const resolveKey = (segments: string[]) => {
   return key;
 };
 
+/** Hızlı yol: anahtardaki `<userId>` oturum sahibiyse ek okuma gerekmez. */
+const isOwner = async (request: NextRequest, key: string) => {
+  const session = await auth.api.getSession({ headers: request.headers });
+
+  return !!session?.user && key.startsWith(`uploads/${session.user.id}/`);
+};
+
+/** Eşleme yolu: dosya yayınlanmış bir dokümana aitse herkese açık. */
+const isPubliclyReadable = async (key: string) => {
+  try {
+    return await getConvexServerClient().query(api.files.isPubliclyReadable, {
+      key,
+    });
+  } catch (error) {
+    console.warn("File access check failed", key, error);
+    return false;
+  }
+};
+
 /**
- * GET bilinçli olarak kimlik doğrulaması yapmaz: yayınlanmış bir sayfanın
- * (`/preview/<id>`) görselleri anonim ziyaretçiye açılabilmeli. Erişim modeli
- * bu yüzden "URL'yi bilen erişir" (capability URL) — anahtarlar UUID içerdiği
- * için tahmin edilemez. Buradaki başlıklar bu modelin sızıntı yüzeyini daraltır:
- * içerik tipi allowlist dışıysa çalıştırılamaz biçimde iner, tarayıcı tip
- * tahmini kapalıdır, URL referrer ile üçüncü taraflara sızmaz ve yanıt
- * paylaşımlı önbelleklerde tutulmaz.
+ * Erişim kontrolü iki yollu:
+ *
+ *  1. Sahibi — anahtarın içinde yükleyenin id'si var
+ *     (`uploads/<userId>/<uuid>-<ad>`), oturum sahibiyle eşleşiyorsa dosya
+ *     doğrudan servis edilir. Ek kayıt okumaya gerek yok.
+ *  2. Herkes — dosya `isPublished && !isArchived` bir dokümana aitse
+ *     (`convex/files.ts: isPubliclyReadable`, `fileRefs` eşlemesi) anonim
+ *     olarak servis edilir. `/preview/<id>` sayfasının görselleri bu yoldan
+ *     açılır.
+ *
+ * Sıra load-bearing DEĞİL ama başarısızlığı öyle: 1. yol tutmazsa istek
+ * her zaman 2. yola düşer, yani oturumsuz ziyaretçi hiçbir zaman 401
+ * görmez — yayın durumu kimlikten bağımsız değerlendirilir.
+ *
+ * Yetkisiz istek 403 değil **404** alır: yanıt, var olmayan bir anahtarla
+ * ayırt edilemez olmalı ki hangi anahtarların gerçekten var olduğu
+ * sızmasın. Convex'e ulaşılamazsa da 404 (fail-closed).
+ *
+ * Başlıklar bu modelin sızıntı yüzeyini ayrıca daraltır: içerik tipi
+ * allowlist dışıysa çalıştırılamaz biçimde iner, tarayıcı tip tahmini
+ * kapalıdır, URL referrer ile üçüncü taraflara sızmaz ve yanıt paylaşımlı
+ * önbelleklerde tutulmaz.
  */
-export const GET = async (_request: NextRequest, { params }: Params) => {
+export const GET = async (request: NextRequest, { params }: Params) => {
   const key = resolveKey((await params).key);
 
   if (!key) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (!(await isOwner(request, key)) && !(await isPubliclyReadable(key))) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

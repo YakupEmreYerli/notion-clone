@@ -26,6 +26,14 @@
   text) and feeds the `search_text` search index. Any code path that changes `title` or
   `content` must recompute and persist `searchText` the same way `documents.update`
   does, or search results go stale for that document.
+- `fileRefs` is derived the same way and carries the same obligation: it maps an
+  uploaded storage key to the document that references it (cover image + BlockNote
+  media blocks, `convex/lib/fileRefs.ts`) and is what `/api/files/<key>` reads to
+  decide whether a file may be served anonymously. Any code path that changes
+  `coverImage` or `content` must call `syncFileRefs`, and any path that permanently
+  deletes a document must call `deleteFileRefs` — otherwise a removed image stays
+  publicly readable, or a new one 404s. Archiving needs no sync: `isArchived` is
+  checked at read time.
 
 ## Auth and access control
 

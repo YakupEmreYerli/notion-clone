@@ -29,7 +29,14 @@ const OPTIMIZABLE_IMAGE_HOSTS = new Set([
   "app.notion.com",
 ]);
 
-/** True if `next/image` can safely optimize this URL (same-origin upload or a whitelisted host). */
+/**
+ * True if `next/image` can render this URL at all without crashing
+ * (same-origin upload or a whitelisted host).
+ *
+ * Same-origin uploads still have to be rendered `unoptimized`: `/api/files`
+ * enforces access control, and the optimizer fetches server-side without the
+ * visitor's cookies — see `components/cover.tsx`.
+ */
 export const isOptimizableImageUrl = (value?: string | null): boolean => {
   if (!value) return false;
   if (value.startsWith(FILE_ROUTE_PREFIX)) return true;

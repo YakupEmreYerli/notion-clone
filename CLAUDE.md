@@ -112,7 +112,10 @@ Three systems, no other backend/API layer:
   authorization always happens in Convex (`requireUser`) and in `app/api/*` routes.
 - **MinIO/S3** — file storage, private bucket, streamed to the browser through
   `/api/files/[...key]` (never exposed directly). Stored URLs are relative
-  (`/api/files/...`) so the same image survives a domain change.
+  (`/api/files/...`) so the same image survives a domain change. The GET route
+  enforces access control: the key's owner (session) or a file belonging to a
+  published, non-archived document (the `fileRefs` mapping in Convex,
+  `convex/files.ts`) — anything else is a 404.
 
 Route groups: `app/(landing)` (marketing), `app/(main)` (authenticated app, gated by
 `proxy.ts`), `app/(public)` (`/preview/<id>`, anonymous). Frontend conventions (route
