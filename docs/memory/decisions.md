@@ -244,3 +244,34 @@ geri veriyor, oturum çerezi taşınıyor. Yayınlanmış kapaklar için de ayn�
 (tek kod yolu). Editördeki BlockNote görselleri zaten düz `<img>`, etkilenmiyor.
 **Bedeli:** Kapak görselleri artık Next tarafından yeniden boyutlandırılmıyor/WebP'ye
 çevrilmiyor.
+
+## Test altyapısı (2026-08-25, `docs/testing.md`)
+
+### Convex backend testleri için Seçenek B: ayrı `convex-test` paketi
+`docs/testing.md` §1.3 yanlış teşhis koymuştu: "`convex/test` exports ile export
+edilmemiş, bu yüzden `convexTest` kullanılamıyor". Ölçüm: `convexTest` **hiçbir zaman**
+`convex` paketinin içinde olmadı — bağımsız bir npm paketi, `convex-test` (v0.0.56,
+peer dep `convex ^1.43.0`). Depodaki sürüm `convex@1.42.3`, en güncel 1.45.0.
+**Karar:** Seçenek B. Adım 2'de `convex` ≥1.43'e çıkılır ve `convex-test` devDependency
+eklenir. Gerekçe: Seçenek A (mantığı `convex/lib`'e taşıyıp saf fonksiyon test etmek)
+en riskli yüzeyi test edebilmek için `databases.ts` (698 satır) + `databaseViews.ts`
+(718 satır) üzerinde üretim kodu refactor'ü ister ve `ctx.db`'ye bağlı davranışları
+(cascade, auth, ordering) yine test dışı bırakır. `convex-test` bunları olduğu gibi,
+in-memory çalıştırır — testler için Docker stack'i gerekmez.
+**Bedeli:** Bir minor client bump. Risk düşük: `docker-compose.yml`'de backend imajı
+`ghcr.io/get-convex/convex-backend:${CONVEX_BACKEND_VERSION:-latest}`, pinli değil.
+
+### Unit katmanı Vitest, `tests/unit/**/*.test.ts`
+`vitest.config.mts` (`.mts` — düz `.ts` Vite'ın CJS yükleyicisinde uyarı veriyor),
+`@/` alias'ı elle `resolve.alias` ile kuruldu; `vite-tsconfig-paths` alınmadı çünkü
+deprecated `tsconfck`'i sürüklüyor ve tek bir alias için gereksiz.
+Ayrım keskin: Vitest yalnızca `tests/unit/`'e bakar, Playwright `testDir: ./tests/e2e`.
+`database-view-operations.spec.ts` (`page`'i hiç kullanmayan, tamamı saf 10 test)
+`tests/unit/database-view-operations.test.ts`'e taşındı. Ölçülen etki: aynı 10 test
+Playwright altında tarayıcı açarken, Vitest'te **223 ms**'de koşuyor.
+E2E sayısı 33 → 23 (19 geçen + 4 atlanan).
+
+### Coverage eşiği bu turda belirlenmedi
+Ölçülen baseline: toplam **%17.71** satır, `convex/lib` **%1.84**, `lib` **%5.98**.
+Eşik yalnızca CI adımında (Adım 4) anlam kazandığı için o adıma bırakıldı —
+`docs/testing.md` §5.2'deki %80/%70 önerisi henüz onaylanmadı.

@@ -18,37 +18,44 @@ Doküman üç bölümden oluşur:
 
 | Öğe | Detay |
 |---|---|
-| Playwright (E2E) | 6 spec dosyası, **33 test**, tek Chromium projesi |
+| Playwright (E2E) | 5 spec dosyası, **23 test** (19 geçen + 4 atlanan), tek Chromium projesi |
+| Vitest (unit) | 1 dosya, **10 test**, 223 ms — Adım 1 ile geldi |
 | Fixture'lar | 3 izole route: `clipping`, `table`, `cover-modal` |
 | Yardımcı | 1 adet güçlü `assertNoUnexpectedClipping` (gölge/contain dahil) |
 | Görsel regresyon | 1 snapshot (board surfaces) |
-| Script'ler | `test:e2e`, `test:e2e:update` |
+| Script'ler | `test`, `test:watch`, `test:coverage`, `test:e2e`, `test:e2e:update` |
 
 ### 1.2 Neler yok (ölçülmüş boşluklar)
 
 | Boşluk | Kanıt | Etkisi |
 |---|---|---|
-| **Unit test yok** | `database-view-operations.spec.ts` saf fonksiyonu tarayıcı açarak koşuyor (`page` kullanmıyor) | Saf mantık Playwright'ın yavaşlığına mahkûm; hız ~50x düşük |
+| ~~**Unit test yok**~~ | ✅ Adım 1 ile kapandı: `tests/unit/`, Vitest | — |
 | **Convex backend testi yok** | `convex/databases.ts` (698 satır), `databaseViews.ts` (718), `lib/*` (toplam ~2095 satır) sıfır test | **En riskli yüzey**: arama, sıralama, filtre, cascade, auth, optimistik taşıma regresyona açık |
-| **Coverage yok** | `playwright.config.ts` reporter'da coverage yok | "Build geçti" ≠ "davranış doğru"; regresyon sessizce girer |
+| **Coverage eşiği yok** | Vitest v8 raporu var (baseline %17.71), CI gate yok | "Build geçti" ≠ "davranış doğru"; regresyon sessizce girer |
 | **CI yok** | `.github/workflows/` dizini yok | Merge gate yok |
 | **A11y yok** | `@axe-core` bağımlılığı yok | Klavye/ekran okuyucu parity'si sınanmıyor |
 | **Görsel regresyon zayıf** | 1 snapshot | Board dışı yüzeyler (table, menu, picker, cover) görsel olarak kırılabilir |
 | **Paralellik kapalı** | `fullyParallel: false`, `workers: 1` | Test süresi UI yüzeyiyle doğrusal artar |
 | **Okunabilirlik** | Fixture'lar ad-hoc, DOM doğrudan hardcode | Testin *ne* test ettiğini anlamak zor; değişiklikte kırılma riski |
 
-### 1.3 Convex test aracı durumu (dikkat!)
+### 1.3 Convex test aracı durumu — ✅ çözüldü (2026-08-25)
 
-`convex@1.42.3` paketinde `convex/test` yardımcı modülü **exports ile export edilmemiş**.
-`convexTest`, `convex/test` import'u şu anda kullanılamıyor. Bu yüzden plan iki seçenek sunar:
+> **Düzeltme.** Bu bölüm önceden "`convex@1.42.3` paketinde `convex/test` exports ile
+> export edilmemiş, bu yüzden `convexTest` kullanılamıyor" diyordu. Teşhis yanlıştı:
+> `convexTest` hiçbir zaman `convex` paketinin içinde olmadı — bağımsız bir npm paketi,
+> **`convex-test`** (v0.0.56, peer dep `convex ^1.43.0`).
 
-- **Seçenek A (önerilen):** Convex fonksiyonlarını `convex/lib/*` içindeki saf fonksiyonlara
-  taşıyıp **Vitest** ile test et. Mutation'ları ince bir kabuk bırak; mantığı saf fonksiyonda tut.
-  → test edilebilirlik en yüksek, Convex'e bağımlılık en düşük.
-- **Seçenek B:** Convex'i yeni sürüme yükseltip (`convex/test` destekli) resmi `convexTest`
-  kullanmak. Backend'i bütünsel test eder ama yükseltme riski ve bağımlılık getirir.
+**Karar: Seçenek B** (`decisions.md` → "Test altyapısı"). Adım 2'de `convex` 1.42.3'ten
+≥1.43'e (güncel 1.45.0) çıkılır ve `convex-test` devDependency eklenir. Mutation'lar
+(`databases.ts`, `databaseViews.ts`) üretim kodu değiştirilmeden, gerçek db/auth
+semantiğiyle test edilir. `convex-test` in-memory çalışır; testler için Docker stack'i
+gerekmez. Backend imajı `docker-compose.yml`'de pinli olmadığı (`:latest`) için client
+bump'ı sunucu uyum riski taşımıyor.
 
-> Her iki seçenek de dokümanda aynı hedef test listesini kapsar; fark **execution runner**'da.
+Seçenek A (mantığı `convex/lib`'e taşıyıp saf fonksiyon olarak test etmek) elendi:
+~1400 satırlık üretim kodu refactor'ü isterdi ve `ctx.db`'ye bağlı davranışları
+(cascade, auth, ordering) yine test dışı bırakırdı.
+
 
 ---
 
@@ -91,11 +98,20 @@ Doküman üç bölümden oluşur:
 
 Sıralama ROI (yatırım getirisi) esasına göre. Her adım bağımsız merge edilebilir.
 
-### Adım 1 — Vitest kurulumu + saf mantığı taşıma ⏱️ yarım gün
-- `vitest` devDependency ekle; `vitest.config.ts` oluştur (`@/` alias için `resolve.alias`).
-- `database-view-operations.spec.ts` içindeki saf fonksiyon testlerini `tests/unit/` altına taşı.
-- Bu testler tarayıcı açmayı bırakır; hız ~50x artar.
-- **Çıktı:** ilk çalışan unit katmanı + coverage raporu.
+### Adım 1 — Vitest kurulumu + saf mantığı taşıma ✅ **tamamlandı (2026-08-25)**
+- `vitest` + `@vitest/coverage-v8` devDependency; **`vitest.config.mts`** (`.mts` —
+  düz `.ts` Vite'ın CJS yükleyicisinde uyarı veriyor). `@/` alias'ı elle
+  `resolve.alias` ile kuruldu (`vite-tsconfig-paths` alınmadı: deprecated `tsconfck`
+  sürüklüyor, tek alias için gereksiz).
+- Katman ayrımı keskin: Vitest `include: ["tests/unit/**/*.test.ts"]`, Playwright
+  `testDir: ./tests/e2e`. Birbirlerinin dosyalarını toplamıyorlar.
+- `tests/e2e/database-view-operations.spec.ts` (`page`'i hiç kullanmayan, tamamı saf
+  10 test) → `tests/unit/database-view-operations.test.ts`.
+- Script'ler: `npm test` (`vitest run`), `test:watch`, `test:coverage`.
+- **Ölçülen sonuç:** 10 test **223 ms**'de geçiyor (önce tarayıcı açıyorlardı).
+  E2E 33 → 23 test (19 geçen + 4 atlanan). Coverage baseline: toplam %17.71,
+  `convex/lib` %1.84, `lib` %5.98. `tsc --noEmit` temiz, `build` temiz,
+  `lint` 15 sorunda sabit (baseline değişmedi).
 
 ### Adım 2 — Convex backend testleri ⏱️ 1-2 gün
 - `convex/lib/*` içindeki saf fonksiyonları (varsa) çıkar; `ordering`, `coerce`, `cellValue`,
@@ -144,9 +160,11 @@ Sıralama ROI (yatırım getirisi) esasına göre. Her adım bağımsız merge e
 
 ## 5. Karar Bekleyenler
 
-1. **Convex test yaklaşımı:** Bu doküman Seçenek A (saf fonksiyon + Vitest) önerir.
-   `convex/test` destekli sürüme yükseltme (Seçenek B) onay bekler.
-2. **Coverage threshold değeri:** `convex/lib` için %80, bileşenler için %70 önerilir;
-   son değer CI adımında ayarlanır.
-3. **Snapshot baseline'ı:** Görsel regresyon için ilk baseline'lar CI'da üretilir ve
-   `--update-snapshots` ile kabul edilir.
+1. ~~**Convex test yaklaşımı**~~ — ✅ **karara bağlandı (2026-08-25): Seçenek B**,
+   ayrı `convex-test` paketi + `convex` ≥1.43 bump. Gerekçe §1.3 ve `decisions.md`.
+2. **Coverage threshold değeri** — ⏳ **Adım 4'e ertelendi.** Eşik yalnızca CI'da
+   anlam kazanıyor. Ölçülen baseline: toplam %17.71, `convex/lib` %1.84, `lib` %5.98 —
+   yani dokümandaki %80/%70 önerisi bugünkü koda uygulanamaz; Adım 2-3 bittikten sonra
+   gerçek sayıyla karara bağlanacak.
+3. **Snapshot baseline'ı** — ⏳ açık. Görsel regresyon için ilk baseline'lar CI'da
+   üretilir ve `--update-snapshots` ile kabul edilir (Adım 5).

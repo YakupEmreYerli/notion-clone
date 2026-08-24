@@ -83,12 +83,14 @@ state and blocks ending a session that changed source without updating STATE.
 
 ## Workflows
 
-- **Playwright E2E only, no unit-test framework.** `npm run test:e2e` runs
-  `tests/e2e/*.spec.ts` against fixture routes under `app/test-fixtures/`;
-  `npm run test:e2e:update` refreshes snapshots. There is still no
-  jest/vitest, and adding one is out of scope for unrelated tasks. The gate
+- **Two test layers, split by directory.** Vitest owns `tests/unit/**/*.test.ts`
+  (pure functions, no browser; `vitest.config.mts`, run with `npm test`).
+  Playwright owns `tests/e2e/*.spec.ts` (`testDir` is set to it), driven against
+  fixture routes under `app/test-fixtures/`; `npm run test:e2e:update` refreshes
+  snapshots. A test that never touches `page` belongs in `tests/unit/`. The gate
   before calling work done: `npx tsc --noEmit` → `npm run lint` →
-  `npm run build` → `npm run test:e2e`, plus browser checks for UI work.
+  `npm run build` → `npm test` → `npm run test:e2e`, plus browser checks for UI
+  work. Roadmap for the remaining layers: `docs/testing.md`.
 - **`npm run lint` is not clean.** A pre-existing baseline (React-compiler
   rules) is recorded in `docs/memory/gotchas.md` — new and modified files must
   stay lint-clean, but don't treat the baseline as a regression you caused.
@@ -113,8 +115,15 @@ state and blocks ending a session that changed source without updating STATE.
 Playwright E2E lives in `tests/e2e/*.spec.ts`, driven by `playwright.config.ts`
 and backed by dedicated fixture routes in `app/test-fixtures/` (clipping, table)
 rather than by seeding the real app. Existing specs: `board-clipping`,
-`clipping-helper`, `editor-surface-clipping`, `database-view-operations`,
-`table-parity`, `cover-modal-parity` — i.e. the suite targets pixel/geometry
-parity and view operations, not business logic. There is no unit-test
-framework; `npx tsc --noEmit`, `npm run lint`, and `npm run build` remain part
-of the gate alongside `npm run test:e2e`.
+`clipping-helper`, `editor-surface-clipping`, `table-parity`,
+`cover-modal-parity` — i.e. the suite targets pixel/geometry parity, not
+business logic.
+
+Vitest unit tests live in `tests/unit/*.test.ts` — currently
+`database-view-operations` (filter/sort/search semantics, board grouping,
+property-icon catalog), moved out of the E2E suite because it never opened a
+browser. Convex backend logic is still untested; the approved next step is the
+separate `convex-test` package (note: `convexTest` is **not** shipped inside the
+`convex` package), which needs `convex` ≥1.43. `npx tsc --noEmit`,
+`npm run lint`, and `npm run build` remain part of the gate alongside both test
+commands.

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { describe, expect, it } from "vitest";
 
 import {
   applyDatabaseView,
@@ -103,8 +103,8 @@ const rows = [
   }),
 ];
 
-test.describe("database view operations", () => {
-  test("searches human-readable property values, including select labels", () => {
+describe("database view operations", () => {
+  it("searches human-readable property values, including select labels", () => {
     expect(applyDatabaseView(rows, properties, [], [], "okunuyor")).toEqual([
       rows[1],
     ]);
@@ -113,7 +113,7 @@ test.describe("database view operations", () => {
     ]);
   });
 
-  test("combines property-aware filters with AND semantics", () => {
+  it("combines property-aware filters with AND semantics", () => {
     const filters: DatabaseFilter[] = [
       {
         id: "author-filter",
@@ -134,7 +134,7 @@ test.describe("database view operations", () => {
     ]);
   });
 
-  test("only treats filters with a usable condition as effective", () => {
+  it("only treats filters with a usable condition as effective", () => {
     expect(
       isFilterEffective({
         id: "empty-value",
@@ -159,7 +159,7 @@ test.describe("database view operations", () => {
     ).toBe(true);
   });
 
-  test("sorts by multiple properties and always places empty values last", () => {
+  it("sorts by multiple properties and always places empty values last", () => {
     const sorts: DatabaseSort[] = [
       { id: "status-sort", propertyId: statusId, direction: "asc" },
       { id: "score-sort", propertyId: scoreId, direction: "desc" },
@@ -172,7 +172,7 @@ test.describe("database view operations", () => {
     ]);
   });
 
-  test("treats false and zero as values, not empty cells", () => {
+  it("treats false and zero as values, not empty cells", () => {
     const checkboxId = "done" as Id<"databaseProperties">;
     const checkbox = {
       _id: checkboxId,
@@ -200,7 +200,7 @@ test.describe("database view operations", () => {
     ).toEqual(["empty-row"]);
   });
 
-  test("preserves property-sort order inside board groups", () => {
+  it("preserves property-sort order inside board groups", () => {
     const sortedRows = [rows[2], rows[0], rows[1]];
     const groups = buildGroups({
       rows: sortedRows,
@@ -215,7 +215,7 @@ test.describe("database view operations", () => {
     ]);
   });
 
-  test("uses Notion card property priority when a view has no saved order", () => {
+  it("uses Notion card property priority when a view has no saved order", () => {
     expect(
       orderBoardProperties(properties, undefined, statusId).map(
         (property) => property._id,
@@ -233,7 +233,7 @@ test.describe("database view operations", () => {
     ).toEqual([statusId, authorId, scoreId]);
   });
 
-  test("maps yellow groups to a dedicated tinted card surface", () => {
+  it("maps yellow groups to a dedicated tinted card surface", () => {
     expect(groupColorVars("yellow").actionFg).toBe(
       "var(--kanban-yellow-action-fg)",
     );
@@ -245,7 +245,7 @@ test.describe("database view operations", () => {
     );
   });
 
-  test("keeps the persisted property icon catalog unique and validated", () => {
+  it("keeps the persisted property icon catalog unique and validated", () => {
     const ids = PROPERTY_ICONS.map((icon) => icon.id);
     expect(ids.length).toBeGreaterThanOrEqual(815);
     expect(new Set(ids).size).toBe(ids.length);
@@ -254,7 +254,7 @@ test.describe("database view operations", () => {
     expect(isPropertyIconId("notion-private-asset")).toBe(false);
   });
 
-  test("drops malformed and stale persisted criteria defensively", () => {
+  it("drops malformed and stale persisted criteria defensively", () => {
     expect(
       parseViewFilters([
         null,

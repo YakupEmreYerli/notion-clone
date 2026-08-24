@@ -59,6 +59,9 @@ npx tsc --noEmit           # typecheck (no separate typecheck script)
 npm run convex:dev         # push Convex functions to the self-hosted backend, watch mode
 npm run convex:deploy      # convex deploy -y (used by docker-compose's convex-deploy service)
 
+npm test                   # Vitest unit — tests/unit/*.test.ts (config: vitest.config.mts)
+npm run test:watch         # Vitest watch mode
+npm run test:coverage      # Vitest + v8 coverage (no threshold gate yet)
 npm run test:e2e           # Playwright E2E — tests/e2e/*.spec.ts
 npm run test:e2e:update    # refresh snapshots
 
@@ -80,8 +83,11 @@ up; when it is not, shots are skipped (not failed) and the committed images are 
 The demo seed wipes every document belonging to the userId it is given — it is only
 ever called with the `demo-en@` / `demo-tr@` account ids.
 
-No unit-test framework (no jest/vitest). Verification is `tsc --noEmit` +
-`npm run build` + `npm run lint` + `npm run test:e2e`. `npm run lint` is **not** clean —
+Two test layers, split by directory and never overlapping: **Vitest** owns
+`tests/unit/**/*.test.ts` (pure functions, no browser), **Playwright** owns
+`tests/e2e/` (`testDir` is set to it). A test that doesn't touch `page` belongs in
+`tests/unit/`. Verification is `tsc --noEmit` + `npm run build` + `npm run lint` +
+`npm test` + `npm run test:e2e`. `npm run lint` is **not** clean —
 there is a known pre-existing baseline, recorded in `docs/memory/gotchas.md`; new and
 modified files must stay lint-clean.
 
