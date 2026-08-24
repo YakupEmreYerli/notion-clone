@@ -38,11 +38,15 @@ Kod incelemesinden çıkan altı madde: doküman ağacı silme/arşivleme davran
 dosya katmanı içerik tipi politikası ve hız sınırı, hata/yükleme yüzeyleri,
 fixture'ların production'a sızmaması. Gerekçeler `decisions.md`'de.
 
+**Dosya erişim kontrolü** — `/api/files/<key>` GET'i capability URL modelinden
+gerçek ACL'e geçti: `fileRefs` eşlemesi (`convex/files.ts`, `convex/lib/fileRefs.ts`),
+sahibi veya yayınlanmış doküman → 200, aksi hâlde 404. Kapaklar `next/image`'da
+`unoptimized` (optimizer çerez taşımıyor). Backfill:
+`npx convex run files:backfillFileRefs` (çalıştırıldı: 38 doküman / 2 referans).
+
 ## Açık maddeler
 
 - **Faz 6** — performans ölçümü ve a11y geçişi.
-- **Dosya erişim kontrolü** — `/api/files` GET'i capability URL modeliyle
-  çalışıyor; tam ACL için dosya→doküman eşlemesi gerekiyor (`decisions.md`).
 - **Convex mutation testleri yok** — 58 fonksiyonun sıfırı test ediliyor;
   E2E suite'i geometri/parity odaklı. `docs/testing.md` yol haritası.
 - **Lint baseline** — 7 hata React-compiler kurallarından, ayrı bir iş.

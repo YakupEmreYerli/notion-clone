@@ -167,10 +167,10 @@ Yayınlanmış sayfanın görselleri anonim ziyaretçiye açılmak zorunda. Anah
 içerdiği için tahmin edilemez. Sızıntı yüzeyi başlıklarla daraltıldı:
 `cache-control: private` (paylaşımlı önbellekler tutmaz), `referrer-policy: no-referrer`
 (URL üçüncü taraflara sızmaz), `nosniff` + tip politikası.
-**Açık kalan:** Bu tam bir erişim kontrolü değil — URL'yi ele geçiren yayınlanmamış bir
+~~**Açık kalan:** Bu tam bir erişim kontrolü değil — URL'yi ele geçiren yayınlanmamış bir
 sayfanın görselini de görebilir. Gerçek çözüm, dosya→doküman eşlemesi tutan bir kayıt
 (publish durumuna bağlı kontrol) veya süreli imzalı URL; ikisi de şema değişikliği
-gerektirdiği için ayrı bir iş olarak duruyor.
+gerektirdiği için ayrı bir iş olarak duruyor.~~ → 2026-08-25'te kapatıldı, aşağıya bak.
 
 ### Yükleme hız sınırı süreç içi sayaçla
 `lib/rateLimit.ts`, kullanıcı başına 40 yükleme / 5 dakika (env ile ayarlanır).
@@ -200,3 +200,47 @@ işaret eder halde kalıyordu (sidebar'da görünmez, veritabanında birikir).
 düşürüyordu. Uzun süre bilinçli non-fix olarak tutulmuşlardı; artık düzeltildi ve
 `CLAUDE.md` ile `.claude/rules/project/convex.md` bu yönde güncellendi.
 
+---
+
+## Dosya erişim kontrolü (2026-08-25)
+
+### `/api/files/<key>` GET'i artık gerçek erişim kontrolü yapar — `fileRefs` eşlemesi
+Capability URL modeli bitti. İki yol var: (1) anahtarın içindeki `<userId>` oturum
+sahibiyle eşleşiyorsa servis edilir, (2) aksi hâlde dosya `isPublished && !isArchived`
+bir dokümana aitse anonim servis edilir (`convex/files.ts: isPubliclyReadable`).
+İkisi de tutmazsa **404** — 403 değil, çünkü yanıt var olmayan bir anahtarınkinden
+ayırt edilebilirse hangi anahtarların gerçek olduğu sızar. Convex'e ulaşılamazsa da
+404 (fail-closed).
+**Gerekçe:** Yükleme anahtarı UUID içeriyor diye erişim kontrolü sayılmıyordu; URL
+sızdığı anda (log, ekran görüntüsü, kopyala-yapıştır) yayınlanmamış bir sayfanın
+görseli de açılıyordu.
+**Neden bu tasarım, süreli imzalı URL değil:** Kullanıcı kararı. Ek olarak imzalı URL
+saklanan URL'yi süreli hâle getirir — dokümanda saklanan `/api/files/...` yolunun
+domain'den ve zamandan bağımsız kalması ("dosya URL'leri relative saklanır" kararı)
+bozulurdu; her render'da yeniden imzalama katmanı gerekirdi.
+
+### Eşleme türetilmiş veridir, `searchText` ile aynı sözleşme
+`fileRefs(key, documentId, userId)` + `by_key` / `by_document` index'leri. Kaynağı
+dokümanın `coverImage`'ı ve BlockNote içeriği; `convex/lib/fileRefs.ts` bunları saf
+JSON gezerek çıkarır (`convex/lib/searchText.ts` ile aynı yaklaşım — Convex `lib/`'ten
+import edemez, `lib/storage.ts:getDocumentUrls` istemci tarafındaki ikizidir; medya
+blok tipi listesi ikisinde de aynı tutulmalı).
+`update` (içerik/kapak), `removeCoverImage`, `duplicate` senkronlar; `remove` (alt
+ağaç dahil), `removeAll` ve `purgeExpiredTrash` siler. Arşivleme eşlemeye dokunmaz —
+`isArchived` kontrolü okuma anında yapılır.
+**Bedeli:** Her kapak/içerik yazması bir de eşleme farkı yazıyor. Sahibi olmayan her
+dosya isteği bir Convex sorgusu daha ekliyor (sahibi için ek okuma yok).
+
+### Backfill tek seferlik internal mutation
+`npx convex run files:backfillFileRefs` — `documents:backfillSearchText` deseni.
+Var olan tüm belgeler için eşlemeyi kurar, yetim kayıtları siler. Bu kurulumda
+38 doküman / 2 referans ile çalıştırıldı.
+
+### Yüklenen kapaklar `next/image` ile **unoptimized** render edilir
+**Gerekçe:** next/image optimizer'ı görseli sunucu tarafından, ziyaretçinin çerezleri
+OLMADAN çekiyor. Erişim kontrolü gelince sahibinin kendi yayınlanmamış kapağı
+`/_next/image` üzerinden 400 dönmeye başladı (ölçüldü). `unoptimized` isteği tarayıcıya
+geri veriyor, oturum çerezi taşınıyor. Yayınlanmış kapaklar için de aynı yol kullanılır
+(tek kod yolu). Editördeki BlockNote görselleri zaten düz `<img>`, etkilenmiyor.
+**Bedeli:** Kapak görselleri artık Next tarafından yeniden boyutlandırılmıyor/WebP'ye
+çevrilmiyor.

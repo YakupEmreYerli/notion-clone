@@ -71,6 +71,8 @@ ve yalnızca gerçekten değişeni gönderir.
 - Birkaç MB'ı aşan yüklemeler başarısız oluyorsa proxy'nin body-size limitini ve
   `MAX_UPLOAD_SIZE` değerini yükselt.
 - MinIO asla public değildir: dosyalar uygulama üzerinden `/api/files/<key>` ile akıtılır.
+  Bu uç nokta erişim kontrolü yapar: dosyayı ya sahibi (oturumla) ya da yayınlanmış
+  bir dokümana ait olduğu için herkes okuyabilir; ikisi de değilse 404 döner.
 
 ## Kimlik doğrulama akışı
 
@@ -90,6 +92,5 @@ devam eder — `identity.subject` artık Better Auth kullanıcı id'sidir.
 - Tablo görünümü text ve select/multi-select hücrelerini çizer. Number, checkbox
   ve date değerleri saklanır ve board kartlarında görünür, ancak tablo sütununda
   boş çıkar (`components/database/grid-cell.tsx`).
-- Bir sayfayı silmek alt sayfalarına yayılmaz — silinmek yerine sahipsiz kalırlar.
 - Hesaplar arası paylaşım modeli yok. Bir doküman ya senindir ya da herkese salt
   okunur yayımlanmıştır.
