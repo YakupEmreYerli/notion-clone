@@ -11,6 +11,10 @@
 Board (kanban) görünümü ve view sistemi **tamamlandı ve commit'lendi**. Plan ve
 onaylı kararlar: `PLAN.md`.
 
+**Sıradaki iş: test altyapısı** — plan `docs/testing.md`'de hazır (5 adım:
+Vitest kurulumu → Convex backend testleri → test kütüphanesi → CI/coverage →
+a11y/görsel). Başlamadan önce §5 "Karar Bekleyenler" kullanıcıyla netleşmeli.
+
 | Faz | İçerik | Durum |
 |---|---|---|
 | 0 | Keşif + plan | ✅ `PLAN.md` |
@@ -50,8 +54,8 @@ sahibi veya yayınlanmış doküman → 200, aksi hâlde 404. Kapaklar `next/ima
 - **Convex mutation testleri yok** — 58 fonksiyonun sıfırı test ediliyor;
   E2E suite'i geometri/parity odaklı. `docs/testing.md` yol haritası.
 - **Lint baseline** — 7 hata React-compiler kurallarından, ayrı bir iş.
-- **design/ ağırlığı** — 31 PNG ≈ 10.9 MB git'te; JSON ölçümler 132 KB.
-  Kullanıcı bunu ayrıca değerlendirecek.
+- **Test altyapısı** — `docs/testing.md` yol haritası onaylanmayı ve
+  uygulanmayı bekliyor; §5 "Karar Bekleyenler" hâlâ açık. **Sıradaki iş bu.**
 
 ## Oturum sonu şablonu
 
