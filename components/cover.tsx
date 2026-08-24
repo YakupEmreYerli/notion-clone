@@ -26,6 +26,8 @@ interface CoverImageProps {
   url?: string;
   positionY?: number;
   preview?: boolean;
+  /** Database sayfalarında Notion'ın daha ince cover oranını kullanır. */
+  database?: boolean;
   /**
    * Peek modalı gibi dar alanlarda kapak YOKKEN boş bir şerit ayırmaz.
    * Kapak yüksekliğini etkilemez — kapak her yüzeyde aynı yükseklikte.
@@ -38,6 +40,7 @@ export const Cover = ({
   url,
   positionY,
   preview,
+  database,
   compact,
 }: CoverImageProps) => {
   const [isRemoving, setIsRemoving] = useState(false);
@@ -59,6 +62,8 @@ export const Cover = ({
   };
 
   const coverImage = useCoverImage();
+  const isOwnCoverModalOpen =
+    coverImage.isOpen && coverImage.documentId === documentId;
   const { focusMode } = useFocusMode({ enabled: !preview });
 
   const update = useMutation(api.documents.update);
@@ -154,11 +159,15 @@ export const Cover = ({
   return (
     <div
       ref={containerRef}
+      data-testid="page-cover"
       className={cn(
         "group relative z-10 w-full",
-        // Kapak yüksekliği tek bir değer: sayfa, database, preview ve peek
-        // aynı görünsün diye yüzeye göre değişmiyor (Notion ölçümü: min(30vh,280px)).
-        url && "bg-muted h-[min(30vh,280px)]",
+        // Notion database cover'ı normal sayfadaki 30vh yerine 20vh kullanır;
+        // iki yüzey de yüksek ekranlarda aynı 280px cap'e ulaşır.
+        url &&
+          (database
+            ? "bg-muted h-[min(20vh,280px)]"
+            : "bg-muted h-[min(30vh,280px)]"),
         !url && !focusMode && "h-[12vh] md:h-[72px]",
         !url && focusMode && "h-20 md:h-20",
       )}
@@ -249,12 +258,16 @@ export const Cover = ({
           gerçek boşluk bırakan bir segmented pill grubu — daha net tıklama
           hedefleri, daha yumuşak (scale+opacity) beliriş, Remove için ayrı
           bir "tehlikeli aksiyon" hover rengi. */}
-      {url && !preview && !isRepositioning && canHover && (
+      {url && !preview && !isRepositioning && (canHover || isOwnCoverModalOpen) && (
         <div
+          data-testid="page-cover-controls"
           className={cn(
             "absolute top-4 right-4 z-50 flex items-center gap-x-1 rounded-full bg-black/70 p-1",
-            "shadow-lg shadow-black/20 ring-1 ring-white/10 backdrop-blur-md",
-            "scale-95 opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover:scale-100 group-hover:opacity-100",
+            "shadow-lg ring-1 shadow-black/20 ring-white/10 backdrop-blur-md",
+            "transition-[opacity,transform] duration-150 ease-out",
+            isOwnCoverModalOpen
+              ? "scale-100 opacity-100"
+              : "scale-95 opacity-0 group-hover:scale-100 group-hover:opacity-100",
           )}
         >
           <button
@@ -283,7 +296,7 @@ export const Cover = ({
           </button>
         </div>
       )}
-      {url && !preview && !isRepositioning && !canHover && (
+      {url && !preview && !isRepositioning && !canHover && !isOwnCoverModalOpen && (
         <div className="absolute top-16 right-3 z-50 flex items-center">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

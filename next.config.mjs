@@ -17,10 +17,15 @@ const nextConfig = {
     // Uploads are served from the app itself (/api/files/<key>) — no remote
     // host needed for those. The entries below are for the built-in cover
     // image gallery (lib/coverGallery.ts): The Met + Cleveland Museum of Art
-    // open-access (CC0) CDNs.
+    // open-access CDNs and Notion's public page-cover catalog.
     remotePatterns: [
       { protocol: "https", hostname: "images.metmuseum.org" },
       { protocol: "https", hostname: "openaccess-cdn.clevelandart.org" },
+      {
+        protocol: "https",
+        hostname: "app.notion.com",
+        pathname: "/images/page-cover/**",
+      },
     ],
   },
   async rewrites() {

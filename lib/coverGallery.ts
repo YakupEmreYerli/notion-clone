@@ -1,7 +1,7 @@
 // Notion'un "Gallery" sekmesindeki gibi kategorilere ayrılmış hazır kapak
-// görselleri. Tamamı açık erişim müze koleksiyonlarından: The Met Open Access
-// (CC0) ve Cleveland Museum of Art Open Access (CC0). Görseller ilgili kurumun
-// kendi CDN'inden gösteriliyor, indirilip barındırılmıyor.
+// görselleri. Kaynaklar açık erişim müze/kamu koleksiyonları ile Texturelabs'in
+// kullanım lisanslı dokularıdır. Met ve Cleveland görselleri kurum CDN'lerinden;
+// Notion'ın güncel kataloğuyla eşleşen ekler Notion'ın page-cover CDN'inden gelir.
 //
 // Seçim kuralları (lib/coverGallery.ts kapak bandı için küratörlük edilmiştir):
 //  - Sadece kamu malı (public domain / CC0) eserler.
@@ -20,11 +20,13 @@ export interface GalleryImage {
   url: string;
   label: string;
   detail?: string;
+  background?: string;
 }
 
 export interface GalleryCategory {
   name: string;
   images: GalleryImage[];
+  sourceUrl?: string;
 }
 
 // "web-large" küçük — bu koleksiyondaki 55 görselin 47'sinde en uzun kenar
@@ -37,6 +39,69 @@ const met = (department: string, file: string) =>
   `https://images.metmuseum.org/CRDImages/${department}/original/${file}`;
 
 const cma = (path: string) => `https://openaccess-cdn.clevelandart.org/${path}`;
+
+const notion = (file: string) =>
+  `https://app.notion.com/images/page-cover/${file}`;
+
+const notionCategory = (
+  name: string,
+  sourceUrl: string,
+  images: [file: string, label: string][],
+): GalleryCategory => ({
+  name,
+  sourceUrl,
+  images: images.map(([file, label]) => ({ url: notion(file), label })),
+});
+
+const COVER_COLORS = [
+  ["#f87171", "Red"],
+  ["#fb923c", "Orange"],
+  ["#fbbf24", "Yellow"],
+  ["#a3e635", "Lime"],
+  ["#34d399", "Green"],
+  ["#22d3ee", "Cyan"],
+  ["#60a5fa", "Blue"],
+  ["#a78bfa", "Purple"],
+  ["#f472b6", "Pink"],
+  ["#94a3b8", "Slate"],
+  ["#1e293b", "Dark slate"],
+  ["#ffffff", "White"],
+  ["linear-gradient(135deg, #f87171, #fb923c)", "Red orange gradient"],
+  ["linear-gradient(135deg, #fbbf24, #a3e635)", "Yellow lime gradient"],
+  ["linear-gradient(135deg, #34d399, #22d3ee)", "Green cyan gradient"],
+  ["linear-gradient(135deg, #60a5fa, #a78bfa)", "Blue purple gradient"],
+  ["linear-gradient(135deg, #f472b6, #fb923c)", "Pink orange gradient"],
+  ["linear-gradient(135deg, #a78bfa, #60a5fa)", "Purple blue gradient"],
+  ["linear-gradient(135deg, #1e293b, #475569)", "Slate gradient"],
+  ["linear-gradient(135deg, #f87171, #a78bfa)", "Red purple gradient"],
+] as const;
+
+export const LEGACY_COLOR_CATEGORY: GalleryCategory = {
+  name: "More colors & gradients",
+  images: COVER_COLORS.map(([url, label]) => ({
+    url,
+    label,
+    background: url,
+  })),
+};
+
+export const COVER_COLOR_CATEGORY = notionCategory(
+  "Color & Gradient",
+  "https://cargocollective.com/superfamousimages/36-Gradients",
+  [
+    ["solid_red.png", "Red"],
+    ["solid_yellow.png", "Yellow"],
+    ["solid_blue.png", "Blue"],
+    ["solid_beige.png", "Beige"],
+    ["gradients_8.png", "Gradient 8"],
+    ["gradients_4.png", "Gradient 4"],
+    ["gradients_2.png", "Gradient 2"],
+    ["gradients_11.jpg", "Gradient 11"],
+    ["gradients_10.jpg", "Gradient 10"],
+    ["gradients_5.png", "Gradient 5"],
+    ["gradients_3.png", "Gradient 3"],
+  ],
+);
 
 export const GALLERY_CATEGORIES: GalleryCategory[] = [
   {
@@ -53,21 +118,8 @@ export const GALLERY_CATEGORIES: GalleryCategory[] = [
     ],
   },
   {
-    name: "Ukiyo-e — Mevsimler ve Kar",
-    images: [
-      { url: met("as", "DP124460.jpg"), label: "Utagawa Kunisada", detail: "Landscape in the Mist, mid-19th century" },
-      { url: met("as", "DP141240.jpg"), label: "Katsushika Hokusai", detail: "Snow on the Sumida River (Sumida), from the series, Snow, Moon, and Flowers…, ca. 1833" },
-      { url: met("as", "DP135541.jpg"), label: "Utagawa Toyokuni II", detail: "Night Rain at Ōyama, from the series 'Eight Famous Views of Kanagawa', ca. 1830" },
-      { url: met("as", "DP124461.jpg"), label: "Utagawa Kunisada", detail: "Rain of the Fifth Month (Samidare), 19th century" },
-      { url: met("as", "DP141239.jpg"), label: "Katsushika Hokusai", detail: "Old View of the Boat-bridge at Sano in Kōzuke Province (Kōzuke Sano funabas…, ca. 1830" },
-      { url: met("as", "DP141015.jpg"), label: "Katsushika Hokusai", detail: "Morning after the Snow at Koishikawa in Edo (Koishikawa yuki no ashita), fr…, ca. 1830–32" },
-      { url: met("as", "DP142281.jpg"), label: "Katsushika Isai", detail: "Winter Farming Scene; (verso) Autumn Farming Scene" },
-    ],
-  },
-  {
     name: "Hudson River Okulu — Amerikan Manzarası",
     images: [
-      { url: met("ad", "DP-12550-001.jpg"), label: "Thomas Cole", detail: "Mount Holyoke'tan Görünüm (The Oxbow), 1836" },
       { url: met("ad", "DT82.jpg"), label: "Albert Bierstadt", detail: "Kayalık Dağlar, Lander's Peak, 1863" },
       { url: met("ad", "DT78.jpg"), label: "Frederic Edwin Church", detail: "And Dağlarının Kalbi, 1859" },
       { url: met("ad", "DT84.jpg"), label: "John Frederick Kensett", detail: "Lake George, 1869" },
@@ -113,24 +165,187 @@ export const GALLERY_CATEGORIES: GalleryCategory[] = [
       { url: cma("2015.518/2015.518_print.jpg"), label: "Kano Motonobu", detail: "Landscape, mid-1500s" },
     ],
   },
-  {
-    name: "Klasik Fotoğraf",
-    images: [
-      { url: met("ph", "DT1173.jpg"), label: "Carleton E. Watkins", detail: "View on the Columbia, Cascades, 1867" },
-      { url: met("ph", "DT1150.jpg"), label: "Marie-Charles-Isidore Choiselat", detail: "[Landscape], 1844" },
-      { url: met("ph", "DT1171.jpg"), label: "Carleton E. Watkins", detail: "The Town on the Hill, New Almaden, 1863" },
-      { url: met("ph", "DP73321.jpg"), label: "European Views", detail: "The Mansion House, 1850s–1910s" },
+];
+
+export const NOTION_GALLERY_CATEGORIES: GalleryCategory[] = [
+  notionCategory("Texturelabs", "https://texturelabs.org/", [
+    ["texturelabs_glass_132S.jpg", "Frosted Glass"],
+    ["texturelabs_metal_126S.jpg", "Army Green Painted Metal"],
+    ["texturelabs_metal_261S.jpg", "Aqua Color Old Paint"],
+    ["texturelabs_glass_125S.jpg", "Hazy Glass"],
+    ["texturelabs_fabric_169S.jpg", "Abstract Paint Canvas"],
+    ["texturelabs_glass_124S.jpg", "Hazy Frosted Glass"],
+    ["texturelabs_metal_212S.jpg", "Oxidized Rusted Metal"],
+    ["texturelabs_metal_285S.jpg", "Matte Aged Copper"],
+    ["texturelabs_water_135S.jpg", "Ice Surface"],
+    ["texturelabs_concrete_146S.jpg", "Weathered Concrete"],
+    ["texturelabs_wood_244S.jpg", "Black Painted Age Wood"],
+    ["texturelabs_paper_253S.jpg", "Blue Vintage Paper"],
+  ]),
+  notionCategory(
+    "The MET Museum - Hudson River School",
+    "https://www.metmuseum.org/art/collection",
+    [
+      ["hudsonRiverSchool_lakeGeorge.jpg", "John Frederick Kensett"],
+      ["hudsonRiverSchool_rockyMountainsLandersPeak.jpg", "Albert Bierstadt"],
+      ["hudsonRiverSchool_thanatopsis.jpg", "Asher Brown Durand"],
+      ["hudsonRiverSchool_springLandscape.jpg", "Thomas Doughty Church"],
+      ["hudsonRiverSchool_catskillEarlyAutumn.jpg", "Thomas Cole"],
+      ["hudsonRiverSchool_aegeanSea.jpg", "Frederic Edwin Church"],
+      ["hudsonRiverSchool_passingOffOfTheStorm.jpg", "John Frederick Kensett"],
     ],
-  },
-  {
-    name: "Halı ve Tekstil Desenleri",
-    images: [
-      { url: cma("1952.511/1952.511_print.jpg"), label: "Spain, Alcaraz?, Mudejar, 15th century", detail: "Spanish Carpet with a Turkish Pattern, c. 1450–1500" },
-      { url: cma("1928.205/1928.205_print.jpg"), label: "Imperial Manufactory", detail: "Fragments of a Carpet, 1600–1650" },
-      { url: cma("1950.558/1950.558_print.jpg"), label: "Iran or Iraq, Seljuk period", detail: "Fragment with gold leaf lions, 1000s–1100s" },
-      { url: met("is", "DP148549.jpg"), label: "The Met", detail: "Carpet, ca. 1800" },
-      { url: met("is", "DP168735.jpg"), label: "The Met", detail: "Mamluk Carpet, early 16th century" },
-      { url: met("is", "DP227051.jpg"), label: "The Met", detail: "Silk Kashan Carpet, 16th century" },
+  ),
+  notionCategory("National Museum of Asian Art", "https://asia.si.edu/", [
+    [
+      "nationalMuseumOfAsianArt_sparrowsFeedingTheirYoung.jpg",
+      "Sparrows Feeding Their Young",
     ],
-  },
+    [
+      "nationalMuseumOfAsianArt_landscapeWithGibbonsAndCranes.jpg",
+      "Landscape with Gibbons and Cranes",
+    ],
+    [
+      "nationalMuseumOfAsianArt_mountainMistSpringMorning.jpg",
+      "Mountain Mist, Spring Morning",
+    ],
+    [
+      "nationalMuseumOfAsianArt_gardenSceneMelonsEggPlantsFlowersAndTwoWeasels.jpg",
+      "Garden Scene: Melons, Egg-Plants, Flowers, and Two Weasels",
+    ],
+  ]),
+  notionCategory(
+    "USDA Pomological Watercolors",
+    "https://commons.wikimedia.org/wiki/Category:USDA_Pomological_Watercolors",
+    [
+      ["usda_cherries.png", "Cherries"],
+      ["usda_pear.png", "Pear"],
+      ["usda_apple.png", "Apple"],
+      ["usda_oranges.png", "Oranges"],
+    ],
+  ),
+  notionCategory("Artemis II", "https://www.nasa.gov/mission/artemis-ii/", [
+    ["artemis_ii_1.jpg", "Crescent Earth"],
+    ["artemis_ii_2.jpg", "Near Side and Far Side of the Moon"],
+    ["artemis_ii_3.jpg", "Shadows at the Edge of Lunar Day"],
+    ["artemis_ii_4.jpg", "Shadows Across Vavilov Crater"],
+    ["artemis_ii_5.jpg", "Earthset"],
+    ["artemis_ii_6.jpg", "Artemis II in Eclipse"],
+    ["artemis_ii_7.jpg", "The Edge of Darkness"],
+    ["artemis_ii_8.jpg", "Craters of Time"],
+  ]),
+  notionCategory("James Webb Telescope", "https://webbtelescope.org/", [
+    ["webb1.jpg", "Cosmic Cliffs in Carina"],
+    ["webb2.jpg", "Stephan's Quintet"],
+    ["webb3.jpg", "Southern Ring Nebula"],
+    ["webb4.jpg", "Deep Field"],
+  ]),
+  notionCategory("NASA Archive", "https://www.flickr.com/photos/nasacommons/", [
+    ["nasa_the_blue_marble.jpg", "The Blue Marble"],
+    ["nasa_transonic_tunnel.jpg", "Transonic Tunnel"],
+    ["nasa_multi-axis_gimbal_rig.jpg", "Multi-Axis Gimbal Rig"],
+    ["nasa_eva_during_skylab_3.jpg", "EVA During Skylab 3"],
+    ["nasa_eagle_in_lunar_orbit.jpg", "Eagle In Lunar Orbit"],
+    ["nasa_buzz_aldrin_on_the_moon.jpg", "Buzz Aldrin on the Moon"],
+    ["nasa_ibm_type_704.jpg", "IBM Type 704"],
+    ["nasa_wrights_first_flight.jpg", "Wright's First Flight"],
+    ["nasa_great_sandy_desert_australia.jpg", "Great Sandy Desert, Australia"],
+    ["nasa_space_shuttle_columbia.jpg", "Space Shuttle Columbia"],
+    ["nasa_robert_stewart_spacewalk.jpg", "Robert Stewart Spacewalk"],
+    ["nasa_space_shuttle_challenger.jpg", "Space Shuttle Challenger"],
+    ["nasa_robert_stewart_spacewalk_2.jpg", "Robert Stewart Spacewalk 2"],
+    [
+      "nasa_space_shuttle_columbia_and_sunrise.jpg",
+      "Space Shuttle Columbia and Sunrise",
+    ],
+    ["nasa_tim_peake_spacewalk.jpg", "Tim Peake Spacewalk"],
+    ["nasa_bruce_mccandless_spacewalk.jpg", "Bruce McCandless Spacewalk"],
+    ["nasa_new_york_city_grid.jpg", "New York City Grid"],
+    ["nasa_fingerprints_of_water_on_the_sand.jpg", "Water on the Sand"],
+    ["nasa_carina_nebula.jpg", "Carina Nebula"],
+    ["nasa_orion_nebula.jpg", "Orion Nebula"],
+    [
+      "nasa_reduced_gravity_walking_simulator.jpg",
+      "Reduced Gravity Walking Simulator",
+    ],
+    ["nasa_earth_grid.jpg", "Earth Grid"],
+  ]),
+  notionCategory(
+    "The MET Museum – Patterns",
+    "https://www.metmuseum.org/art/collection",
+    [
+      ["met_william_morris_1877_willow.jpg", "William Morris"],
+      ["met_william_morris_1875.jpg", "William Morris"],
+      ["met_william_morris_1878.jpg", "William Morris"],
+      ["met_silk_kashan_carpet.jpg", "Silk Kashan Carpet"],
+    ],
+  ),
+  notionCategory("Rijksmuseum", "https://www.rijksmuseum.nl/en/rijksstudio", [
+    ["rijksmuseum_vermeer_the_milkmaid.jpg", "Johannes Vermeer"],
+    ["rijksmuseum_jansz_1649.jpg", "Pieter Jansz"],
+    ["rijksmuseum_rembrandt_1642.jpg", "Rembrandt van Rijn"],
+    ["rijksmuseum_jansz_1636.jpg", "Pieter Jansz"],
+    ["rijksmuseum_jansz_1641.jpg", "Pieter Jansz"],
+    ["rijksmuseum_jan_lievens_1627.jpg", "Jan Lievens"],
+    ["rijksmuseum_jansz_1637.jpg", "Pieter Jansz"],
+    ["rijksmuseum_mignons_1660.jpg", "Abraham Mignon"],
+    ["rijksmuseum_avercamp_1620.jpg", "Hendrick Avercamp"],
+    ["rijksmuseum_avercamp_1608.jpg", "Hendrick Avercamp"],
+    ["rijksmuseum_claesz_1628.jpg", "Pieter Claesz"],
+  ]),
+  notionCategory(
+    "The MET Museum – Japanese Prints",
+    "https://www.metmuseum.org/art/collection",
+    [
+      ["woodcuts_1.jpg", "Katsushika Hokusai"],
+      ["woodcuts_2.jpg", "Katsushika Hokusai"],
+      ["woodcuts_3.jpg", "Katsushika Hokusai"],
+      ["woodcuts_4.jpg", "Keisai Eisen"],
+      ["woodcuts_5.jpg", "Kobayashi Kiyochika"],
+      ["woodcuts_6.jpg", "Katsushika Hokusai"],
+      ["woodcuts_7.jpg", "Katsushika Hokusai"],
+      ["woodcuts_8.jpg", "Katsushika Hokusai"],
+      ["woodcuts_9.jpg", "Katsushika Hokusai"],
+      ["woodcuts_10.jpg", "Katsushika Hokusai"],
+      ["woodcuts_11.jpg", "Ito Jakuchu"],
+      ["woodcuts_13.jpg", "Utagawa Hiroshige"],
+      ["woodcuts_14.jpg", "Katsushika Hokusai"],
+      ["woodcuts_15.jpg", "Katsushika Hokusai"],
+      ["woodcuts_16.jpg", "Katsushika Hokusai"],
+      ["woodcuts_sekka_1.jpg", "Kamisaka Sekka"],
+      ["woodcuts_sekka_2.jpg", "Kamisaka Sekka"],
+      ["woodcuts_sekka_3.jpg", "Kamisaka Sekka"],
+    ],
+  ),
+  notionCategory("The MET Museum", "https://www.metmuseum.org/art/collection", [
+    ["met_vincent_van_gogh_ginoux.jpg", "Vincent van Gogh"],
+    ["met_winslow_homer_maine_coast.jpg", "Winslow Homer"],
+    ["met_frederic_edwin_church_1871.jpg", "Frederic Edwin Church"],
+    ["met_joseph_hidley_1870.jpg", "Joseph Hidley"],
+    ["met_jules_tavernier_1878.jpg", "Jules Tavernier"],
+    ["met_henry_lerolle_1885.jpg", "Henry Lerolle"],
+    ["met_georges_seurat_1884.jpg", "Georges Seurat"],
+    ["met_john_singer_sargent_morocco.jpg", "John Singer Sargent"],
+    ["met_paul_signac.jpg", "Paul Signac"],
+    ["met_vincent_van_gogh_oleanders.jpg", "Vincent van Gogh"],
+    ["met_emanuel_leutze.jpg", "Emanuel Leutze"],
+    ["met_fitz_henry_lane.jpg", "Fitz Henry Lane"],
+    ["met_vincent_van_gogh_cradle.jpg", "Vincent van Gogh"],
+    ["met_camille_pissarro_1896.jpg", "Camille Pissarro"],
+    ["met_gerome_1890.jpg", "Jean-Léon Gérôme"],
+    ["met_arnold_bocklin_1880.jpg", "Arnold Böcklin"],
+    ["met_henri_tl_1892.jpg", "Henri de Toulouse-Lautrec"],
+    ["met_horace_pippin.jpg", "Horace Pippin"],
+    ["met_jean_beraud.jpg", "Jean Béraud"],
+    ["met_cezanne_1890.jpg", "Paul Cézanne"],
+    ["met_edgar_degas_1874.jpg", "Edgar Degas"],
+    ["met_henri_rousseau_1907.jpg", "Henri Rousseau"],
+    ["met_vincent_van_gogh_irises.jpg", "Vincent van Gogh"],
+    ["met_terracotta_funerary_plaque.jpg", "Terracotta funerary plaque"],
+    ["met_william_turner_1835.jpg", "William Turner"],
+    ["met_the_unicorn_in_captivity.jpg", "The Unicorn in Captivity"],
+    ["met_goya_1789.jpg", "Goya"],
+    ["met_bruegel_1565.jpg", "Pieter Bruegel the Elder"],
+    ["met_canaletto_1720.jpg", "Canaletto"],
+    ["met_klimt_1912.jpg", "Gustav Klimt"],
+  ]),
 ];

@@ -4,7 +4,12 @@ import Image from "next/image";
 
 import { ActionTooltip } from "@/components/action-tooltip";
 import { cn } from "@/lib/utils";
-import { GALLERY_CATEGORIES } from "@/lib/coverGallery";
+import {
+  COVER_COLOR_CATEGORY,
+  GALLERY_CATEGORIES,
+  LEGACY_COLOR_CATEGORY,
+  NOTION_GALLERY_CATEGORIES,
+} from "@/lib/coverGallery";
 
 interface CoverGalleryProps {
   onSelect: (url: string) => void;
@@ -13,41 +18,73 @@ interface CoverGalleryProps {
 
 export const CoverGallery = ({ onSelect, selectedUrl }: CoverGalleryProps) => {
   return (
-    <div className="max-h-[380px] space-y-5 overflow-y-auto p-2">
-      {GALLERY_CATEGORIES.map((category) => (
-        <div key={category.name}>
-          <p className="text-muted-foreground mb-2 text-xs font-medium">
-            {category.name}
-          </p>
-          <div className="grid grid-cols-4 gap-2">
+    <div
+      data-cover-gallery
+      className="h-[445px] overflow-x-hidden overflow-y-auto pr-[21px] pb-2 pl-4"
+    >
+      {[
+        COVER_COLOR_CATEGORY,
+        ...NOTION_GALLERY_CATEGORIES,
+        ...GALLERY_CATEGORIES,
+        LEGACY_COLOR_CATEGORY,
+      ].map((category, categoryIndex) => (
+        <section className="pb-[17px] first:pt-2.5" key={category.name}>
+          <div className="mb-3 flex h-5 items-center text-xs font-medium">
+            {category.sourceUrl ? (
+              <a
+                href={category.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-muted-foreground hover:underline"
+              >
+                {category.name}
+              </a>
+            ) : (
+              <span className="text-muted-foreground">{category.name}</span>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
             {category.images.map((image) => (
               <ActionTooltip
                 key={image.url}
                 label={
-                  image.detail ? `${image.label} — ${image.detail}` : image.label
+                  image.detail
+                    ? `${image.label} — ${image.detail}`
+                    : image.label
                 }
               >
                 <button
+                  type="button"
                   onClick={() => onSelect(image.url)}
                   aria-label={image.label}
+                  aria-pressed={selectedUrl === image.url}
                   className={cn(
-                    "border-border relative aspect-[3/2] overflow-hidden rounded-md border transition hover:opacity-80",
+                    "border-border relative h-16 min-w-0 overflow-hidden rounded-sm transition-opacity hover:opacity-85",
+                    image.background && "border",
                     selectedUrl === image.url &&
-                      "ring-primary ring-2 ring-offset-1",
+                      "ring-2 ring-[#2383e2] ring-inset",
                   )}
+                  style={
+                    image.background
+                      ? { background: image.background }
+                      : undefined
+                  }
                 >
-                  <Image
-                    src={image.url}
-                    alt={image.label}
-                    fill
-                    sizes="160px"
-                    className="object-cover"
-                  />
+                  {!image.background && (
+                    <Image
+                      src={image.url}
+                      alt=""
+                      fill
+                      loading={categoryIndex === 0 ? "eager" : "lazy"}
+                      sizes="(max-width: 375px) 72px, 119px"
+                      className="rounded-sm object-cover"
+                    />
+                  )}
                 </button>
               </ActionTooltip>
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );

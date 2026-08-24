@@ -26,6 +26,7 @@ export const isManagedFileUrl = (value?: string | null): value is string =>
 const OPTIMIZABLE_IMAGE_HOSTS = new Set([
   "images.metmuseum.org",
   "openaccess-cdn.clevelandart.org",
+  "app.notion.com",
 ]);
 
 /** True if `next/image` can safely optimize this URL (same-origin upload or a whitelisted host). */
