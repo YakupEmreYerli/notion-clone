@@ -275,3 +275,35 @@ E2E sayısı 33 → 23 (19 geçen + 4 atlanan).
 Ölçülen baseline: toplam **%17.71** satır, `convex/lib` **%1.84**, `lib` **%5.98**.
 Eşik yalnızca CI adımında (Adım 4) anlam kazandığı için o adıma bırakıldı —
 `docs/testing.md` §5.2'deki %80/%70 önerisi henüz onaylanmadı.
+
+### Convex testleri `tests/convex/`, iki Vitest project'i
+`vitest.config.mts` iki project tanımlar: `unit` (node) ve `convex`
+(`edge-runtime` + `server.deps.inline: ["convex-test"]`). Inline şart:
+`convex-test`, `convex/` altındaki fonksiyon modüllerini kendi dist'i içinden
+`import.meta.glob` ile toplar; externalize edilirse glob dönüşmez ve hiçbir
+Convex fonksiyonu bulunamaz. `edge-runtime` ortamı da `convex-test`'in
+gereksinimi (`@edge-runtime/vm` devDependency).
+`convex` 1.42.3 → 1.45.0 bump'ı `tsc`/`build` tarafında sorunsuz geçti ve
+`convex/_generated/` yeniden üretmeyi gerektirmedi — fonksiyon şekilleri
+değişmedi.
+Kimlik: `requireUser` `identity.subject`'i userId sayar, bu yüzden
+`tests/convex/support/harness.ts` `setup()` üç erişim verir — `owner`,
+`stranger`, `anonymous`.
+
+### Testlerin diş geçirdiği ölçüldü, varsayılmadı
+`documents.getById` içindeki public-before-auth sırası kasten ters çevrildi
+(auth kontrolü yayın kontrolünden öne alındı); ilgili test kırmızı yandı, kod
+geri alındı. Bu değişmezi `tsc --noEmit` de `npm run build` de yakalamıyor —
+tek koruma bu test. Yeni bir kritik değişmez test edilirken aynı şey yapılmalı:
+bozup kırmızıyı görmeden test yazıldı sayılmaz.
+
+### ESLint üretilmiş `coverage/` çıktısını tarıyordu
+`npm run test:coverage` sonrası lint 15 → 18 sorun gösteriyordu; üç uyarı
+`coverage/*.js` (istanbul'un HTML raporu) içindendi, kaynak koddan değil.
+`eslint.config.mjs` ignore listesine `coverage/**` eklendi. `.gitignore`'da
+zaten vardı — lint ile gitignore ayrı listeler, biri diğerini takip etmiyor.
+
+### Coverage eşiği kademeli yükseltilecek
+Kullanıcı kararı: baştan %80 hedefi koyup CI'ı sürekli kırmızı bırakmak yerine,
+o anki ölçülen değeri taban alıp her adımda yukarı çekmek. Seyir: Adım 1 sonrası
+%17.71 → Adım 2 sonrası %31.89. Eşik Adım 4'te (CI) devreye girecek.

@@ -19,7 +19,8 @@ Doküman üç bölümden oluşur:
 | Öğe | Detay |
 |---|---|
 | Playwright (E2E) | 5 spec dosyası, **23 test** (19 geçen + 4 atlanan), tek Chromium projesi |
-| Vitest (unit) | 1 dosya, **10 test**, 223 ms — Adım 1 ile geldi |
+| Vitest (unit) | 1 dosya, **10 test** — Adım 1 ile geldi |
+| Vitest (convex) | 5 dosya, **36 test**, `convex-test` — Adım 2 ile geldi |
 | Fixture'lar | 3 izole route: `clipping`, `table`, `cover-modal` |
 | Yardımcı | 1 adet güçlü `assertNoUnexpectedClipping` (gölge/contain dahil) |
 | Görsel regresyon | 1 snapshot (board surfaces) |
@@ -30,8 +31,8 @@ Doküman üç bölümden oluşur:
 | Boşluk | Kanıt | Etkisi |
 |---|---|---|
 | ~~**Unit test yok**~~ | ✅ Adım 1 ile kapandı: `tests/unit/`, Vitest | — |
-| **Convex backend testi yok** | `convex/databases.ts` (698 satır), `databaseViews.ts` (718), `lib/*` (toplam ~2095 satır) sıfır test | **En riskli yüzey**: arama, sıralama, filtre, cascade, auth, optimistik taşıma regresyona açık |
-| **Coverage eşiği yok** | Vitest v8 raporu var (baseline %17.71), CI gate yok | "Build geçti" ≠ "davranış doğru"; regresyon sessizce girer |
+| ~~**Convex backend testi yok**~~ | ✅ Adım 2 ile kapandı: `tests/convex/`, `convex-test`. Kapsam `convex/` %33.91, `convex/lib` %40.59 — tam değil ama en riskli yollar (auth sırası, sıralama, cascade, dosya erişimi) korumada | — |
+| **Coverage eşiği yok** | Vitest v8 raporu var (toplam %31.89), CI gate yok | "Build geçti" ≠ "davranış doğru"; regresyon sessizce girer |
 | **CI yok** | `.github/workflows/` dizini yok | Merge gate yok |
 | **A11y yok** | `@axe-core` bağımlılığı yok | Klavye/ekran okuyucu parity'si sınanmıyor |
 | **Görsel regresyon zayıf** | 1 snapshot | Board dışı yüzeyler (table, menu, picker, cover) görsel olarak kırılabilir |
@@ -113,18 +114,30 @@ Sıralama ROI (yatırım getirisi) esasına göre. Her adım bağımsız merge e
   `convex/lib` %1.84, `lib` %5.98. `tsc --noEmit` temiz, `build` temiz,
   `lint` 15 sorunda sabit (baseline değişmedi).
 
-### Adım 2 — Convex backend testleri ⏱️ 1-2 gün
-- `convex/lib/*` içindeki saf fonksiyonları (varsa) çıkar; `ordering`, `coerce`, `cellValue`,
-  `databaseCascade` bunu destekler.
-- Mutation'ları **arrange/act/assert** üçlüsüyle Vitest'te test et (Convex'i mockleyen ince
-  bir backend stub ile).
-- Kapsanan davranışlar:
-  - `orderBoardProperties` boş liste (legacy) semantiği
-  - `visiblePropertyIds` arama/filtre/sıralama etkileşimi
-  - satır taşıma (`beforeRowId`/`afterRowId`) sırası
-  - `coerce` -> `cellValue` tür dönüşümleri (false/0 korunmalı)
-  - `databaseCascade` silme ağacı
-- **Çıktı:** en riskli yüzeyin koruması.
+### Adım 2 — Convex backend testleri ✅ **tamamlandı (2026-08-25)**
+- `convex` 1.42.3 → **1.45.0**, + `convex-test@0.0.56` ve `@edge-runtime/vm`
+  devDependency. `tsc` ve `build` bump sonrası temiz; `convex/_generated/`
+  yeniden üretmek gerekmedi (fonksiyon şekilleri değişmedi).
+- `vitest.config.mts` artık iki **project** tanımlıyor: `unit` (node ortamı) ve
+  `convex` (`edge-runtime` ortamı + `server.deps.inline: ["convex-test"]` —
+  `convex-test`, `convex/` modüllerini `import.meta.glob` ile topladığı için
+  externalize edilmemeli).
+- `tests/convex/support/harness.ts`: `setup()` tek çağrıda sahibi, yabancıyı ve
+  anonim ziyaretçiyi verir (`requireUser` kimliğin `subject`'ini userId sayar).
+- **36 test**, beş dosya:
+  | Dosya | Kapsanan davranış |
+  |---|---|
+  | `auth.test.ts` | public-before-auth okuma sırası, arşiv/yayın etkileşimi, sahiplik reddi |
+  | `databases.test.ts` | fractional index (başa/araya ekleme, komşuları yeniden yazmama), MIN_GAP rebalance, `updateCell` sığ merge, `false`/`0` korunması, `deleteRow` sıra kaydı temizliği |
+  | `documents.test.ts` | özyinelemeli alt ağaç silme + cascade, kardeş ağaca dokunmama, archive/restore yürüyüşü, `searchText` ve `fileRefs` senkronu |
+  | `databaseViews.test.ts` | `moveRow` group-by hücresi + `GROUP_KEY_NONE`, çift sıra kaydı bırakmama, grup içi sıra, view yaşam döngüsü |
+  | `files.test.ts` | `isPubliclyReadable`: yayın/arşiv geçişleri, kapak değişince eski dosyanın kapanması, bilinmeyen anahtarda bilgi sızdırmama |
+- **Testlerin diş geçirdiği doğrulandı:** `documents.getById` içindeki
+  public-before-auth sırası kasten ters çevrildi → ilgili test kırmızı yandı,
+  kod geri alındı. `tsc`/`build` bu bozulmayı yakalamıyor.
+- Yan bulgu: ESLint üretilmiş `coverage/` çıktısını tarıyordu (3 sahte uyarı) —
+  `eslint.config.mjs` ignore listesine eklendi.
+- **Çıktı:** en riskli yüzeyin koruması. Coverage %17.71 → **%31.89**.
 
 ### Adım 3 — Test kütüphanesi (okunabilirlik) ⏱️ 1 gün
 - `tests/support/` altına `data-builder`, `page-objects`, `fixture` yardımcıları.
@@ -163,8 +176,9 @@ Sıralama ROI (yatırım getirisi) esasına göre. Her adım bağımsız merge e
 1. ~~**Convex test yaklaşımı**~~ — ✅ **karara bağlandı (2026-08-25): Seçenek B**,
    ayrı `convex-test` paketi + `convex` ≥1.43 bump. Gerekçe §1.3 ve `decisions.md`.
 2. **Coverage threshold değeri** — ⏳ **Adım 4'e ertelendi.** Eşik yalnızca CI'da
-   anlam kazanıyor. Ölçülen baseline: toplam %17.71, `convex/lib` %1.84, `lib` %5.98 —
-   yani dokümandaki %80/%70 önerisi bugünkü koda uygulanamaz; Adım 2-3 bittikten sonra
-   gerçek sayıyla karara bağlanacak.
+   anlam kazanıyor. Ölçüm seyri: Adım 1 sonrası toplam %17.71 → Adım 2 sonrası
+   **%31.89** (`convex` %33.91, `convex/lib` %40.59, `lib` %5.98). Kullanıcı kararı:
+   eşik **kademeli yükseltilecek** — bugünkü ölçülen değeri taban alıp her adımda
+   yukarı çekmek, baştan %80 koyup CI'ı sürekli kırmızı bırakmamak.
 3. **Snapshot baseline'ı** — ⏳ açık. Görsel regresyon için ilk baseline'lar CI'da
    üretilir ve `--update-snapshots` ile kabul edilir (Adım 5).

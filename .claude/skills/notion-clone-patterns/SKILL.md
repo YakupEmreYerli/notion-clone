@@ -83,8 +83,11 @@ state and blocks ending a session that changed source without updating STATE.
 
 ## Workflows
 
-- **Two test layers, split by directory.** Vitest owns `tests/unit/**/*.test.ts`
-  (pure functions, no browser; `vitest.config.mts`, run with `npm test`).
+- **Three test layers, split by directory.** Vitest owns two of them as separate
+  projects in `vitest.config.mts` (run both with `npm test`): `tests/unit/`
+  (pure functions, node env) and `tests/convex/` (Convex queries/mutations
+  against `convex-test`'s in-memory backend, `edge-runtime` env — no Docker
+  stack needed).
   Playwright owns `tests/e2e/*.spec.ts` (`testDir` is set to it), driven against
   fixture routes under `app/test-fixtures/`; `npm run test:e2e:update` refreshes
   snapshots. A test that never touches `page` belongs in `tests/unit/`. The gate
@@ -122,8 +125,19 @@ business logic.
 Vitest unit tests live in `tests/unit/*.test.ts` — currently
 `database-view-operations` (filter/sort/search semantics, board grouping,
 property-icon catalog), moved out of the E2E suite because it never opened a
-browser. Convex backend logic is still untested; the approved next step is the
-separate `convex-test` package (note: `convexTest` is **not** shipped inside the
-`convex` package), which needs `convex` ≥1.43. `npx tsc --noEmit`,
-`npm run lint`, and `npm run build` remain part of the gate alongside both test
-commands.
+browser.
+
+Convex backend tests live in `tests/convex/*.test.ts`, using the separate
+`convex-test` package (note: `convexTest` is **not** shipped inside the `convex`
+package; it needs `convex` ≥1.43). `tests/convex/support/harness.ts` exposes
+`setup()`, which returns `owner` / `stranger` / `anonymous` accessors —
+`requireUser` treats `identity.subject` as the userId. The suite covers the
+invariants that `tsc` and `build` cannot catch: public-before-auth read
+ordering, fractional-index ordering and rebalance, `patch` shallow-merge on
+`cells`, recursive subtree delete + `cascadeDeleteDatabase`, `searchText` /
+`fileRefs` sync, and `/api/files` access control. When adding a test for a
+critical invariant, deliberately break the invariant first and watch the test go
+red — that check is how the existing ones were validated.
+
+`npx tsc --noEmit`, `npm run lint`, and `npm run build` remain part of the gate
+alongside both test commands.

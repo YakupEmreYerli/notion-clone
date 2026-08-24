@@ -59,7 +59,9 @@ npx tsc --noEmit           # typecheck (no separate typecheck script)
 npm run convex:dev         # push Convex functions to the self-hosted backend, watch mode
 npm run convex:deploy      # convex deploy -y (used by docker-compose's convex-deploy service)
 
-npm test                   # Vitest unit — tests/unit/*.test.ts (config: vitest.config.mts)
+npm test                   # Vitest — tests/unit/ + tests/convex/ (config: vitest.config.mts)
+npm test -- --project unit    # only the pure-function layer
+npm test -- --project convex  # only the Convex backend layer
 npm run test:watch         # Vitest watch mode
 npm run test:coverage      # Vitest + v8 coverage (no threshold gate yet)
 npm run test:e2e           # Playwright E2E — tests/e2e/*.spec.ts
@@ -83,10 +85,19 @@ up; when it is not, shots are skipped (not failed) and the committed images are 
 The demo seed wipes every document belonging to the userId it is given — it is only
 ever called with the `demo-en@` / `demo-tr@` account ids.
 
-Two test layers, split by directory and never overlapping: **Vitest** owns
-`tests/unit/**/*.test.ts` (pure functions, no browser), **Playwright** owns
-`tests/e2e/` (`testDir` is set to it). A test that doesn't touch `page` belongs in
-`tests/unit/`. Verification is `tsc --noEmit` + `npm run build` + `npm run lint` +
+Three test layers, split by directory and never overlapping — Vitest declares them as
+two **projects** in `vitest.config.mts`, Playwright owns the third:
+
+| Directory | Runner | Environment | Tests |
+|---|---|---|---|
+| `tests/unit/` | Vitest (`unit`) | node | Pure functions, no browser, no database |
+| `tests/convex/` | Vitest (`convex`) | `edge-runtime` | Convex queries/mutations against `convex-test`'s in-memory backend — no Docker stack needed |
+| `tests/e2e/` | Playwright | Chromium | Real app, pixel/geometry parity |
+
+A test that never touches `page` does not belong in `tests/e2e/`. `convex-test` must
+stay in `server.deps.inline` — it collects `convex/` modules via `import.meta.glob`
+from inside its own dist, which does not get transformed if the package is
+externalized. Verification is `tsc --noEmit` + `npm run build` + `npm run lint` +
 `npm test` + `npm run test:e2e`. `npm run lint` is **not** clean —
 there is a known pre-existing baseline, recorded in `docs/memory/gotchas.md`; new and
 modified files must stay lint-clean.

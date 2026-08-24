@@ -4,18 +4,17 @@
 > kararlar `decisions.md`'de, kalıcı kurallar `CLAUDE.md`'de.
 > Her oturum sonunda güncelle (bkz. en alttaki şablon).
 
-**Son güncelleme:** 2026-08-25 (Adım 1)
+**Son güncelleme:** 2026-08-25 (Adım 2)
 
 ## Aktif iş
 
-**Test altyapısı** — plan `docs/testing.md`, 5 adım. **Adım 1 (Vitest kurulumu)
-tamamlandı.** §5 "Karar Bekleyenler" kullanıcıyla görüşüldü.
+**Test altyapısı** — plan `docs/testing.md`, 5 adım. **Adım 1 ve 2 tamamlandı.**
 
 | Adım | İçerik | Durum |
 |---|---|---|
 | 1 | Vitest kurulumu + saf mantığı `tests/unit/`'e taşıma | ✅ |
-| 2 | Convex backend testleri (`convex-test`) | ⏳ **sıradaki** |
-| 3 | Test kütüphanesi (data-builder, page-object) | ⏳ |
+| 2 | Convex backend testleri (`convex-test`) | ✅ |
+| 3 | Test kütüphanesi (data-builder, page-object) | ⏳ **sıradaki** |
 | 4 | CI + coverage threshold | ⏳ |
 | 5 | A11y + görsel + paralellik | ⏳ |
 
@@ -24,37 +23,46 @@ bütçesi, a11y) hâlâ ölçülmedi — ayrı açık madde.
 
 ## Bu turda yapılanlar
 
-**Adım 1.** `vitest` + `@vitest/coverage-v8`, `vitest.config.mts` (`.mts` şart —
-düz `.ts` Vite'ın CJS yükleyicisinde uyarı veriyor). `@/` alias'ı elle
-`resolve.alias`; `vite-tsconfig-paths` bilerek alınmadı (deprecated `tsconfck`).
-Katmanlar ayrık: Vitest `tests/unit/**/*.test.ts`, Playwright `tests/e2e/`.
-`database-view-operations.spec.ts` → `tests/unit/database-view-operations.test.ts`
-(10 test, tamamı saf, `page` kullanmıyordu).
+**Adım 2.** `convex` 1.42.3 → 1.45.0, + `convex-test@0.0.56` ve `@edge-runtime/vm`.
+`vitest.config.mts` iki project'e ayrıldı: `unit` (node) ve `convex` (`edge-runtime`
++ `server.deps.inline: ["convex-test"]` — inline şart, yoksa `import.meta.glob`
+dönüşmez ve hiçbir Convex fonksiyonu bulunamaz).
 
-**Karar: Seçenek B.** `docs/testing.md` §1.3'ün "convex/test kullanılamıyor" teşhisi
-yanlıştı — `convexTest` hiç `convex` paketinde olmadı, ayrı paket: `convex-test`
-v0.0.56 (peer `convex ^1.43.0`). Adım 2'de `convex` 1.42.3 → ≥1.43 bump + `convex-test`.
-Backend imajı `:latest`, pinli değil → uyum riski düşük. Gerekçe `decisions.md`.
+`tests/convex/` altında **36 test**: `auth` (public-before-auth sırası, sahiplik),
+`databases` (fractional index, rebalance, `updateCell` sığ merge, `false`/`0`),
+`documents` (özyinelemeli alt ağaç silme + cascade, archive/restore, `searchText` /
+`fileRefs` senkronu), `databaseViews` (`moveRow`, `GROUP_KEY_NONE`, grup içi sıra),
+`files` (`isPubliclyReadable` yayın/arşiv geçişleri).
 
-**Coverage eşiği Adım 4'e ertelendi** — baseline ölçüldü: toplam %17.71,
-`convex/lib` %1.84, `lib` %5.98. Dokümandaki %80/%70 önerisi bugünkü koda uygulanamaz.
+**Testler diş geçiriyor — ölçüldü.** `documents.getById`'deki public-before-auth
+sırası kasten ters çevrildi, ilgili test kırmızı yandı, kod geri alındı.
+`tsc` ve `build` bu bozulmayı yakalamıyordu.
 
-## Doğrulama durumu (2026-08-25, Adım 1 sonrası)
+**Yan bulgu:** ESLint üretilmiş `coverage/` çıktısını tarıyordu (3 sahte uyarı);
+`eslint.config.mjs` ignore listesine `coverage/**` eklendi.
+
+**Coverage kararı:** eşik kademeli yükseltilecek (kullanıcı kararı), Adım 4'te
+devreye girecek. Seyir: %17.71 → **%31.89**.
+
+## Doğrulama durumu (2026-08-25, Adım 2 sonrası)
 
 ```
-npm test           → 10 geçti (223 ms)
-npm run test:e2e   → 19 geçti, 4 atlandı, 0 başarısız (toplam 23; önce 33 idi)
+npm test           → 46 geçti (10 unit + 36 convex)
+npm run test:e2e   → 19 geçti, 4 atlandı, 0 başarısız
 npx tsc --noEmit   → temiz
 npm run build      → temiz
-npm run lint       → 15 sorun (7 hata / 8 uyarı) — baseline değişmedi, bkz. gotchas.md
+npm run lint       → 15 sorun (7 hata / 8 uyarı) — baseline değişmedi
+coverage           → toplam %31.89 · convex %33.91 · convex/lib %40.59 · lib %5.98
 ```
 
 ## Açık maddeler
 
-- **Adım 2 (sıradaki)** — `convex-test` ile Convex mutation testleri. 58 fonksiyonun
-  sıfırı test ediliyor; en riskli yüzey `databases.ts` (698) + `databaseViews.ts` (718).
-- **Coverage threshold** — Adım 4'te gerçek sayıyla kullanıcıya sorulacak.
-- **Snapshot baseline'ı** — Adım 5'te açık (`docs/testing.md` §5.3).
+- **Adım 3 (sıradaki)** — `tests/support/` altında data-builder + page-object;
+  mevcut 3 E2E fixture'ı DOM hardcode'undan arındırmak.
+- **Coverage threshold** — Adım 4'te, o anki ölçülen değer taban alınarak.
+- **`lib/` kapsamı %5.98** — Convex dışı yardımcılar (storage, editorFont) hâlâ
+  testsiz; Adım 3'te ele alınabilir.
+- **Snapshot baseline'ı** — Adım 5'te açık.
 - **Faz 6 (board)** — performans ölçümü ve a11y geçişi.
 - **Lint baseline** — 7 hata React-compiler kurallarından, ayrı bir iş.
 
