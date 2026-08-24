@@ -339,3 +339,41 @@ oturumlu gerçek board'u sürüyor; spec'lerde `if (fixture) ... else ...` kalma
 Piksel snapshot testi (`board-surfaces.png`) `--update-snapshots` olmadan geçti:
 fixture'ların kurucuya taşınması render çıktısını değiştirmedi. Coverage %31.89'da
 sabit kaldı — bu adım saf okunabilirlik yatırımı, yeni davranış kapsamadı.
+
+## 2026-08-25 — A11y, görsel regresyon, paralellik (Adım 4-5)
+
+### CI ertelendi, coverage eşiği yine de kondu
+Kullanıcı kararı: `.github/workflows/` bu turda kurulmadı. Eşik CI'ye bağlı
+tutulmadı — `vitest.config.mts` `coverage.thresholds` yerelde de
+`npm run test:coverage`'i kırmızı yakıyor. Değerler ölçülenin hemen altı
+(global 31/23/38/32, `convex/lib/**` 40/18/68/42); amaç hedefe ulaşmak değil,
+**geri gitmeyi engellemek**. Eşiğin ısırdığı ölçüldü: `statements` geçici olarak
+99'a çekilip kırmızı görüldü, sonra geri alındı.
+
+### A11y beklentisi kural kimliğiyle karşılaştırılır, seçiciyle değil
+Radix üretilmiş id'ler (`#radix-_r_l_-trigger-gallery`) her koşuda değişiyor;
+seçiciyi beklentiye yazmak testi kırılgan yapardı. `scanA11y` benzersiz kural
+kimliklerini döndürür, tam liste yalnızca başarısızlık mesajına iliştirilir.
+Karşılaştırma **eşitlik**: yeni ihlal de, düzeltilen ihlal de testi kırar —
+bilinen-ihlal listesi kendiliğinden çürüyemez.
+
+### Bulunan ihlaller ikiye ayrıldı — biri borç, biri hata
+`color-contrast` bilinçli borç: Notion'ın kendi ikincil metni (rgb(142,139,134))
+AA eşiğini geçmiyor, kontrastı yükseltmek piksel parity'sini bozar. Buna karşılık
+`aria-required-children` / `aria-required-parent` / `label` /
+`aria-hidden-focus` **gerçek hata**: `components/database/database-grid.tsx`
+`role="grid"` ve `role="gridcell"` kullanıyor ama arada `role="row"` yok (CSS
+grid düz bir hücre dizisi). Ekran okuyucu tabloyu satır satır gezemiyor.
+Düzeltme yerleşimi bozmamak için `display: contents` taşıyan satır sarmalayıcı
+ister — ayrı iş olarak açık bırakıldı, testte bilinen ihlal olarak kayıtlı.
+
+### Görsel regresyon locator snapshot'ı kullanır
+Tam sayfa yerine locator: kaydırma konumu ve odak halkası çerçeveye girmesin.
+Cover modal'da galeri maskelendi — karolar uzak CDN'den (`app.notion.com`,
+metmuseum, clevelandart) geliyor, maskesiz snapshot ağ durumuna bağlı olurdu.
+Determinizm iki ardışık koşuda doğrulandı.
+
+### Playwright paralelliği fixture izolasyonu sayesinde güvenli
+`fullyParallel: true`, `workers` yerelde otomatik. Fixture route'ları paylaşılan
+sunucu durumu tutmuyor (hepsi saf bileşen), bu yüzden çakışma yok. Aynı 23
+testte 11.8s → 5.4s.

@@ -32,11 +32,11 @@ Doküman üç bölümden oluşur:
 |---|---|---|
 | ~~**Unit test yok**~~ | ✅ Adım 1 ile kapandı: `tests/unit/`, Vitest | — |
 | ~~**Convex backend testi yok**~~ | ✅ Adım 2 ile kapandı: `tests/convex/`, `convex-test`. Kapsam `convex/` %33.91, `convex/lib` %40.59 — tam değil ama en riskli yollar (auth sırası, sıralama, cascade, dosya erişimi) korumada | — |
-| **Coverage eşiği yok** | Vitest v8 raporu var (toplam %31.89), CI gate yok | "Build geçti" ≠ "davranış doğru"; regresyon sessizce girer |
-| **CI yok** | `.github/workflows/` dizini yok | Merge gate yok |
-| **A11y yok** | `@axe-core` bağımlılığı yok | Klavye/ekran okuyucu parity'si sınanmıyor |
-| **Görsel regresyon zayıf** | 1 snapshot | Board dışı yüzeyler (table, menu, picker, cover) görsel olarak kırılabilir |
-| **Paralellik kapalı** | `fullyParallel: false`, `workers: 1` | Test süresi UI yüzeyiyle doğrusal artar |
+| ~~**Coverage eşiği yok**~~ | ✅ `vitest.config.mts` `thresholds` — ölçülen değerin hemen altı, kademeli yükselecek | — |
+| **CI yok** | `.github/workflows/` dizini yok | Merge gate yok — **kullanıcı kararıyla ertelendi** |
+| ~~**A11y yok**~~ | ✅ `@axe-core/playwright`, `tests/e2e/a11y.spec.ts` (5 test) | — |
+| ~~**Görsel regresyon zayıf**~~ | ✅ 5 snapshot: board + table, property menu, icon picker, cover modal | — |
+| ~~**Paralellik kapalı**~~ | ✅ `fullyParallel: true` — 11.8s → 5.4s (aynı 23 test) | — |
 | ~~**Okunabilirlik**~~ | ✅ Adım 3 ile kapandı: `tests/support/` (data-builder + page-object + assertion + fixture bileşenleri) | — |
 
 ### 1.3 Convex test aracı durumu — ✅ çözüldü (2026-08-25)
@@ -176,18 +176,40 @@ tests/
 - **Çıktı:** senaryolar "ne"yi anlatır, "nasıl"ı gizler; proje kökünde tek test
   dizini.
 
-### Adım 4 — CI + coverage ⏱️ yarım gün
-- `.github/workflows/ci.yml`: `lint` + `tsc` + `vitest --coverage` + `playwright` (değişen
-  dossyalara göre daraltılmış) + `build`.
-- Coverage threshold (özellikle `convex/lib` ve `components/database` için).
-- `test:e2e` script'ini worker sayısıyla paralel hale getir.
-- **Çıktı:** merge gate + badge.
+### Adım 4 — coverage eşiği ✅ · CI ⏸️ **ertelendi (kullanıcı kararı)**
+- **CI'ye girilmedi.** `.github/workflows/` hâlâ yok; merge gate açık madde.
+- **Coverage threshold kondu** (`vitest.config.mts` → `coverage.thresholds`):
+  global 31/23/38/32, `convex/lib/**` için 40/18/68/42 — hepsi 2026-08-25
+  ölçümünün hemen altı. Amaç hedefe ulaşmak değil, **geri gitmeyi engellemek**.
+  Eşiğin gerçekten ısırdığı ölçüldü: `statements` geçici olarak 99'a çekildi,
+  `npm run test:coverage` "does not meet global threshold" ile kırmızı yandı.
+- **Paralellik açıldı**: `fullyParallel: true`, `workers` yerelde otomatik
+  (CI'da 2'ye sabit — CI kurulunca anlam kazanacak). Aynı 23 testte
+  **11.8s → 5.4s**.
 
-### Adım 5 — A11y + görsel + paralellik ⏱️ 1-2 gün
-- `@axe-core/playwright` ekle; kritik bileşenler için `expect(page).toHaveNoViolations()`.
-- Kritik yüzeylere snapshot (table, property menü, icon picker, cover modal).
-- `fullyParallel: true`, `workers` artır; fixture'lar izole olduğu için güvenli.
-- **Çıktı:** ergonomi + görsel + hız üçlü kazanç.
+### Adım 5 — A11y + görsel regresyon ✅ **tamamlandı (2026-08-25)**
+
+**A11y** — `@axe-core/playwright@4.13`, `tests/support/assertions/a11y.ts` +
+`tests/e2e/a11y.spec.ts` (5 test, WCAG 2.1 A/AA). Karşılaştırma **kural
+kimliği** üzerinden yapılır, seçici üzerinden değil: Radix'in ürettiği id'ler
+(`#radix-_r_l_-trigger-gallery`) her koşuda değişir. Beklenti listesi
+**eşitlikle** karşılaştırılır — yeni ihlal de, düzeltilmiş ihlal de testi kırar,
+liste kendiliğinden çürüyemez.
+
+Tarama gerçek ihlal buldu; ikiye ayrıldı:
+
+| Sınıf | Kurallar | Durum |
+|---|---|---|
+| Notion parity borcu | `color-contrast` | Bilinçli — Notion'ın ikincil metni (rgb(142,139,134)) AA eşiğini geçmiyor, düzeltmek piksel parity'sini bozar |
+| **Gerçek hata** | `aria-required-children`, `aria-required-parent`, `label`, `aria-hidden-focus` | ⏳ **açık madde** — tablo `role="grid"`/`role="gridcell"` kullanıyor ama arada `role="row"` yok; ekran okuyucu tabloyu satır satır gezemiyor |
+
+**Görsel** — `tests/e2e/visual-parity.spec.ts`, dört **locator** snapshot'ı
+(table yüzeyi, property menü, icon picker, cover modal). Locator seçildi ki
+sayfa gürültüsü (kaydırma konumu, odak halkası) çerçeveye girmesin. Cover
+modal'da galeri maskelenir — karolar uzak CDN'den geliyor, maskesiz snapshot
+ağ durumuna bağlı olurdu. Baseline'lar iki ardışık koşuda değişmedi.
+
+- **Çıktı:** 23 → 32 E2E testi (28 geçen + 4 atlanan), 1 → 5 snapshot.
 
 ---
 
@@ -207,10 +229,16 @@ tests/
 
 1. ~~**Convex test yaklaşımı**~~ — ✅ **karara bağlandı (2026-08-25): Seçenek B**,
    ayrı `convex-test` paketi + `convex` ≥1.43 bump. Gerekçe §1.3 ve `decisions.md`.
-2. **Coverage threshold değeri** — ⏳ **Adım 4'e ertelendi.** Eşik yalnızca CI'da
-   anlam kazanıyor. Ölçüm seyri: Adım 1 sonrası toplam %17.71 → Adım 2 sonrası
-   **%31.89** (`convex` %33.91, `convex/lib` %40.59, `lib` %5.98). Kullanıcı kararı:
-   eşik **kademeli yükseltilecek** — bugünkü ölçülen değeri taban alıp her adımda
-   yukarı çekmek, baştan %80 koyup CI'ı sürekli kırmızı bırakmamak.
-3. **Snapshot baseline'ı** — ⏳ açık. Görsel regresyon için ilk baseline'lar CI'da
-   üretilir ve `--update-snapshots` ile kabul edilir (Adım 5).
+2. ~~**Coverage threshold değeri**~~ — ✅ kapandı: `vitest.config.mts` içinde
+   global 31/23/38/32 ve `convex/lib/**` için 40/18/68/42. Ölçüm seyri: %17.71
+   (Adım 1) → **%31.89** (Adım 2; Adım 3 ve 5 saf test/refactor olduğu için
+   değişmedi). Kullanıcı kararı gereği kademeli yükseltilecek. Eşik CI olmadan
+   da `npm run test:coverage` üzerinden yerel gate olarak çalışıyor.
+3. ~~**Snapshot baseline'ı**~~ — ✅ kapandı: baseline'lar yerelde üretildi
+   (`--update-snapshots`) ve depoya girdi; determinizm iki ardışık koşuda
+   doğrulandı. CI kurulduğunda Linux/Chromium baseline'ı zaten hazır.
+4. **Tablo ARIA yapısı** — ⏳ açık, a11y taramasının bulduğu gerçek hata.
+   `role="grid"` → `role="row"` → `role="gridcell"` zinciri kopuk. Düzeltme CSS
+   grid yerleşimini bozmadan `display: contents` taşıyan satır sarmalayıcı
+   ister; `a11y.spec.ts`'teki beklenti listesi düzeltmeyle birlikte kısalmalı.
+5. **CI** — ⏸️ kullanıcı kararıyla ertelendi.
