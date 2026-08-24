@@ -24,7 +24,7 @@
 | Yerel geliştirme | `docs/development.md` | Hayır | Kurulum, script tablosu |
 | README ekran görüntüleri | `docs/screenshots.md` | Hayır | Galeri kareleri değişecekse, yeni kare eklerken, pre-commit hook'u anlamak için |
 | Notion parity araştırması | `docs/notion-research/` | Hayır | Notion'a birebir uyum gereken UI işinde. Önce `RESEARCH_STATUS.md`, sonra ilgili alan dosyası |
-| Ölçüm/token çıktıları | `design/` | Hayır | Board/table piksel-parity işinde (`kanban-tokens.md`, `notion-measurements/*.json`) |
+| Ölçüm/token çıktıları | `design/` | Hayır | Board/table piksel-parity işinde (`kanban-tokens.md`). Ham ölçümler `design/notion-measurements/` altında **yereldir, commit'li değildir** — `design/measure-board.js` ile yeniden üretilir |
 | Arşiv | `docs/archive/` | Hayır | Tarihsel bağlam gerekirse (`2026-08-22-handoff.md`). **Güncel değil** |
 
 ## Otomasyon (hook'lar)

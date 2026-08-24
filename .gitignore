@@ -48,3 +48,7 @@ next-env.d.ts
 
 # screenshot demo workspace (session cookie + seeded ids)
 /.screenshots/
+
+# Notion parity ölçüm çıktıları — Playwright'ın ürettiği ham veri (JSON + PNG).
+# Türetilmiş token'lar (design/kanban-tokens.{md,css}) commit'li kalır.
+design/notion-measurements/
