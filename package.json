@@ -9,8 +9,11 @@
     "lint": "eslint .",
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots",
+    "screenshots": "npm run seed:demo && playwright test --config=playwright.screenshots.config.ts && node scripts/update-readme-gallery.mjs",
+    "hooks:install": "git config core.hooksPath .githooks",
     "convex:dev": "convex dev",
-    "convex:deploy": "convex deploy -y"
+    "convex:deploy": "convex deploy -y",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1116.0",

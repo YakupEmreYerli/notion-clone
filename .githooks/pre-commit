@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Zotion — refreshes the README screenshot gallery on UI-touching commits.
+#
+# Install once per clone:  npm run hooks:install
+# Skip a single commit:    ZOTION_SKIP_SCREENSHOTS=1 git commit ...
+set -euo pipefail
+
+if [ "${ZOTION_SKIP_SCREENSHOTS:-0}" = "1" ]; then
+  echo "- screenshot step skipped (ZOTION_SKIP_SCREENSHOTS=1)"
+  exit 0
+fi
+
+# Only paths that can change what the app looks like. Commits touching docs,
+# convex/ or config are not slowed down at all.
+UI_PATHS=(
+  "app"
+  "components"
+  "hooks"
+  "lib"
+  "scripts/screenshots"
+  "*.css"
+  "tailwind.config.*"
+  "postcss.config.*"
+)
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR -- "${UI_PATHS[@]}")"
+
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+echo "> UI change detected — refreshing README screenshots..."
+
+if ! npm run --silent screenshots; then
+  cat >&2 <<'MSG'
+
+x Screenshot capture failed, commit aborted.
+  Usual causes: the dev server did not boot, the Playwright browser is missing
+  (`npx playwright install chromium`), or a fixture page is throwing.
+  To skip deliberately: ZOTION_SKIP_SCREENSHOTS=1 git commit ...
+MSG
+  exit 1
+fi
+
+git add docs/screenshots README.md README.tr.md
+echo "✓ docs/screenshots and both READMEs staged with this commit."

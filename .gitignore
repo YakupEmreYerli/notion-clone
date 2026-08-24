@@ -45,3 +45,6 @@ next-env.d.ts
 
 # STATE guard oturum işaretleri (lokal)
 .claude/.state-guard/
+
+# screenshot demo workspace (session cookie + seeded ids)
+/.screenshots/
