@@ -72,14 +72,26 @@ adding/changing an exported Convex function, regenerate `convex/_generated/`
 (`npm run convex:dev` or `npx convex deploy`) and commit the regenerated
 output in the same commit, not a follow-up one.
 
+## Project memory
+
+Before starting work, read `docs/memory/STATE.md` (it is also auto-imported via
+`CLAUDE.md`). `docs/README.md` maps the rest: `docs/memory/decisions.md` for why
+something is built the way it is, `docs/memory/gotchas.md` for the lint baseline
+and intentional non-fixes, `docs/runbook.md` for ports and the smoke test. A
+`SessionStart`/`Stop` hook pair (`.claude/hooks/state-guard/`) surfaces real repo
+state and blocks ending a session that changed source without updating STATE.
+
 ## Workflows
 
-- **No automated test suite.** There is no `test` script and no
-  jest/vitest/playwright config. Verification before calling work done is:
-  `npx tsc --noEmit` → `npm run lint` → `npm run build`, plus manual/browser
-  checks when a UI change is involved. Don't propose adding a generic test
-  suite as a fix for an unrelated task — it's a deliberate project choice
-  documented in `CLAUDE.md`.
+- **Playwright E2E only, no unit-test framework.** `npm run test:e2e` runs
+  `tests/e2e/*.spec.ts` against fixture routes under `app/test-fixtures/`;
+  `npm run test:e2e:update` refreshes snapshots. There is still no
+  jest/vitest, and adding one is out of scope for unrelated tasks. The gate
+  before calling work done: `npx tsc --noEmit` → `npm run lint` →
+  `npm run build` → `npm run test:e2e`, plus browser checks for UI work.
+- **`npm run lint` is not clean.** A pre-existing baseline (React-compiler
+  rules) is recorded in `docs/memory/gotchas.md` — new and modified files must
+  stay lint-clean, but don't treat the baseline as a regression you caused.
 - **Multi-round iteration on the same feature is common and expected here.**
   Recent history shows repeated `fix:`/`style:` commits narrowing in on the
   same area across several commits in a row (three separate sidebar-width
@@ -98,8 +110,11 @@ output in the same commit, not a follow-up one.
 
 ## Testing Patterns
 
-No test files or test framework exist in this repo. Treat `npx tsc --noEmit`,
-`npm run lint`, and `npm run build` as the closest equivalent to a test gate,
-and run all three before considering a change complete — this is what recent
-commit history and `CLAUDE.md` both confirm as the actual verification loop
-used here.
+Playwright E2E lives in `tests/e2e/*.spec.ts`, driven by `playwright.config.ts`
+and backed by dedicated fixture routes in `app/test-fixtures/` (clipping, table)
+rather than by seeding the real app. Existing specs: `board-clipping`,
+`clipping-helper`, `editor-surface-clipping`, `database-view-operations`,
+`table-parity`, `cover-modal-parity` — i.e. the suite targets pixel/geometry
+parity and view operations, not business logic. There is no unit-test
+framework; `npx tsc --noEmit`, `npm run lint`, and `npm run build` remain part
+of the gate alongside `npm run test:e2e`.

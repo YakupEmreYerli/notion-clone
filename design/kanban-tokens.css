@@ -1,0 +1,155 @@
+/*
+ * Notion Board (Kanban) görünümü için ölçülen token'lar — Faz 1 çıktısı.
+ * Kaynak: Notion app ölçümleri (design/kanban-tokens.md). Değerler kopyalanmadı,
+ * ölçüldü; implementasyonda mevcut shadcn token'larıyla (--card, --muted-foreground
+ * vb.) birleştirilecek. Bu dosya board bileşenlerinin (`components/database/board/`)
+ * stilini besleyecek.
+ *
+ * Kullanım: globals.css'teki :root / .dark bloklarına `@theme` değil, düz CSS
+ * değişkeni olarak eklenecek (mevcut --card vb. deseniyle aynı).
+ */
+
+:root {
+  /* Kolon */
+  --kanban-col-width: 276px;
+  --kanban-col-gap: 12px;
+  --kanban-col-pad-x: 8px;
+  --kanban-col-pad-bottom: 8px;
+  --kanban-col-margin-bottom: 16px;
+  --kanban-col-radius: 0 0 10px 10px;
+  --kanban-col-header-h: 40px;
+  --kanban-col-header-pad-x: 8px;
+  --kanban-col-bg: rgba(66, 35, 3, 0.03); /* varsayılan (brown/gray) tint */
+
+  /* Kart */
+  --kanban-card-gap: 8px;
+  --kanban-card-radius: 10px;
+  --kanban-card-pad-x: 10px;
+  --kanban-card-pad-top: 8px;
+  --kanban-card-pad-bottom: 6px;
+  --kanban-card-prop-pad-bottom: 8px;
+  --kanban-card-bg: #ffffff;
+  --kanban-card-ring: rgba(42, 28, 0, 0.07); /* 1px halka (grup rengi tint) */
+  --kanban-card-shadow:
+    0px 4px 12px 0px rgba(25, 25, 25, 0.027),
+    0px 1px 2px 0px rgba(25, 25, 25, 0.02),
+    0px 0px 0px 1px var(--kanban-card-ring);
+  --kanban-card-shadow-hover: var(--kanban-card-shadow);
+  --kanban-card-bg-hover: rgba(54, 29, 2, 0.03); /* hover: grup rengi tint */
+  --kanban-card-hover-transition: background 0.1s ease-out;
+  --kanban-cover-h: 148px;
+
+  /* Tipografi */
+  --kanban-title-size: 15px;
+  --kanban-title-weight: 500;
+  --kanban-title-lh: 22.5px;
+  --kanban-title-color: #2c2c2b;
+  --kanban-col-title-size: 14px;
+  --kanban-col-title-weight: 400;
+  --kanban-col-title-lh: 120%;
+  --kanban-col-title-color: #494846;
+  --kanban-card-prop-size: 12px;
+  --kanban-card-prop-lh: 120%;
+  --kanban-count-color: #7d7a75;
+
+  /* Badge / property row */
+  --kanban-badge-h: 18px;
+  --kanban-badge-radius: 4px;
+  --kanban-badge-pad-x: 6px;
+  --kanban-prop-row-min-h: 28px;
+  --kanban-prop-row-pad: 5px;
+  --kanban-prop-row-radius: 5px;
+  --kanban-prop-gap-row: 4px;
+  --kanban-prop-gap-col: 6px;
+
+  /* Gölge/token'lar (Notion --c-* karşılığı) */
+  --kanban-sha-out-md:
+    0px 8px 12px 0px rgba(25, 25, 25, 0.027),
+    0px 2px 6px 0px rgba(25, 25, 25, 0.027),
+    0px 0px 0px 1px rgba(42, 28, 0, 0.07);
+  --kanban-sha-out-lg:
+    0px 20px 24px 0px rgba(25, 25, 25, 0.05),
+    0px 5px 8px 0px rgba(25, 25, 25, 0.027),
+    0px 0px 0px 1px rgba(42, 28, 0, 0.07);
+
+  /* Board */
+  --kanban-board-margin-x: 96px;
+  --kanban-board-pad-left: 8px;
+
+  /* Motion */
+  --kanban-menu-btn-transition: opacity 200ms ease;
+  --kanban-col-badge-transition: background 0.02s ease-in;
+}
+
+.dark {
+  --kanban-col-bg: rgba(252, 252, 252, 0.03);
+  --kanban-card-bg: #2c2c2b;
+  --kanban-card-ring: rgba(255, 255, 243, 0.082);
+  --kanban-card-shadow:
+    0px 2px 4px 0px rgba(25, 25, 25, 0.08),
+    0px 0px 0px 1px var(--kanban-card-ring);
+  --kanban-card-bg-hover: rgba(252, 252, 252, 0.04);
+  --kanban-title-color: #f0efed;
+  --kanban-col-title-color: #f0efed;
+  --kanban-count-color: #ada9a3;
+  --kanban-sha-out-md:
+    0px 0px 0px 1px #383836,
+    0px 4px 12px -2px rgba(25, 25, 25, 0.08);
+}
+
+/*
+ * Grup rengi token'ları — light badge bg/text + kolon başlık tint.
+ * Notion: --ca-<color>BacTerTra (badge bg) / --c-<color>TexPri (badge text) /
+ * kolon tint ~ --ca-<color>BacPriTra. Seçenek renkleri colors.ts'teki
+ * OPTION_COLORS ile eşleşir (gray, brown, orange, yellow, green, blue,
+ * purple, pink, red). Orange/purple/pink Faz 1'de örnekli ölçülmedi — aynı
+ * desenle doldurulacak (uygulama sırasında doğrula).
+ */
+:root {
+  --kanban-gray-badge-bg: rgba(28, 19, 1, 0.11);
+  --kanban-gray-badge-fg: #494846;
+  --kanban-brown-badge-bg: rgba(28, 19, 1, 0.11);
+  --kanban-brown-badge-fg: #494846;
+  --kanban-yellow-badge-bg: rgba(209, 156, 0, 0.282);
+  --kanban-yellow-badge-fg: #655121;
+  --kanban-green-badge-bg: rgba(0, 96, 38, 0.157);
+  --kanban-green-badge-fg: #2a533c;
+  --kanban-blue-badge-bg: rgba(0, 118, 217, 0.204);
+  --kanban-blue-badge-fg: #264a72;
+  --kanban-red-badge-bg: rgba(206, 24, 0, 0.165);
+  --kanban-red-badge-fg: #6d3531;
+
+  --kanban-gray-col-tint: rgba(66, 35, 3, 0.03);
+  --kanban-brown-col-tint: rgba(66, 35, 3, 0.03);
+  --kanban-yellow-col-tint: rgba(207, 175, 0, 0.063);
+  --kanban-green-col-tint: rgba(3, 87, 31, 0.035);
+  --kanban-blue-col-tint: rgba(0, 128, 213, 0.047);
+  --kanban-red-col-tint: rgba(199, 3, 3, 0.035);
+}
+
+.dark {
+  --kanban-gray-badge-bg: rgba(255, 252, 235, 0.306);
+  --kanban-gray-badge-fg: #f0efed;
+  --kanban-brown-badge-bg: rgba(255, 184, 132, 0.365);
+  --kanban-brown-badge-fg: #f5ede9;
+  --kanban-orange-badge-bg: rgba(255, 143, 71, 0.482);
+  --kanban-orange-badge-fg: #fbebde;
+  --kanban-yellow-badge-bg: rgba(255, 188, 53, 0.46);
+  --kanban-yellow-badge-fg: #f9f3dc;
+  --kanban-green-badge-bg: rgba(113, 255, 175, 0.337);
+  --kanban-green-badge-fg: #e8f1ec;
+  --kanban-blue-badge-bg: rgba(81, 166, 255, 0.494);
+  --kanban-blue-badge-fg: #e5f2fc;
+  --kanban-purple-badge-bg: rgba(208, 147, 255, 0.427);
+  --kanban-purple-badge-fg: #f3ebf9;
+  --kanban-pink-badge-bg: rgba(255, 133, 192, 0.427);
+  --kanban-pink-badge-fg: #fae9f1;
+  --kanban-red-badge-bg: rgba(255, 116, 105, 0.525);
+  --kanban-red-badge-fg: #fce9e7;
+
+  --kanban-gray-col-tint: rgba(252, 252, 252, 0.03);
+  --kanban-red-col-tint: rgba(251, 107, 107, 0.047);
+  --kanban-blue-col-tint: rgba(41, 139, 253, 0.063);
+  --kanban-yellow-col-tint: rgba(255, 232, 48, 0.043);
+  --kanban-green-col-tint: rgba(83, 255, 140, 0.035);
+}
