@@ -20,6 +20,12 @@ const isPublicRoute = (pathname: string) =>
 export default function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  if (pathname.startsWith("/test-fixtures/")) {
+    return request.headers.get("x-playwright-fixture") === "1"
+      ? NextResponse.next()
+      : new NextResponse(null, { status: 404 });
+  }
+
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }

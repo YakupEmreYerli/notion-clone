@@ -1,7 +1,15 @@
+// Playwright fixture sayfaları (`app/test-fixtures/**/page.fixture.tsx`) yalnızca
+// dev/test derlemesinde route'a dönüşür. Production build'inde bu uzantı
+// tanınmadığı için sayfalar hiç oluşturulmaz — bundle'a da girmezler.
+const isProduction = process.env.NODE_ENV === "production";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Self-contained server bundle for the Docker image.
   output: "standalone",
+  pageExtensions: isProduction
+    ? ["tsx", "ts", "jsx", "js"]
+    : ["fixture.tsx", "tsx", "ts", "jsx", "js"],
   // Next.js'in dev modunda sol altta gösterdiği "N" rozeti kapatıldı.
   devIndicators: false,
   serverExternalPackages: ["pg"],

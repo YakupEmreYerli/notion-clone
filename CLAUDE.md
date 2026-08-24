@@ -58,10 +58,32 @@ npx tsc --noEmit           # typecheck (no separate typecheck script)
 
 npm run convex:dev         # push Convex functions to the self-hosted backend, watch mode
 npm run convex:deploy      # convex deploy -y (used by docker-compose's convex-deploy service)
+
+npm run test:e2e           # Playwright E2E — tests/e2e/*.spec.ts
+npm run test:e2e:update    # refresh snapshots
+
+npm run seed:demo          # seed the two demo workspaces (en + tr) the shots use
+npm run screenshots        # seed, recapture docs/screenshots/*, rewrite both READMEs
+npm run hooks:install      # core.hooksPath -> .githooks (one-time, per clone)
 ```
 
-No automated test suite (no jest/vitest/playwright, no `test` script) — verification is
-`tsc --noEmit` + `npm run build` + `npm run lint` + manual/browser checks.
+Both README galleries are generated, never hand-edited.
+`scripts/screenshots/shots.ts` is the single source (add a view there);
+`convex/seed.ts` is an `internalMutation` that builds the demo content, seeded into two
+separate accounts by `scripts/seed-demo.mjs` — English for `README.md`, Turkish for
+`README.tr.md`. Shots are full frames of the **real signed-in app** at a 1920x1080
+layout, rasterised at 2x and written as WebP (`sharp`), so the whole stack has to be
+up; when it is not, shots are skipped (not failed) and the committed images are kept. `.githooks/pre-commit` re-runs the capture only when `app/`,
+`components/`, `hooks/`, `lib/` or a stylesheet is staged, then stages
+`docs/screenshots/` and both READMEs. Bypass with `ZOTION_SKIP_SCREENSHOTS=1`.
+
+The demo seed wipes every document belonging to the userId it is given — it is only
+ever called with the `demo-en@` / `demo-tr@` account ids.
+
+No unit-test framework (no jest/vitest). Verification is `tsc --noEmit` +
+`npm run build` + `npm run lint` + `npm run test:e2e`. `npm run lint` is **not** clean —
+there is a known pre-existing baseline, recorded in `docs/memory/gotchas.md`; new and
+modified files must stay lint-clean.
 
 Local infra (Postgres, MinIO, self-hosted Convex backend) is Docker Compose, not `npm`:
 
