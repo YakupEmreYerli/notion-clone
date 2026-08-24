@@ -147,11 +147,13 @@ Key directories:
 For a full Convex-change review pass (these invariants plus a few more), use the
 `convex-reviewer` subagent (`.claude/agents/convex-reviewer.md`).
 
-## Known pre-existing issues (don't fix incidentally)
+## Document tree invariants
 
-`documents.remove` isn't recursive (children get orphaned); `recursiveArchive`/
-`recursiveRestore` in `convex/documents.ts` are called without `await`. Both are
-tracked, intentional non-fixes — don't touch either as a side effect of unrelated work.
+`documents.remove` deletes the whole subtree (a database child goes through
+`cascadeDeleteDatabase` first), and `recursiveArchive`/`recursiveRestore` are awaited —
+a mutation must not return while its subtree walk is still in flight. Keep both
+properties when touching `convex/documents.ts`: a non-awaited recursive walk inside a
+Convex mutation silently drops the remaining work.
 
 ## Keeping this file current
 

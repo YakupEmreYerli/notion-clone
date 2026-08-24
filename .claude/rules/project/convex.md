@@ -58,11 +58,12 @@
 - Deleting a database document must go through `cascadeDeleteDatabase`
   (`convex/databases.ts`, called from `convex/documents.ts` on `remove`/`removeAll`) so
   its `databaseProperties`/`databaseRows` don't become orphaned records.
-- `documents.remove` itself is **not recursive** — deleting a page does not cascade to
-  its children (a pre-existing limitation, tracked as a known issue, not something to
-  fix as a side effect of unrelated work). `recursiveArchive`/`recursiveRestore` are
-  also called without `await` — again, a known latent issue; don't copy that pattern
-  into new code.
+- `documents.remove` **is recursive** — it walks and deletes the whole subtree, sending
+  any `type: "database"` descendant through `cascadeDeleteDatabase` before deleting it.
+  `recursiveArchive`/`recursiveRestore` are `await`ed. Preserve both: an un-awaited
+  recursive walk inside a Convex mutation lets the handler return (and the transaction
+  close) while the rest of the subtree is still unprocessed, so part of the work is
+  silently dropped.
 
 ## Property/cell types
 

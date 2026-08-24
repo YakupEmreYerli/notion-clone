@@ -92,7 +92,7 @@ export const archive = mutation({
       archivedAt,
     });
 
-    recursiveArchive(args.id);
+    await recursiveArchive(args.id);
 
     return document;
   },
@@ -265,7 +265,7 @@ export const restore = mutation({
 
     const document = await ctx.db.patch(args.id, options);
 
-    recursiveRestore(args.id);
+    await recursiveRestore(args.id);
 
     return document;
   },
@@ -291,6 +291,30 @@ export const remove = mutation({
     if (exisingDocument.userId !== userId) {
       throw new Error("Not authorized");
     }
+
+    // Alt sayfalar da silinir — aksi halde parentDocument'i var olmayan bir
+    // dokümana işaret eden yetim kayıtlar kalıyordu (sidebar'da görünmez ama
+    // veritabanında birikir).
+    const recursiveRemove = async (documentId: Id<"documents">) => {
+      const children = await ctx.db
+        .query("documents")
+        .withIndex("by_user_parent", (q) =>
+          q.eq("userId", userId).eq("parentDocument", documentId),
+        )
+        .collect();
+
+      for (const child of children) {
+        await recursiveRemove(child._id);
+
+        if (child.type === "database") {
+          await cascadeDeleteDatabase(ctx, child._id);
+        }
+
+        await ctx.db.delete(child._id);
+      }
+    };
+
+    await recursiveRemove(args.id);
 
     if (exisingDocument.type === "database") {
       await cascadeDeleteDatabase(ctx, args.id);
