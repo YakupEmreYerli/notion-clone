@@ -7,6 +7,7 @@ import { CoverImageModal } from "@/components/modals/CoverImageModal";
 import { AuthModal } from "@/components/modals/AuthModal";
 import { AccountModal } from "@/components/modals/AccountModal";
 import { PeekModal } from "@/components/modals/PeekModal";
+import { RowPeekModal } from "@/components/modals/RowPeekModal";
 import { NewPageModal } from "@/components/modals/NewPageModal";
 
 export const ModalProvider = () => {
@@ -27,6 +28,7 @@ export const ModalProvider = () => {
       <AuthModal />
       <AccountModal />
       <PeekModal />
+      <RowPeekModal />
       <NewPageModal />
     </>
   );
