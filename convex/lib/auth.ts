@@ -87,3 +87,18 @@ export async function requireOwnedRow(
   }
   return row;
 }
+
+export async function requireOwnedView(
+  ctx: QueryCtx | MutationCtx,
+  viewId: Id<"databaseViews">,
+  userId: string,
+): Promise<Doc<"databaseViews">> {
+  const view = await ctx.db.get(viewId);
+  if (!view) {
+    throw new Error("View not found");
+  }
+  if (view.userId !== userId) {
+    throw new Error("Not authorized");
+  }
+  return view;
+}

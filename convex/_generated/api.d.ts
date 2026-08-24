@@ -9,6 +9,7 @@
  */
 
 import type * as crons from "../crons.js";
+import type * as databaseViews from "../databaseViews.js";
 import type * as databases from "../databases.js";
 import type * as documents from "../documents.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -17,6 +18,7 @@ import type * as lib_coerce from "../lib/coerce.js";
 import type * as lib_databaseCascade from "../lib/databaseCascade.js";
 import type * as lib_ordering from "../lib/ordering.js";
 import type * as lib_searchText from "../lib/searchText.js";
+import type * as seed from "../seed.js";
 import type * as userSettings from "../userSettings.js";
 
 import type {
@@ -27,6 +29,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
+  databaseViews: typeof databaseViews;
   databases: typeof databases;
   documents: typeof documents;
   "lib/auth": typeof lib_auth;
@@ -35,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   "lib/databaseCascade": typeof lib_databaseCascade;
   "lib/ordering": typeof lib_ordering;
   "lib/searchText": typeof lib_searchText;
+  seed: typeof seed;
   userSettings: typeof userSettings;
 }>;
 

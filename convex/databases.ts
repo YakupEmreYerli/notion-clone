@@ -12,6 +12,7 @@ import { ORDER_GAP, orderBetween } from "./lib/ordering";
 import { cellValueValidator, propertyTypeValidator } from "./lib/cellValue";
 import { deleteDatabaseChildren } from "./lib/databaseCascade";
 import { coerceValue, generateOptionId } from "./lib/coerce";
+import { isPropertyIconId } from "../lib/property-icons";
 
 // getSchema ve getRows bilerek ayrı sorgular: birleşik olsaydı her hücre
 // düzenlemesi sütun tanımlarını da geçersiz kılar, tüm başlıkları yeniden
@@ -75,6 +76,15 @@ export const createDatabase = mutation({
       isTitle: true,
     });
 
+    // Her database'in en az bir view'ı olur — varsayılan "Table".
+    await ctx.db.insert("databaseViews", {
+      databaseId,
+      userId,
+      name: "Table",
+      type: "table",
+      position: 0,
+    });
+
     for (let i = 0; i < 3; i++) {
       await ctx.db.insert("databaseRows", {
         databaseId,
@@ -115,8 +125,7 @@ async function nextPropertyOrder(
   await Promise.all(
     properties.map((p, i) => ctx.db.patch(p._id, { order: i * ORDER_GAP })),
   );
-  const rebalancedPrev =
-    afterIndex >= 0 ? afterIndex * ORDER_GAP : undefined;
+  const rebalancedPrev = afterIndex >= 0 ? afterIndex * ORDER_GAP : undefined;
   const rebalancedNext =
     afterIndex + 1 < properties.length
       ? (afterIndex + 1) * ORDER_GAP
@@ -141,7 +150,7 @@ export const createProperty = mutation({
       args.afterPropertyId,
     );
 
-    return await ctx.db.insert("databaseProperties", {
+    const propertyId = await ctx.db.insert("databaseProperties", {
       databaseId: args.databaseId,
       userId,
       name: args.name ?? "Property",
@@ -150,6 +159,26 @@ export const createProperty = mutation({
       width: 200,
       options: args.type === "text" ? undefined : [],
     });
+
+    const views = await ctx.db
+      .query("databaseViews")
+      .withIndex("by_database_position", (q) =>
+        q.eq("databaseId", args.databaseId),
+      )
+      .collect();
+    await Promise.all(
+      views.flatMap((view) => {
+        if (view.visiblePropertyIds === undefined) return [];
+        const visiblePropertyIds = [...view.visiblePropertyIds];
+        const afterIndex = args.afterPropertyId
+          ? visiblePropertyIds.indexOf(args.afterPropertyId)
+          : -1;
+        visiblePropertyIds.splice(afterIndex + 1, 0, propertyId);
+        return [ctx.db.patch(view._id, { visiblePropertyIds })];
+      }),
+    );
+
+    return propertyId;
   },
 });
 
@@ -162,12 +191,86 @@ export const renameProperty = mutation({
   },
 });
 
+export const setPropertyIcon = mutation({
+  args: {
+    propertyId: v.id("databaseProperties"),
+    icon: v.union(v.string(), v.null()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    await requireOwnedProperty(ctx, args.propertyId, userId);
+    if (args.icon !== null && !isPropertyIconId(args.icon)) {
+      throw new Error("Unsupported property icon");
+    }
+    await ctx.db.patch(args.propertyId, { icon: args.icon ?? undefined });
+  },
+});
+
 export const setPropertyWidth = mutation({
   args: { propertyId: v.id("databaseProperties"), width: v.number() },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
     await requireOwnedProperty(ctx, args.propertyId, userId);
     await ctx.db.patch(args.propertyId, { width: args.width });
+  },
+});
+
+export const duplicateProperty = mutation({
+  args: { propertyId: v.id("databaseProperties") },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+    const [order, rows, views] = await Promise.all([
+      nextPropertyOrder(ctx, property.databaseId, property._id),
+      ctx.db
+        .query("databaseRows")
+        .withIndex("by_database_order", (q) =>
+          q.eq("databaseId", property.databaseId),
+        )
+        .collect(),
+      ctx.db
+        .query("databaseViews")
+        .withIndex("by_database_position", (q) =>
+          q.eq("databaseId", property.databaseId),
+        )
+        .collect(),
+    ]);
+
+    if (rows.length > 2000) {
+      throw new Error("Property is too large to duplicate in one operation");
+    }
+
+    const duplicateId = await ctx.db.insert("databaseProperties", {
+      databaseId: property.databaseId,
+      userId,
+      name: `${property.name} copy`,
+      type: property.type,
+      order,
+      width: property.width,
+      icon: property.icon,
+      options: property.options,
+    });
+
+    await Promise.all([
+      ...rows.flatMap((row) => {
+        const value = row.cells[property._id];
+        if (value === undefined) return [];
+        return [
+          ctx.db.patch(row._id, {
+            cells: { ...row.cells, [duplicateId]: value },
+          }),
+        ];
+      }),
+      ...views.flatMap((view) => {
+        if (!view.visiblePropertyIds?.includes(property._id)) return [];
+        const sourceIndex = view.visiblePropertyIds.indexOf(property._id);
+        const visiblePropertyIds = [...view.visiblePropertyIds];
+        visiblePropertyIds.splice(sourceIndex + 1, 0, duplicateId);
+        return [ctx.db.patch(view._id, { visiblePropertyIds })];
+      }),
+    ]);
+
+    return duplicateId;
   },
 });
 
@@ -369,6 +472,36 @@ export const deleteProperty = mutation({
 
     await ctx.db.delete(args.propertyId);
 
+    // Property'ye bağlı view ayarlarını temizle: group-by/sub-group bu
+    // property'yi kullanıyorsa sıfırlanır; visible/groupOrder/hidden listeleri
+    // property'nin option key'lerine bağlı olduğu için boşa düşer.
+    const views = await ctx.db
+      .query("databaseViews")
+      .withIndex("by_database_position", (q) =>
+        q.eq("databaseId", property.databaseId),
+      )
+      .collect();
+    await Promise.all(
+      views.flatMap((view) => {
+        const patch: Record<string, unknown> = {};
+        if (view.groupByPropertyId === args.propertyId) {
+          patch.groupByPropertyId = undefined;
+          patch.groupOrder = undefined;
+          patch.hiddenGroupKeys = undefined;
+        }
+        if (view.subGroupByPropertyId === args.propertyId) {
+          patch.subGroupByPropertyId = undefined;
+        }
+        if (view.visiblePropertyIds?.includes(args.propertyId)) {
+          patch.visiblePropertyIds = view.visiblePropertyIds.filter(
+            (id) => id !== args.propertyId,
+          );
+        }
+        if (Object.keys(patch).length === 0) return [];
+        return [ctx.db.patch(view._id, patch)];
+      }),
+    );
+
     // Kemer + askı: süpürme birincil, ama renderer da orphan-toleranslı.
     const rows = await ctx.db
       .query("databaseRows")
@@ -451,8 +584,18 @@ export const deleteRow = mutation({
   args: { rowId: v.id("databaseRows") },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedRow(ctx, args.rowId, userId);
-    await ctx.db.delete(args.rowId);
+    const row = await requireOwnedRow(ctx, args.rowId, userId);
+
+    // Tüm view'lardaki sıra kayıtlarını da sil — yoksa view'ların
+    // board'larında hayalet kartlar kalır.
+    const orders = await ctx.db
+      .query("viewCardOrder")
+      .withIndex("by_row", (q) => q.eq("rowId", args.rowId))
+      .collect();
+    await Promise.all([
+      ...orders.map((o) => ctx.db.delete(o._id)),
+      ctx.db.delete(args.rowId),
+    ]);
   },
 });
 

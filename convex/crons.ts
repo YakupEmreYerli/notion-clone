@@ -13,4 +13,13 @@ crons.interval(
   internal.documents.purgeExpiredTrash,
 );
 
+// View sistemi öncesi oluşturulmuş database'lere "Table" view'ı seed eder.
+// Idempotent: view'sız database kalmayana kadar hiçbir şey yapmaz; ikinci
+// çalıştırmada zaten view'ı olanlar atlanır.
+crons.interval(
+  "ensure default views",
+  { hours: 24 },
+  internal.databaseViews.ensureDefaultViews,
+);
+
 export default crons;
