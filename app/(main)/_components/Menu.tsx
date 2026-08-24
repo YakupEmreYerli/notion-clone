@@ -99,7 +99,12 @@ export const Menu = ({ documentId }: MenuProps) => {
       <DropdownMenu>
       <ActionTooltip label="Page actions">
         <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="ghost" aria-label="Page actions">
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Page actions"
+            className="size-7 rounded-[6px]"
+          >
             <MoreHorizontal className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

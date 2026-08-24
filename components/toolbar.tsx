@@ -30,8 +30,6 @@ interface ToolbarProps {
   editorFont?: string;
   preview?: boolean;
   onFocusEditor?: () => void;
-  /** Database şeması gibi sola tam dayalı, sayfa içeriğiyle aynı hizada başlık. */
-  flushLeft?: boolean;
 }
 
 export interface ToolbarHandle {
@@ -39,7 +37,7 @@ export interface ToolbarHandle {
 }
 
 export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
-  ({ initialData, preview, editorFont, onFocusEditor, flushLeft }, ref) => {
+  ({ initialData, preview, editorFont, onFocusEditor }, ref) => {
     const inputRef = useRef<ComponentRef<"textarea">>(null);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -185,7 +183,6 @@ export const Toolbar = forwardRef<ToolbarHandle, ToolbarProps>(
       <div
         className={cn(
           "group relative mb-[7px]",
-          flushLeft ? "px-4 md:px-8" : "",
         )}
       >
         {!!initialData.icon && !preview && (

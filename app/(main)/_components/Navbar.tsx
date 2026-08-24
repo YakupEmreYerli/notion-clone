@@ -36,7 +36,7 @@ export const Navbar = ({ isCollapsed, onResetWidth }: NavbarProps) => {
 
   if (document === undefined) {
     return (
-      <nav className="bg-background dark:bg-dark flex w-full items-center justify-between px-3 py-2">
+      <nav className="bg-background dark:bg-dark flex h-11 w-full items-center justify-between px-3">
         <Title.Skeleton />
         <div className="flex items-center gap-x-2">
           <Menu.Skeleton />
@@ -52,7 +52,7 @@ export const Navbar = ({ isCollapsed, onResetWidth }: NavbarProps) => {
   return (
     <>
       <div className="bg-background dark:bg-dark">
-        <nav className="flex w-full items-center gap-x-2 px-3 py-1">
+        <nav className="flex h-11 w-full items-center gap-x-2 px-3">
           {isCollapsed && (
             <ActionTooltip label="Open sidebar (Ctrl + \)">
               <button aria-label="Menu" onClick={onResetWidth}>
@@ -65,15 +65,17 @@ export const Navbar = ({ isCollapsed, onResetWidth }: NavbarProps) => {
               <Breadcrumb documentId={document._id} />
               <Title initialData={document} />
             </div>
-            <div className="flex shrink-0 items-center gap-x-1">
+            <div className="flex shrink-0 items-center gap-x-0.5">
               <Publish initialData={document} />
               <ActionTooltip
                 label={document.isFavorite ? "Unfavorite" : "Favorite"}
               >
                 <Button
+                  size="icon-sm"
                   variant="ghost"
                   onClick={onToggleFavorite}
                   aria-label={document.isFavorite ? "Unfavorite" : "Favorite"}
+                  className="size-7 rounded-[6px]"
                 >
                   <Star
                     className={cn(

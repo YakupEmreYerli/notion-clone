@@ -13,7 +13,21 @@ import { api } from "@/convex/_generated/api";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Divide, Globe } from "lucide-react";
+import { Check, Copy, Globe } from "lucide-react";
+
+function NotionLockIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="3.97 0 12.06 20"
+      className="text-muted-foreground shrink-0 fill-current"
+      style={{ width: 12.06, height: 20 }}
+    >
+      <path d="M10.55 12.808a1.35 1.35 0 1 0-1.1 0v1.242a.55.55 0 0 0 1.1 0z" />
+      <path d="M10 1.95a4 4 0 0 0-4 4v1.433a2.426 2.426 0 0 0-2.025 2.392v5.4A2.425 2.425 0 0 0 6.4 17.6h7.2a2.425 2.425 0 0 0 2.425-2.425v-5.4A2.426 2.426 0 0 0 14 7.383V5.95a4 4 0 0 0-4-4m2.75 5.4h-5.5v-1.4a2.75 2.75 0 0 1 5.5 0zM5.225 9.775c0-.649.526-1.175 1.175-1.175h7.2c.649 0 1.175.526 1.175 1.175v5.4c0 .649-.526 1.175-1.175 1.175H6.4a1.175 1.175 0 0 1-1.175-1.175z" />
+    </svg>
+  );
+}
 
 interface PublishProps {
   initialData: Doc<"documents">;
@@ -73,14 +87,16 @@ export const Publish = ({ initialData }: PublishProps) => {
         <Button
           size="sm"
           variant="ghost"
-          aria-label={initialData.isPublished ? "Published" : "Publish"}
-          title={initialData.isPublished ? "Published" : ""}
+          aria-label={initialData.isPublished ? "Share (published)" : "Share"}
+          title={initialData.isPublished ? "Published" : "Share"}
+          className="h-7 gap-1.5 rounded-[6px] px-2 font-normal has-[>svg]:px-2"
         >
           {initialData.isPublished ? (
-            <Globe className="h-4 w-4 text-sky-500" />
+            <Globe className="size-4 text-sky-500" />
           ) : (
-            <span className="text-sm">Publish</span>
+            <NotionLockIcon />
           )}
+          <span className="text-sm">Share</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72" align="end" alignOffset={8} forceMount>
@@ -122,7 +138,7 @@ export const Publish = ({ initialData }: PublishProps) => {
         ) : (
           <div className="flex flex-col items-center justify-center">
             <Globe className="text-muted-foreground mb-2 h-8 w-8" />
-            <p>Published this note</p>
+            <p>Publish this page</p>
             <span className="text-muted-foreground mb-4 text-xs">
               Share your work with others
             </span>
