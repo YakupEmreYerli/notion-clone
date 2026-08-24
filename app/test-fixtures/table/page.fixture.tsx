@@ -1,5 +1,1 @@
-import { TableFixture } from "./table-fixture";
-
-export default function TableFixturePage() {
-  return <TableFixture />;
-}
+export { TableFixture as default } from "@/tests/support/fixtures/table-fixture";

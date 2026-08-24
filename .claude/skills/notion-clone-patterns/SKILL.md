@@ -89,8 +89,9 @@ state and blocks ending a session that changed source without updating STATE.
   against `convex-test`'s in-memory backend, `edge-runtime` env — no Docker
   stack needed).
   Playwright owns `tests/e2e/*.spec.ts` (`testDir` is set to it), driven against
-  fixture routes under `app/test-fixtures/`; `npm run test:e2e:update` refreshes
-  snapshots. A test that never touches `page` belongs in `tests/unit/`. The gate
+  fixture routes under `app/test-fixtures/` (three-line route shells that
+  re-export the real fixture components from `tests/support/fixtures/`);
+  `npm run test:e2e:update` refreshes snapshots. A test that never touches `page` belongs in `tests/unit/`. The gate
   before calling work done: `npx tsc --noEmit` → `npm run lint` →
   `npm run build` → `npm test` → `npm run test:e2e`, plus browser checks for UI
   work. Roadmap for the remaining layers: `docs/testing.md`.
@@ -116,8 +117,14 @@ state and blocks ending a session that changed source without updating STATE.
 ## Testing Patterns
 
 Playwright E2E lives in `tests/e2e/*.spec.ts`, driven by `playwright.config.ts`
-and backed by dedicated fixture routes in `app/test-fixtures/` (clipping, table)
-rather than by seeding the real app. Existing specs: `board-clipping`,
+and backed by dedicated fixture routes in `app/test-fixtures/` (clipping, table,
+cover-modal) rather than by seeding the real app. Everything test-owned lives
+under `tests/`: `tests/support/fixtures/` holds the fixture components (the
+`app/` files are route shells only), `tests/support/pages/` the page-objects,
+`tests/support/data/database-builder.ts` the data builder, and
+`tests/support/assertions/clipping.ts` the clipping assertion. Specs address the
+UI through a page-object (`BoardPage`, `TablePage`, `CoverModalPage`), never
+through raw selectors. Existing specs: `board-clipping`,
 `clipping-helper`, `editor-surface-clipping`, `table-parity`,
 `cover-modal-parity` — i.e. the suite targets pixel/geometry parity, not
 business logic.
@@ -129,7 +136,7 @@ browser.
 
 Convex backend tests live in `tests/convex/*.test.ts`, using the separate
 `convex-test` package (note: `convexTest` is **not** shipped inside the `convex`
-package; it needs `convex` ≥1.43). `tests/convex/support/harness.ts` exposes
+package; it needs `convex` ≥1.43). `tests/support/convex/harness.ts` exposes
 `setup()`, which returns `owner` / `stranger` / `anonymous` accessors —
 `requireUser` treats `identity.subject` as the userId. The suite covers the
 invariants that `tsc` and `build` cannot catch: public-before-auth read

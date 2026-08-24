@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { assertNoUnexpectedClipping } from "./helpers/clipping";
+import { assertNoUnexpectedClipping } from "@/tests/support/assertions/clipping";
 
 test.describe("assertNoUnexpectedClipping", () => {
   test("reports the clipping ancestor and CSS property", async ({ page }) => {

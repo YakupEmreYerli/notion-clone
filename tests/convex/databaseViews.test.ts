@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "@/convex/_generated/api";
 import { GROUP_KEY_NONE, ORDER_GAP } from "@/convex/lib/ordering";
 
-import { setup } from "./support/harness";
+import { setup } from "@/tests/support/convex/harness";
 
 type Owner = ReturnType<typeof setup>["owner"];
 

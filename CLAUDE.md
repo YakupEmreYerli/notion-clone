@@ -94,6 +94,15 @@ two **projects** in `vitest.config.mts`, Playwright owns the third:
 | `tests/convex/` | Vitest (`convex`) | `edge-runtime` | Convex queries/mutations against `convex-test`'s in-memory backend — no Docker stack needed |
 | `tests/e2e/` | Playwright | Chromium | Real app, pixel/geometry parity |
 
+Shared test code lives in `tests/support/` — `data/database-builder.ts` (the
+immutable data builder; cells are given by property **name** and mapped to
+`_id`s), `pages/` (page-objects: `BoardPage`, `TablePage`, `CoverModalPage`),
+`fixtures/` (the fixture components — `app/test-fixtures/*/page.fixture.tsx` are
+three-line route shells that only re-export them, because Next.js requires the
+*route* under `app/`, not the component), `assertions/`, and `convex/harness.ts`.
+Specs address the UI through a page-object, never through raw selectors, and
+build data through the builder, never by hand-writing `Doc<>` literals.
+
 A test that never touches `page` does not belong in `tests/e2e/`. `convex-test` must
 stay in `server.deps.inline` — it collects `convex/` modules via `import.meta.glob`
 from inside its own dist, which does not get transformed if the package is

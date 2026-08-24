@@ -4,18 +4,18 @@
 > kararlar `decisions.md`'de, kalıcı kurallar `CLAUDE.md`'de.
 > Her oturum sonunda güncelle (bkz. en alttaki şablon).
 
-**Son güncelleme:** 2026-08-25 (Adım 2)
+**Son güncelleme:** 2026-08-25 (Adım 3)
 
 ## Aktif iş
 
-**Test altyapısı** — plan `docs/testing.md`, 5 adım. **Adım 1 ve 2 tamamlandı.**
+**Test altyapısı** — plan `docs/testing.md`, 5 adım. **Adım 1, 2 ve 3 tamamlandı.**
 
 | Adım | İçerik | Durum |
 |---|---|---|
 | 1 | Vitest kurulumu + saf mantığı `tests/unit/`'e taşıma | ✅ |
 | 2 | Convex backend testleri (`convex-test`) | ✅ |
-| 3 | Test kütüphanesi (data-builder, page-object) | ⏳ **sıradaki** |
-| 4 | CI + coverage threshold | ⏳ |
+| 3 | Test kütüphanesi (data-builder, page-object) | ✅ |
+| 4 | CI + coverage threshold | ⏳ **sıradaki** |
 | 5 | A11y + görsel + paralellik | ⏳ |
 
 Board (kanban) görünümü ve view sistemi tamamlandı (`PLAN.md`). Faz 6 (performans
@@ -23,45 +23,48 @@ bütçesi, a11y) hâlâ ölçülmedi — ayrı açık madde.
 
 ## Bu turda yapılanlar
 
-**Adım 2.** `convex` 1.42.3 → 1.45.0, + `convex-test@0.0.56` ve `@edge-runtime/vm`.
-`vitest.config.mts` iki project'e ayrıldı: `unit` (node) ve `convex` (`edge-runtime`
-+ `server.deps.inline: ["convex-test"]` — inline şart, yoksa `import.meta.glob`
-dönüşmez ve hiçbir Convex fonksiyonu bulunamaz).
+**Adım 3 — test kütüphanesi + tek test kökü.**
 
-`tests/convex/` altında **36 test**: `auth` (public-before-auth sırası, sahiplik),
-`databases` (fractional index, rebalance, `updateCell` sığ merge, `false`/`0`),
-`documents` (özyinelemeli alt ağaç silme + cascade, archive/restore, `searchText` /
-`fileRefs` senkronu), `databaseViews` (`moveRow`, `GROUP_KEY_NONE`, grup içi sıra),
-`files` (`isPubliclyReadable` yayın/arşiv geçişleri).
+Test'e ait her şey `tests/` altına toplandı; `app/test-fixtures/` altında
+yalnızca üç satırlık route kabuğu kaldı (Next.js route'u `app/` altında olmak
+zorunda, bileşen değil):
 
-**Testler diş geçiriyor — ölçüldü.** `documents.getById`'deki public-before-auth
-sırası kasten ters çevrildi, ilgili test kırmızı yandı, kod geri alındı.
-`tsc` ve `build` bu bozulmayı yakalamıyordu.
+```
+tests/support/
+  data/database-builder.ts   veri kurucusu (değişmez, hücreler adla verilir)
+  pages/                     BoardPage · TablePage · CoverModalPage
+  fixtures/                  fixture bileşenleri (app/ yalnızca re-export)
+  assertions/clipping.ts     (eski tests/e2e/helpers/)
+  convex/harness.ts          (eski tests/convex/support/)
+```
 
-**Yan bulgu:** ESLint üretilmiş `coverage/` çıktısını tarıyordu (3 sahte uyarı);
-`eslint.config.mjs` ignore listesine `coverage/**` eklendi.
+Kurucuya taşınanlar: 3 fixture bileşeni, 3 E2E spec'i,
+`tests/unit/database-view-operations.test.ts`. Elle yazılmış `Doc<>` blokları
+(~150 satır) gitti; spec'ler artık `board.cards` gibi page-object okuyor, ham
+seçici okumuyor. `BoardPage` fixture/oturumlu-board dallanmasını yutuyor —
+spec'lerde `if` kalmadı.
 
-**Coverage kararı:** eşik kademeli yükseltilecek (kullanıcı kararı), Adım 4'te
-devreye girecek. Seyir: %17.71 → **%31.89**.
+**Refactor'ün davranışı değiştirmediği ölçüldü:** piksel snapshot'ı
+(`board-surfaces.png`) `--update-snapshots` olmadan geçti.
 
-## Doğrulama durumu (2026-08-25, Adım 2 sonrası)
+## Doğrulama durumu (2026-08-25, Adım 3 sonrası)
 
 ```
 npm test           → 46 geçti (10 unit + 36 convex)
-npm run test:e2e   → 19 geçti, 4 atlandı, 0 başarısız
+npm run test:e2e   → 19 geçti, 4 atlandı, 0 başarısız (snapshot dahil)
 npx tsc --noEmit   → temiz
-npm run build      → temiz
-npm run lint       → 15 sorun (7 hata / 8 uyarı) — baseline değişmedi
-coverage           → toplam %31.89 · convex %33.91 · convex/lib %40.59 · lib %5.98
+npm run build      → temiz (fixture route'ları production'a girmiyor)
+npm run lint       → 15 sorun (7 hata / 8 uyarı) — baseline değişmedi, yeni dosyalar temiz
+coverage           → %31.89 (değişmedi; bu adım saf refactor)
 ```
 
 ## Açık maddeler
 
-- **Adım 3 (sıradaki)** — `tests/support/` altında data-builder + page-object;
-  mevcut 3 E2E fixture'ı DOM hardcode'undan arındırmak.
-- **Coverage threshold** — Adım 4'te, o anki ölçülen değer taban alınarak.
+- **Adım 4 (sıradaki)** — `.github/workflows/ci.yml`: lint + tsc + vitest
+  (coverage) + playwright + build; coverage eşiği %31.89 taban alınarak.
+- **`test:e2e` paralelliği** — Adım 4'te `workers` artırılacak.
 - **`lib/` kapsamı %5.98** — Convex dışı yardımcılar (storage, editorFont) hâlâ
-  testsiz; Adım 3'te ele alınabilir.
+  testsiz; Adım 4'ün eşik pazarlığında ele alınacak.
 - **Snapshot baseline'ı** — Adım 5'te açık.
 - **Faz 6 (board)** — performans ölçümü ve a11y geçişi.
 - **Lint baseline** — 7 hata React-compiler kurallarından, ayrı bir iş.

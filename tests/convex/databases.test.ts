@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { api } from "@/convex/_generated/api";
 import { MIN_GAP, ORDER_GAP } from "@/convex/lib/ordering";
 
-import { setup } from "./support/harness";
+import { setup } from "@/tests/support/convex/harness";
 
 describe("satır sıralaması (fractional index)", () => {
   it("createDatabase üç satırı ORDER_GAP aralıklarıyla seed'ler", async () => {

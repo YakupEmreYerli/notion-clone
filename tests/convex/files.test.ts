@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "@/convex/_generated/api";
 
-import { setup } from "./support/harness";
+import { setup } from "@/tests/support/convex/harness";
 
 const COVER = "/api/files/uploads/user-owner/kapak.png";
 const COVER_KEY = "uploads/user-owner/kapak.png";

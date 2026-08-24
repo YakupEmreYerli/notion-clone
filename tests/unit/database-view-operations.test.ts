@@ -11,97 +11,39 @@ import {
 import { buildGroups } from "@/components/database/board/grouping";
 import { orderBoardProperties } from "@/components/database/board/board-properties";
 import { groupColorVars } from "@/components/database/board/board-colors";
-import type {
-  DatabaseProperty,
-  DatabaseRow,
-} from "@/components/database/types";
-import type { Id } from "@/convex/_generated/dataModel";
 import { isPropertyIconId, PROPERTY_ICONS } from "@/lib/property-icons";
+import { databaseBuilder } from "@/tests/support/data/database-builder";
 
-const databaseId = "database" as Id<"documents">;
-const titleId = "title" as Id<"databaseProperties">;
-const authorId = "author" as Id<"databaseProperties">;
-const statusId = "status" as Id<"databaseProperties">;
-const scoreId = "score" as Id<"databaseProperties">;
+const books = databaseBuilder("books")
+  .withTitle("Title")
+  .withText("Author")
+  .withSelect("Status", [
+    { id: "next", label: "Sıradaki", color: "yellow" },
+    { id: "reading", label: "Okunuyor", color: "blue" },
+  ])
+  .withNumber("Score")
+  .withRows(
+    {
+      Title: "Atomik Alışkanlıklar",
+      Author: "James Clear",
+      Status: "next",
+      Score: 9,
+    },
+    {
+      Title: "Zengin Baba Yoksul Baba",
+      Author: "Robert Kiyosaki",
+      Status: "reading",
+      Score: 7,
+    },
+    { Title: "Dost Kazanma Sanatı", Author: "Dale Carnegie", Status: "next" },
+  )
+  .build();
 
-const properties = [
-  {
-    _id: titleId,
-    _creationTime: 1,
-    databaseId,
-    userId: "user",
-    name: "Title",
-    type: "text",
-    order: 0,
-    isTitle: true,
-  },
-  {
-    _id: authorId,
-    _creationTime: 2,
-    databaseId,
-    userId: "user",
-    name: "Author",
-    type: "text",
-    order: 1,
-  },
-  {
-    _id: statusId,
-    _creationTime: 3,
-    databaseId,
-    userId: "user",
-    name: "Status",
-    type: "select",
-    order: 2,
-    options: [
-      { id: "next", label: "Sıradaki", color: "yellow" },
-      { id: "reading", label: "Okunuyor", color: "blue" },
-    ],
-  },
-  {
-    _id: scoreId,
-    _creationTime: 4,
-    databaseId,
-    userId: "user",
-    name: "Score",
-    type: "number",
-    order: 3,
-  },
-] satisfies DatabaseProperty[];
-
-function row(
-  id: string,
-  order: number,
-  cells: DatabaseRow["cells"],
-): DatabaseRow {
-  return {
-    _id: id as Id<"databaseRows">,
-    _creationTime: order,
-    databaseId,
-    userId: "user",
-    order,
-    cells,
-  };
-}
-
-const rows = [
-  row("row-1", 1, {
-    [titleId]: "Atomik Alışkanlıklar",
-    [authorId]: "James Clear",
-    [statusId]: "next",
-    [scoreId]: 9,
-  }),
-  row("row-2", 2, {
-    [titleId]: "Zengin Baba Yoksul Baba",
-    [authorId]: "Robert Kiyosaki",
-    [statusId]: "reading",
-    [scoreId]: 7,
-  }),
-  row("row-3", 3, {
-    [titleId]: "Dost Kazanma Sanatı",
-    [authorId]: "Dale Carnegie",
-    [statusId]: "next",
-  }),
-];
+const { properties, rows } = books;
+const titleId = books.propertyId("Title");
+const authorId = books.propertyId("Author");
+const statusId = books.propertyId("Status");
+const scoreId = books.propertyId("Score");
 
 describe("database view operations", () => {
   it("searches human-readable property values, including select labels", () => {
@@ -173,38 +115,34 @@ describe("database view operations", () => {
   });
 
   it("treats false and zero as values, not empty cells", () => {
-    const checkboxId = "done" as Id<"databaseProperties">;
-    const checkbox = {
-      _id: checkboxId,
-      _creationTime: 5,
-      databaseId,
-      userId: "user",
-      name: "Done",
-      type: "checkbox",
-      order: 4,
-    } satisfies DatabaseProperty;
+    const tasks = databaseBuilder("tasks")
+      .withTitle("Title")
+      .withCheckbox("Done")
+      .withRows({ Done: false }, {})
+      .build();
     const filter: DatabaseFilter = {
       id: "empty-filter",
-      propertyId: checkboxId,
+      propertyId: tasks.propertyId("Done"),
       operator: "isEmpty",
     };
 
+    // `false` bir değerdir, boş hücre değil: yalnızca ikinci satır elenmeli.
     expect(
       applyDatabaseView(
-        [row("false-row", 1, { [checkboxId]: false }), row("empty-row", 2, {})],
-        [...properties, checkbox],
+        tasks.rows,
+        tasks.properties,
         [filter],
         [],
         "",
       ).map((item) => item._id),
-    ).toEqual(["empty-row"]);
+    ).toEqual([tasks.rows[1]._id]);
   });
 
   it("preserves property-sort order inside board groups", () => {
     const sortedRows = [rows[2], rows[0], rows[1]];
     const groups = buildGroups({
       rows: sortedRows,
-      property: properties[2],
+      property: books.property("Status"),
       orders: [],
       preserveRowOrder: true,
     });

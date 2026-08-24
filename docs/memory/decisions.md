@@ -287,7 +287,7 @@ gereksinimi (`@edge-runtime/vm` devDependency).
 `convex/_generated/` yeniden üretmeyi gerektirmedi — fonksiyon şekilleri
 değişmedi.
 Kimlik: `requireUser` `identity.subject`'i userId sayar, bu yüzden
-`tests/convex/support/harness.ts` `setup()` üç erişim verir — `owner`,
+`tests/support/convex/harness.ts` `setup()` üç erişim verir — `owner`,
 `stranger`, `anonymous`.
 
 ### Testlerin diş geçirdiği ölçüldü, varsayılmadı
@@ -307,3 +307,35 @@ zaten vardı — lint ile gitignore ayrı listeler, biri diğerini takip etmiyor
 Kullanıcı kararı: baştan %80 hedefi koyup CI'ı sürekli kırmızı bırakmak yerine,
 o anki ölçülen değeri taban alıp her adımda yukarı çekmek. Seyir: Adım 1 sonrası
 %17.71 → Adım 2 sonrası %31.89. Eşik Adım 4'te (CI) devreye girecek.
+
+## 2026-08-25 — Test kütüphanesi (Adım 3)
+
+### Test'e ait her şey tek kökte: `tests/`
+Fixture bileşenleri `app/test-fixtures/` altındaydı; `app/` altında yalnızca üç
+satırlık **route kabuğu** bırakıldı (`export { X as default } from
+"@/tests/support/fixtures/..."`) ve bileşenler `tests/support/fixtures/`'a
+taşındı. Gerekçe: Next.js yalnızca *route'un* `app/` altında olmasını şart
+koşuyor, bileşenin değil — kabuğu bırakmak proje kökünde tek bir test dizini
+verirken fixture route'larının dev/test-only kalmasını (`pageExtensions`,
+`next.config.mjs`) bozmuyor. Aynı hamlede `tests/e2e/helpers/clipping.ts` →
+`tests/support/assertions/`, `tests/convex/support/harness.ts` →
+`tests/support/convex/` taşındı; `tests/e2e/` artık yalnızca spec + snapshot
+tutuyor.
+
+### Veri kurucusu hücreleri **adla** alır, `_id`'ye kendisi çevirir
+`tests/support/data/database-builder.ts`. Testte `{ Title: "...", Status: "next" }`
+yazılır; kurucu bunu özelliğin `_id`'sine anahtarlar. Böylece test verisi
+okunur kalırken üretimdeki "hücreler ada göre değil `_id`'ye göre anahtarlanır"
+değişmezi test tarafında da yaşar — testin veri şekli üretimden sapmaz. Kurucu
+değişmez (her `with*` yeni kurucu döndürür); `withTitle()` yoksa `build()`
+sessizce `undefined` döndürmek yerine fırlatır.
+
+### Page-object, spec'teki fixture/gerçek-uygulama dallanmasını yutar
+`BoardPage` hem izole fixture route'unu hem `PLAYWRIGHT_BOARD_PATH` ile gelen
+oturumlu gerçek board'u sürüyor; spec'lerde `if (fixture) ... else ...` kalmadı.
+`TablePage`/`CoverModalPage` DOM seçicilerini tek yerde topluyor.
+
+### Refactor'ün davranışı değiştirmediği ölçüldü
+Piksel snapshot testi (`board-surfaces.png`) `--update-snapshots` olmadan geçti:
+fixture'ların kurucuya taşınması render çıktısını değiştirmedi. Coverage %31.89'da
+sabit kaldı — bu adım saf okunabilirlik yatırımı, yeni davranış kapsamadı.

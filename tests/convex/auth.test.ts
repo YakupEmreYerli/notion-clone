@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { api } from "@/convex/_generated/api";
 
-import { OWNER, setup } from "./support/harness";
+import { OWNER, setup } from "@/tests/support/convex/harness";
 
 // CLAUDE.md'deki yükü taşıyan değişmez: "yayınlanmış mı?" sorusu "kullanıcı
 // var mı?" sorusundan ÖNCE sorulur. Sıra ters çevrilirse anonim /preview

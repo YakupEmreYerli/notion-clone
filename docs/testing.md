@@ -21,8 +21,8 @@ Doküman üç bölümden oluşur:
 | Playwright (E2E) | 5 spec dosyası, **23 test** (19 geçen + 4 atlanan), tek Chromium projesi |
 | Vitest (unit) | 1 dosya, **10 test** — Adım 1 ile geldi |
 | Vitest (convex) | 5 dosya, **36 test**, `convex-test` — Adım 2 ile geldi |
-| Fixture'lar | 3 izole route: `clipping`, `table`, `cover-modal` |
-| Yardımcı | 1 adet güçlü `assertNoUnexpectedClipping` (gölge/contain dahil) |
+| Fixture'lar | 3 izole route: `clipping`, `table`, `cover-modal` (route kabukları `app/`, bileşenler `tests/support/fixtures/`) |
+| Test kütüphanesi | `tests/support/`: data-builder, 3 page-object, `assertNoUnexpectedClipping`, Convex harness |
 | Görsel regresyon | 1 snapshot (board surfaces) |
 | Script'ler | `test`, `test:watch`, `test:coverage`, `test:e2e`, `test:e2e:update` |
 
@@ -37,7 +37,7 @@ Doküman üç bölümden oluşur:
 | **A11y yok** | `@axe-core` bağımlılığı yok | Klavye/ekran okuyucu parity'si sınanmıyor |
 | **Görsel regresyon zayıf** | 1 snapshot | Board dışı yüzeyler (table, menu, picker, cover) görsel olarak kırılabilir |
 | **Paralellik kapalı** | `fullyParallel: false`, `workers: 1` | Test süresi UI yüzeyiyle doğrusal artar |
-| **Okunabilirlik** | Fixture'lar ad-hoc, DOM doğrudan hardcode | Testin *ne* test ettiğini anlamak zor; değişiklikte kırılma riski |
+| ~~**Okunabilirlik**~~ | ✅ Adım 3 ile kapandı: `tests/support/` (data-builder + page-object + assertion + fixture bileşenleri) | — |
 
 ### 1.3 Convex test aracı durumu — ✅ çözüldü (2026-08-25)
 
@@ -122,7 +122,7 @@ Sıralama ROI (yatırım getirisi) esasına göre. Her adım bağımsız merge e
   `convex` (`edge-runtime` ortamı + `server.deps.inline: ["convex-test"]` —
   `convex-test`, `convex/` modüllerini `import.meta.glob` ile topladığı için
   externalize edilmemeli).
-- `tests/convex/support/harness.ts`: `setup()` tek çağrıda sahibi, yabancıyı ve
+- `tests/support/convex/harness.ts`: `setup()` tek çağrıda sahibi, yabancıyı ve
   anonim ziyaretçiyi verir (`requireUser` kimliğin `subject`'ini userId sayar).
 - **36 test**, beş dosya:
   | Dosya | Kapsanan davranış |
@@ -139,10 +139,42 @@ Sıralama ROI (yatırım getirisi) esasına göre. Her adım bağımsız merge e
   `eslint.config.mjs` ignore listesine eklendi.
 - **Çıktı:** en riskli yüzeyin koruması. Coverage %17.71 → **%31.89**.
 
-### Adım 3 — Test kütüphanesi (okunabilirlik) ⏱️ 1 gün
-- `tests/support/` altına `data-builder`, `page-objects`, `fixture` yardımcıları.
-- Mevcut 3 fixture'ı (table/board/cover-modal) builder'la yeniden yaz; DOM hardcode'unu azalt.
-- **Çıktı:** senaryolar "ne"yi anlatır, "nasıl"ı gizler.
+### Adım 3 — Test kütüphanesi (okunabilirlik) ✅ **tamamlandı (2026-08-25)**
+
+**Tek kök: `tests/`.** Test'e ait ne varsa buraya toplandı — `app/` altında
+yalnızca üç satırlık route kabuğu kaldı (Next.js route'ları `app/` altında olmak
+zorunda, fixture bileşenleri değil):
+
+```
+tests/
+  unit/                     Vitest, saf fonksiyon
+  convex/                   Vitest, convex-test
+  e2e/                      Playwright spec'leri (+ snapshot'lar)
+  support/
+    data/database-builder.ts   veri kurucusu
+    pages/                     BoardPage · TablePage · CoverModalPage
+    fixtures/                  fixture bileşenleri (app/ yalnızca re-export eder)
+    assertions/clipping.ts     assertNoUnexpectedClipping
+    convex/harness.ts          convex-test kurulumu
+```
+
+- **`databaseBuilder(prefix)`** — değişmez (her `with*` yeni kurucu döndürür),
+  hücreler özellik **adıyla** verilir, kurucu bunları `_id`'ye çevirir. Böylece
+  "hücreler ada göre değil `_id`'ye göre anahtarlanır" üretim kuralı test
+  tarafında da bozulmadan kalır. `build()` ayrıca `titleProperty`,
+  `visibleProperties`, `view` ve `property(name)` / `propertyId(name)` verir;
+  `withTitle()` çağrılmazsa açıkça fırlatır.
+- **Page-object'ler** — spec'ler artık `getByTestId("board-card")` değil
+  `board.cards` okuyor. Fixture/gerçek-uygulama dallanması (`PLAYWRIGHT_BOARD_PATH`
+  ile gelen oturumlu board) tamamen `BoardPage` içinde; spec'lerde `if` yok.
+- **Yeniden yazılan yerler:** 3 fixture bileşeni, 3 E2E spec'i ve
+  `tests/unit/database-view-operations.test.ts` — hepsi kurucuyu/page-object'i
+  kullanıyor. Elle yazılmış `Doc<>` blokları (~150 satır) gitti.
+- **Doğrulandı:** 46 Vitest + 19 Playwright testi geçiyor, **piksel snapshot'ı
+  dahil** — yani kurucuya geçiş render çıktısını bit düzeyinde değiştirmedi.
+  Coverage %31.89'da sabit (bu adım saf refactor, yeni davranış kapsamadı).
+- **Çıktı:** senaryolar "ne"yi anlatır, "nasıl"ı gizler; proje kökünde tek test
+  dizini.
 
 ### Adım 4 — CI + coverage ⏱️ yarım gün
 - `.github/workflows/ci.yml`: `lint` + `tsc` + `vitest --coverage` + `playwright` (değişen
