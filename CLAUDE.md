@@ -13,6 +13,32 @@ summaries. This applies even when the underlying ECC skill/agent/hook/command pr
 in English — translate what reaches the user. Code, commands, file paths, identifiers,
 and API/package names stay in English.
 
+## Memory / documentation
+
+Current work-in-progress state is imported below and is always in context:
+
+@docs/memory/STATE.md
+
+Everything else is read on demand. `docs/README.md` is the map of every doc; these
+rules are not optional:
+
+| Trigger | Do this |
+|---|---|
+| About to change code and you don't know why something is built the way it is | Read `docs/memory/decisions.md` **before** proposing a change |
+| A lasting decision is made (data model, ordering scheme, auth flow, scope call) | Append it to `docs/memory/decisions.md` in the same turn — date, decision, rationale |
+| Something cost time for the second time; lint output confuses you | Read/append `docs/memory/gotchas.md` (lint baseline and intentional non-fixes live there) |
+| Starting or restarting the app, or checking ports | `docs/runbook.md` |
+| Notion pixel-parity UI work | `docs/notion-research/RESEARCH_STATUS.md` first, then the area file |
+| Work finished a phase, changed direction, or the user is wrapping up | Update `docs/memory/STATE.md` — stale STATE is worse than none |
+
+This is enforced mechanically, not by good intentions: `.claude/hooks/state-guard/`
+(wired in `.claude/settings.json`) injects the real repo state at session start and
+blocks the end of a session in which source files changed but `docs/memory/STATE.md`
+did not. Don't work around it — update the file.
+
+Session-specific progress goes in `docs/memory/STATE.md`, never in this file. This file
+holds only what is permanently true.
+
 ## Project
 
 Zotion — a self-hosted Notion clone. No SaaS dependency anywhere in the stack. See
@@ -44,6 +70,8 @@ docker compose up -d postgres minio minio-init convex-backend
 npm run convex:dev   # separate terminal — needs CONVEX_SELF_HOSTED_URL + admin key
 npm run dev           # separate terminal
 ```
+
+Ports and the end-to-end smoke test: `docs/runbook.md`.
 
 ## Architecture
 
