@@ -2,6 +2,18 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
+import {
+  ArrowLeftToLine,
+  ArrowDownNarrowWide,
+  ArrowRightToLine,
+  Copy,
+  EyeOff,
+  Info,
+  ListFilter,
+  Repeat2,
+  Trash,
+} from "lucide-react";
+import { toast } from "sonner";
 
 import {
   DropdownMenu,
@@ -13,87 +25,153 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { api } from "@/convex/_generated/api";
 import {
-  ArrowLeftToLine,
-  ArrowRightToLine,
-  ListFilter,
-  Trash,
-} from "lucide-react";
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { api } from "@/convex/_generated/api";
+import type { PropertyIconId } from "@/lib/property-icons";
 
 import { PROPERTY_TYPE_OPTIONS } from "./property-types";
-import { DatabaseProperty, PropertyType } from "./types";
+import { PropertyIcon } from "./property-icon";
+import { PropertyIconPicker } from "./property-icon-picker";
+import type { DatabaseProperty, PropertyType } from "./types";
+import type { SortDirection } from "./view-operations";
+
+const MENU_ITEM_CLASS =
+  "h-[31px] rounded-[5px] px-2 py-0 text-[14px] font-normal";
+const MENU_SEPARATOR_CLASS = "mx-1 my-1 bg-border";
 
 interface ColumnMenuProps {
   property: DatabaseProperty;
   onInsertLeft: () => void;
   onInsertRight: () => void;
   onChangeType: (type: PropertyType) => void;
+  onFilter: () => void;
+  onSort: (direction: SortDirection) => void;
+  onHide: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
   canDelete: boolean;
 }
 
-// Notion'daki gibi: kolon başlığının tamamı tetikleyici. Açılır menünün
-// en üstünde adı değiştirmek için bir input var, altında sütun eylemleri.
 export const ColumnMenu = ({
   property,
   onInsertLeft,
   onInsertRight,
   onChangeType,
+  onFilter,
+  onSort,
+  onHide,
+  onDuplicate,
   onDelete,
   canDelete,
 }: ColumnMenuProps) => {
   const renameProperty = useMutation(api.databases.renameProperty);
+  const setPropertyIcon = useMutation(api.databases.setPropertyIcon);
   const [name, setName] = useState(property.name);
-  const currentTypeOption =
-    PROPERTY_TYPE_OPTIONS.find((o) => o.type === property.type) ??
-    PROPERTY_TYPE_OPTIONS[0];
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const commitName = () => {
     const trimmed = name.trim();
     if (trimmed && trimmed !== property.name) {
-      renameProperty({ propertyId: property._id, name: trimmed });
+      renameProperty({ propertyId: property._id, name: trimmed }).catch(() =>
+        toast.error("Property could not be renamed"),
+      );
     } else {
       setName(property.name);
     }
   };
 
+  const changeIcon = (icon: PropertyIconId | null) => {
+    setIconPickerOpen(false);
+    setPropertyIcon({ propertyId: property._id, icon }).catch(() =>
+      toast.error("Property icon could not be changed"),
+    );
+  };
+
   return (
     <DropdownMenu
       onOpenChange={(open) => {
-        if (!open) commitName();
+        if (open) setName(property.name);
+        else {
+          setIconPickerOpen(false);
+          commitName();
+        }
       }}
     >
       <DropdownMenuTrigger
-        onPointerDown={(e) => e.stopPropagation()}
-        className="flex min-w-0 flex-1 items-center gap-1.5 px-1 py-1 text-left"
+        onPointerDown={(event) => event.stopPropagation()}
+        className="flex h-full min-w-0 flex-1 items-center gap-1.5 px-2 text-left text-sm font-normal"
       >
-        <currentTypeOption.icon className="h-3.5 w-3.5 shrink-0" />
+        <span className="relative size-4 shrink-0">
+          <PropertyIcon
+            property={property}
+            className="text-muted-foreground absolute inset-0"
+          />
+        </span>
         <span className="truncate">{property.name}</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <div className="p-1">
-          <input
-            key={property.name}
-            autoFocus
-            defaultValue={property.name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              e.stopPropagation();
-              if (e.key === "Enter") e.currentTarget.blur();
-              if (e.key === "Escape") {
-                e.currentTarget.value = property.name;
-                setName(property.name);
-                e.currentTarget.blur();
-              }
-            }}
-            className="bg-secondary w-full rounded-sm px-2 py-1.5 text-sm outline-none"
-          />
-        </div>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent
+        align="start"
+        className="w-[233px] rounded-[10px] border-border/80 p-1 shadow-lg"
+        onInteractOutside={(event) => {
+          const target = event.target;
+          if (
+            target instanceof Element &&
+            target.closest("[data-property-icon-picker]")
+          ) {
+            event.preventDefault();
+          }
+        }}
+      >
+        <Popover open={iconPickerOpen} onOpenChange={setIconPickerOpen}>
+          <PopoverAnchor asChild>
+            <div className="flex h-9 items-center gap-2 px-1">
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Change icon"
+                  className="bg-secondary hover:bg-accent flex size-7 items-center justify-center rounded-[5px]"
+                >
+                  <PropertyIcon property={property} className="size-4" />
+                </button>
+              </PopoverTrigger>
+              <div className="bg-secondary flex h-7 min-w-0 flex-1 items-center rounded-[5px] px-2">
+                <input
+                  aria-label="Property name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key === "Enter") event.currentTarget.blur();
+                    if (event.key === "Escape") {
+                      setName(property.name);
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                />
+                <Info className="text-muted-foreground size-3.5 shrink-0" />
+              </div>
+            </div>
+          </PopoverAnchor>
+          <PopoverContent
+            side="bottom"
+            align="end"
+            sideOffset={0}
+            className="w-[408px] p-0"
+            onWheelCapture={(event) => event.stopPropagation()}
+          >
+            <PropertyIconPicker value={property.icon} onChange={changeIcon} />
+          </PopoverContent>
+        </Popover>
+        <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <ListFilter className="mr-2 h-4 w-4" />
+          <DropdownMenuSubTrigger className={MENU_ITEM_CLASS}>
+            <Repeat2 className="size-4" />
             Change type
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
@@ -101,30 +179,58 @@ export const ColumnMenu = ({
               <DropdownMenuItem
                 key={option.type}
                 disabled={option.type === property.type}
-                onClick={() => onChangeType(option.type)}
+                onSelect={() => onChangeType(option.type)}
+                className={MENU_ITEM_CLASS}
               >
-                <option.icon className="mr-2 h-4 w-4" />
+                <option.icon className="size-4" />
                 {option.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem onClick={onInsertLeft}>
-          <ArrowLeftToLine className="mr-2 h-4 w-4" />
+        <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
+        <DropdownMenuItem onSelect={onFilter} className={MENU_ITEM_CLASS}>
+          <ListFilter className="size-4" />
+          Filter
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className={MENU_ITEM_CLASS}>
+            <ArrowDownNarrowWide className="size-4" />
+            Sort
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuItem onSelect={() => onSort("asc")}>
+              Ascending
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onSort("desc")}>
+              Descending
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem onSelect={onHide} className={MENU_ITEM_CLASS}>
+          <EyeOff className="size-4" />
+          Hide
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className={MENU_SEPARATOR_CLASS} />
+        <DropdownMenuItem onSelect={onInsertLeft} className={MENU_ITEM_CLASS}>
+          <ArrowLeftToLine className="size-4" />
           Insert left
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={onInsertRight}>
-          <ArrowRightToLine className="mr-2 h-4 w-4" />
+        <DropdownMenuItem onSelect={onInsertRight} className={MENU_ITEM_CLASS}>
+          <ArrowRightToLine className="size-4" />
           Insert right
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={onDuplicate} className={MENU_ITEM_CLASS}>
+          <Copy className="size-4" />
+          Duplicate property
+        </DropdownMenuItem>
         <DropdownMenuItem
           disabled={!canDelete}
-          onClick={onDelete}
-          className="text-red-600 focus:text-red-600"
+          onSelect={onDelete}
+          className={MENU_ITEM_CLASS}
         >
-          <Trash className="mr-2 h-4 w-4" />
-          Delete
+          <Trash className="size-4" />
+          Delete property
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

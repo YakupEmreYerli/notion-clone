@@ -1,11 +1,9 @@
 "use client";
 
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
-
 import { DatabaseProperty, PropertyType } from "./types";
 import { ColumnMenu } from "./column-menu";
+import type { SortDirection } from "./view-operations";
+import { PropertyIcon } from "./property-icon";
 
 interface ColumnHeaderProps {
   property: DatabaseProperty;
@@ -16,6 +14,10 @@ interface ColumnHeaderProps {
   onInsertLeft: () => void;
   onInsertRight: () => void;
   onChangeType: (type: PropertyType) => void;
+  onFilter: () => void;
+  onSort: (direction: SortDirection) => void;
+  onHide: () => void;
+  onDuplicate: () => void;
   onDelete: () => void;
 }
 
@@ -28,37 +30,22 @@ export const ColumnHeader = ({
   onInsertLeft,
   onInsertRight,
   onChangeType,
+  onFilter,
+  onSort,
+  onHide,
+  onDuplicate,
   onDelete,
 }: ColumnHeaderProps) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: property._id, disabled: !editable });
-
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(
-      transform ? { ...transform, scaleY: 1 } : null,
-    ),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : undefined,
     width,
   };
 
   return (
     <div
-      ref={setNodeRef}
+      data-testid="database-column-header"
       style={style}
-      className="border-border group/col hover:bg-primary/5 text-foreground/80 relative flex h-9 min-h-0 shrink-0 items-center gap-0.5 border-r px-1.5 py-0 text-xs font-semibold"
+      className="border-border group/col hover:bg-primary/5 text-foreground/80 relative flex h-9 min-h-0 shrink-0 items-center border-r p-0 text-sm font-normal"
     >
-      {editable && (
-        <button
-          {...attributes}
-          {...listeners}
-          aria-label="Reorder column"
-          className="text-muted-foreground/50 shrink-0 cursor-grab touch-none opacity-0 group-hover/col:opacity-100"
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </button>
-      )}
       {editable ? (
         <ColumnMenu
           property={property}
@@ -66,10 +53,20 @@ export const ColumnHeader = ({
           onInsertLeft={onInsertLeft}
           onInsertRight={onInsertRight}
           onChangeType={onChangeType}
+          onFilter={onFilter}
+          onSort={onSort}
+          onHide={onHide}
+          onDuplicate={onDuplicate}
           onDelete={onDelete}
         />
       ) : (
-        <span className="truncate px-1">{property.name}</span>
+        <span className="flex min-w-0 items-center gap-1.5 px-2">
+          <PropertyIcon
+            property={property}
+            className="text-muted-foreground size-4"
+          />
+          <span className="truncate">{property.name}</span>
+        </span>
       )}
       {editable && (
         <div

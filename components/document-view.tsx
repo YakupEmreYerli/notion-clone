@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import { useSearchParams } from "next/navigation";
 
@@ -24,6 +24,8 @@ const DatabaseView = dynamic(
   { ssr: false },
 );
 
+const Editor = dynamic(() => import("@/components/editor"), { ssr: false });
+
 interface DocumentViewProps {
   documentId: Id<"documents">;
   /** Peek modalı içinde render edilirken sayfa başlığı/favicon'unu değiştirmez. */
@@ -39,11 +41,6 @@ export const DocumentView = ({
   const isMarked = useRef(false);
   const toolbarRef = useRef<ToolbarHandle>(null);
   const searchParams = useSearchParams();
-
-  const Editor = useMemo(
-    () => dynamic(() => import("@/components/editor"), { ssr: false }),
-    [],
-  );
 
   const doc = useQuery(api.documents.getById, {
     documentId: documentId,
@@ -141,6 +138,7 @@ export const DocumentView = ({
         documentId={documentId}
         url={doc.coverImage}
         positionY={doc.coverImageY}
+        database={doc.type === "database"}
         compact={!managesDocumentChrome}
       />
       <div
@@ -157,7 +155,6 @@ export const DocumentView = ({
           ref={toolbarRef}
           initialData={doc}
           editorFont={activeFont}
-          flushLeft={doc.type === "database"}
           onFocusEditor={() => {
             if (!editor) return;
             editor.setTextCursorPosition(editor.document[0], "start");
