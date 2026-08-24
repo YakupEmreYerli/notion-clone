@@ -4,57 +4,50 @@
 > kararlar `decisions.md`'de, kalıcı kurallar `CLAUDE.md`'de.
 > Her oturum sonunda güncelle (bkz. en alttaki şablon).
 
-**Son güncelleme:** 2026-08-24
+**Son güncelleme:** 2026-08-25
 
 ## Aktif iş
 
-**Database "Board" (kanban) görünümü** — plan: `PLAN.md` (Faz 0 çıktısı, kararlar §6).
-
-Durum: Faz 1–5 arası büyük ölçüde **commit'lenmemiş çalışma ağacında** duruyor.
+Board (kanban) görünümü ve view sistemi **tamamlandı ve commit'lendi**. Plan ve
+onaylı kararlar: `PLAN.md`.
 
 | Faz | İçerik | Durum |
 |---|---|---|
 | 0 | Keşif + plan | ✅ `PLAN.md` |
-| 1 | Playwright ölçümleri, token dosyaları | ✅ `design/notion-measurements/`, `design/kanban-tokens.{md,css}` |
-| 2 | `databaseViews` şema + mutation'lar | ✅ `convex/databaseViews.ts` (14 export), `convex/schema.ts` |
-| 3 | Statik board render | ✅ `components/database/board/` (17 dosya) |
-| 4 | Drag & drop | ✅ `use-board-dnd.ts`, `drop-target.ts` |
-| 5 | Toolbar / filtre / sort / property'ler / row peek | ✅ `database-toolbar.tsx`, `database-filter-menu.tsx`, `database-sort-menu.tsx`, `components/modals/RowPeekModal.tsx` |
+| 1 | Playwright ölçümleri, token dosyaları | ✅ `design/` |
+| 2 | `databaseViews` + `viewCardOrder` şeması, mutation'lar | ✅ M5 |
+| 3 | Statik board render | ✅ M6 |
+| 4 | Drag & drop (iptal, optimistic + rollback) | ✅ M6 |
+| 5 | Toolbar / filtre / sort / property'ler / row peek | ✅ M7 |
 | 6 | Dark mode, a11y, performans (500 kart / 8 kolon, p95 < 16ms) | ⏳ **sıradaki** |
 
-## Dikkat — commit edilmemiş
+Faz 6 açık: performans bütçesi henüz ölçülmedi.
 
-Çalışma ağacında ~349 değişiklik var (`git status`). Board sistemi, view sistemi,
-Playwright testleri ve `design/` çıktıları **henüz commit'lenmedi**. Yeni işe
-başlamadan önce bunları parçalara ayırıp commit etmek gerekiyor.
+## Doğrulama durumu (2026-08-25, tüm commit'ler sonrası)
 
-## Doğrulama (test altyapısı artık VAR)
-
-```bash
-npx tsc --noEmit && npm run lint && npm run build
-npm run test:e2e          # playwright — tests/e2e/*.spec.ts
-npm run test:e2e:update   # snapshot güncelleme
+```
+npx tsc --noEmit   → temiz
+npm run build      → temiz; route listesinde /test-fixtures/* yok
+npm run lint       → 15 sorun (7 hata / 8 uyarı) — baseline, bkz. gotchas.md
+npm run test:e2e   → 29 geçti, 4 atlandı, 0 başarısız
 ```
 
-Playwright fixture sayfaları: `app/test-fixtures/` (clipping, table).
-Mevcut spec'ler: board-clipping, clipping-helper, editor-surface-clipping,
-database-view-operations, table-parity, cover-modal-parity.
+## Bu turda kapatılanlar
 
-## Harness / dokümantasyon (bu oturumda kuruldu)
+Kod incelemesinden çıkan altı madde: doküman ağacı silme/arşivleme davranışı,
+dosya katmanı içerik tipi politikası ve hız sınırı, hata/yükleme yüzeyleri,
+fixture'ların production'a sızmaması. Gerekçeler `decisions.md`'de.
 
-Katmanlı memory sistemi (`docs/README.md` haritası, `docs/memory/*`, `docs/runbook.md`),
-`CLAUDE.md`'ye `@docs/memory/STATE.md` import'u, `.claude/hooks/state-guard/` hook'ları
-(SessionStart izleme + Stop zorlaması) ve iki turlu ECC budaması yapıldı
-(`.claude` 3.0 MB → 1.5 MB). Detay: `decisions.md`.
+## Açık maddeler
 
-**Bu oturumda başka bir ajan da aynı ağaçta çalışıyordu** (cover gallery + screenshot
-tooling: `CoverGallery.tsx`, `lib/coverGallery.ts`, `scripts/`, `.githooks/`,
-`docs/screenshots/`). O iş ayrı commit'lenmeli, buradakiyle karıştırılmamalı.
-
-## Paralel devam eden iş
-
-**Notion parity** (UI birebir uyum) — devam noktası `docs/notion-research/RESEARCH_STATUS.md`.
-Tema ve sidebar parity tamam; kalanlar `NOTION_PARITY.md` tablosunda.
+- **Faz 6** — performans ölçümü ve a11y geçişi.
+- **Dosya erişim kontrolü** — `/api/files` GET'i capability URL modeliyle
+  çalışıyor; tam ACL için dosya→doküman eşlemesi gerekiyor (`decisions.md`).
+- **Convex mutation testleri yok** — 58 fonksiyonun sıfırı test ediliyor;
+  E2E suite'i geometri/parity odaklı. `docs/testing.md` yol haritası.
+- **Lint baseline** — 7 hata React-compiler kurallarından, ayrı bir iş.
+- **design/ ağırlığı** — 31 PNG ≈ 10.9 MB git'te; JSON ölçümler 132 KB.
+  Kullanıcı bunu ayrıca değerlendirecek.
 
 ## Oturum sonu şablonu
 
