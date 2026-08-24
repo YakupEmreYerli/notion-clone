@@ -67,6 +67,106 @@
   --sidebar-control-radius: 9999px;
   --sidebar-font-size: 14px;
   --sidebar-section-font-size: 12px;
+
+  /* Kanban (board view) tokens — Notion ölçümleri (design/kanban-tokens.md) */
+  --kanban-col-width: 276px;
+  --kanban-col-gap: 12px;
+  --kanban-col-pad-x: 8px;
+  --kanban-col-pad-bottom: 8px;
+  --kanban-col-radius: 10px;
+  --kanban-col-header-h: 40px;
+  --kanban-col-header-pad-x: 8px;
+  --kanban-card-gap: 8px;
+  --kanban-card-radius: 10px;
+  --kanban-card-pad-x: 10px;
+  --kanban-card-pad-top: 8px;
+  --kanban-card-pad-bottom: 6px;
+  --kanban-card-actions-width: 54px;
+  --kanban-card-bg: #ffffff;
+  --kanban-card-ring: rgba(42, 28, 0, 0.07);
+  --kanban-card-shadow: 0px 4px 12px 0px rgba(25, 25, 25, 0.027),
+    0px 1px 2px 0px rgba(25, 25, 25, 0.02),
+    0px 0px 0px 1px var(--kanban-card-ring);
+  --kanban-card-bg-hover: rgba(54, 29, 2, 0.03);
+  --kanban-cover-h: 148px;
+  --kanban-title-size: 15px;
+  --kanban-title-weight: 500;
+  --kanban-title-color: #2c2c2b;
+  --kanban-col-title-size: 14px;
+  --kanban-col-title-color: #494846;
+  --kanban-card-prop-size: 12px;
+  --kanban-badge-radius: 4px;
+  --kanban-badge-pad-x: 6px;
+  --kanban-prop-row-min-h: 28px;
+  --kanban-prop-row-pad: 5px;
+  --kanban-prop-row-radius: 5px;
+  --kanban-board-margin-x: 96px;
+  --kanban-col-bg: rgba(66, 35, 3, 0.03);
+  /* Grup renkleri (light) — Notion --ca-*BacPriTra(tint)/SecTra(ring)/TerTra(badge)
+     + --c-*TexPri(badge text) karşılığı; ölçüm: design/kanban-tokens.md §11 */
+  --kanban-gray-tint: rgba(66, 35, 3, 0.03);
+  --kanban-gray-ring: rgba(42, 28, 0, 0.07);
+  --kanban-gray-badge-bg: rgba(28, 19, 1, 0.11);
+  --kanban-gray-badge-fg: #494846;
+  --kanban-gray-action-fg: #8e8b86;
+  --kanban-gray-card-bg: #ffffff;
+  --kanban-gray-card-bg-hover: #f7f7f6;
+  --kanban-brown-tint: rgba(115, 59, 3, 0.035);
+  --kanban-brown-ring: rgba(139, 46, 0, 0.086);
+  --kanban-brown-badge-bg: rgba(28, 19, 1, 0.11);
+  --kanban-brown-badge-fg: #494846;
+  --kanban-brown-action-fg: #b68965;
+  --kanban-brown-card-bg: #ffffff;
+  --kanban-brown-card-bg-hover: #f8f6f4;
+  --kanban-orange-tint: rgba(186, 72, 3, 0.043);
+  --kanban-orange-ring: rgba(224, 101, 1, 0.13);
+  --kanban-orange-badge-bg: rgba(196, 88, 0, 0.204);
+  --kanban-orange-badge-fg: #6a4222;
+  --kanban-orange-action-fg: #d5803b;
+  --kanban-orange-card-bg: #ffffff;
+  --kanban-orange-card-bg-hover: #fff8f2;
+  --kanban-yellow-tint: rgba(207, 175, 0, 0.063);
+  --kanban-yellow-ring: rgba(211, 168, 0, 0.137);
+  --kanban-yellow-badge-bg: rgba(209, 156, 0, 0.282);
+  --kanban-yellow-badge-fg: #655121;
+  --kanban-yellow-action-fg: #d8a32f;
+  --kanban-yellow-card-bg: #ffffff;
+  --kanban-yellow-card-bg-hover: #fffbed;
+  --kanban-green-tint: rgba(3, 87, 31, 0.035);
+  --kanban-green-ring: rgba(0, 100, 45, 0.09);
+  --kanban-green-badge-bg: rgba(0, 96, 38, 0.157);
+  --kanban-green-badge-fg: #2a533c;
+  --kanban-green-action-fg: #46a171;
+  --kanban-green-card-bg: #ffffff;
+  --kanban-green-card-bg-hover: #f4faf6;
+  --kanban-blue-tint: rgba(0, 128, 213, 0.047);
+  --kanban-blue-ring: rgba(0, 124, 215, 0.094);
+  --kanban-blue-badge-bg: rgba(0, 118, 217, 0.204);
+  --kanban-blue-badge-fg: #264a72;
+  --kanban-blue-action-fg: #2783de;
+  --kanban-blue-card-bg: #ffffff;
+  --kanban-blue-card-bg-hover: #f3f8fc;
+  --kanban-purple-tint: rgba(98, 3, 161, 0.03);
+  --kanban-purple-ring: rgba(102, 0, 178, 0.08);
+  --kanban-purple-badge-bg: rgba(92, 0, 163, 0.14);
+  --kanban-purple-badge-fg: #553b69;
+  --kanban-purple-action-fg: #b577d6;
+  --kanban-purple-card-bg: #ffffff;
+  --kanban-purple-card-bg-hover: #faf6fc;
+  --kanban-pink-tint: rgba(161, 3, 66, 0.03);
+  --kanban-pink-ring: rgba(197, 0, 93, 0.086);
+  --kanban-pink-badge-bg: rgba(183, 0, 78, 0.153);
+  --kanban-pink-badge-fg: #68354e;
+  --kanban-pink-action-fg: #db6999;
+  --kanban-pink-card-bg: #ffffff;
+  --kanban-pink-card-bg-hover: #fcf5f8;
+  --kanban-red-tint: rgba(199, 3, 3, 0.035);
+  --kanban-red-ring: rgba(223, 22, 0, 0.094);
+  --kanban-red-badge-bg: rgba(206, 24, 0, 0.165);
+  --kanban-red-badge-fg: #6d3531;
+  --kanban-red-action-fg: #e56458;
+  --kanban-red-card-bg: #ffffff;
+  --kanban-red-card-bg-hover: #fcf5f4;
 }
 
 .dark {
@@ -116,6 +216,71 @@
     rgba(25, 25, 25, 0.2) 0px 14px 28px -6px,
     rgba(25, 25, 25, 0.118) 0px 2px 4px -1px;
   --dark: #191919;
+
+  /* Kanban (board view) tokens — dark varyantları (ölçüm: design/kanban-tokens.md §11) */
+  --kanban-card-bg: #2c2c2b;
+  --kanban-card-ring: rgba(255, 255, 243, 0.082);
+  --kanban-card-shadow: 0px 2px 4px 0px rgba(25, 25, 25, 0.08),
+    0px 0px 0px 1px var(--kanban-card-ring);
+  --kanban-card-bg-hover: rgba(252, 252, 252, 0.04);
+  --kanban-title-color: #f0efed;
+  --kanban-col-title-color: #f0efed;
+  --kanban-col-bg: rgba(252, 252, 252, 0.03);
+  /* Grup renkleri (dark) — ölçüm: design/kanban-tokens.md §11 */
+  --kanban-gray-tint: rgba(252, 252, 252, 0.03);
+  --kanban-gray-ring: rgba(255, 255, 235, 0.1);
+  --kanban-gray-badge-bg: rgba(255, 252, 235, 0.306);
+  --kanban-gray-badge-fg: #f0efed;
+  --kanban-gray-card-bg: #2c2c2b;
+  --kanban-gray-card-bg-hover: #323231;
+  --kanban-brown-tint: rgba(253, 158, 101, 0.05);
+  --kanban-brown-ring: rgba(255, 177, 129, 0.192);
+  --kanban-brown-badge-bg: rgba(255, 184, 132, 0.365);
+  --kanban-brown-badge-fg: #f5ede9;
+  --kanban-brown-card-bg: #342d29;
+  --kanban-brown-card-bg-hover: #3a322d;
+  --kanban-orange-tint: rgba(254, 139, 71, 0.043);
+  --kanban-orange-ring: rgba(255, 147, 75, 0.28);
+  --kanban-orange-badge-bg: rgba(255, 143, 71, 0.482);
+  --kanban-orange-badge-fg: #fbebde;
+  --kanban-orange-card-bg: #382f28;
+  --kanban-orange-card-bg-hover: #3e342c;
+  --kanban-yellow-tint: rgba(255, 232, 48, 0.043);
+  --kanban-yellow-ring: rgba(255, 225, 117, 0.13);
+  --kanban-yellow-badge-bg: rgba(255, 188, 53, 0.46);
+  --kanban-yellow-badge-fg: #f9f3dc;
+  --kanban-yellow-card-bg: #373426;
+  --kanban-yellow-card-bg-hover: #3d392a;
+  --kanban-green-tint: rgba(83, 255, 140, 0.035);
+  --kanban-green-ring: rgba(108, 255, 172, 0.157);
+  --kanban-green-badge-bg: rgba(113, 255, 175, 0.337);
+  --kanban-green-badge-fg: #e8f1ec;
+  --kanban-green-card-bg: #28332c;
+  --kanban-green-card-bg-hover: #2d392f;
+  --kanban-blue-tint: rgba(41, 139, 253, 0.063);
+  --kanban-blue-ring: rgba(67, 155, 255, 0.24);
+  --kanban-blue-badge-bg: rgba(81, 166, 255, 0.494);
+  --kanban-blue-badge-fg: #e5f2fc;
+  --kanban-blue-card-bg: #28323a;
+  --kanban-blue-card-bg-hover: #2c3841;
+  --kanban-purple-tint: rgba(196, 101, 253, 0.05);
+  --kanban-purple-ring: rgba(200, 125, 255, 0.2);
+  --kanban-purple-badge-bg: rgba(208, 147, 255, 0.427);
+  --kanban-purple-badge-fg: #f3ebf9;
+  --kanban-purple-card-bg: #312b36;
+  --kanban-purple-card-bg-hover: #37303d;
+  --kanban-pink-tint: rgba(255, 78, 149, 0.055);
+  --kanban-pink-ring: rgba(255, 103, 177, 0.23);
+  --kanban-pink-badge-bg: rgba(255, 133, 192, 0.427);
+  --kanban-pink-badge-fg: #fae9f1;
+  --kanban-pink-card-bg: #352a31;
+  --kanban-pink-card-bg-hover: #3b2f36;
+  --kanban-red-tint: rgba(251, 107, 107, 0.047);
+  --kanban-red-ring: rgba(255, 104, 92, 0.24);
+  --kanban-red-badge-bg: rgba(255, 116, 105, 0.525);
+  --kanban-red-badge-fg: #fce9e7;
+  --kanban-red-card-bg: #382b29;
+  --kanban-red-card-bg-hover: #3e302d;
 }
 
 @theme inline {
