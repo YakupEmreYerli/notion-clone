@@ -40,3 +40,6 @@ next-env.d.ts
 
 
 .playwright-mcp/
+
+# STATE guard oturum işaretleri (lokal)
+.claude/.state-guard/
