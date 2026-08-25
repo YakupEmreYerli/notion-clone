@@ -4,83 +4,184 @@
 > kararlar `decisions.md`'de, kalıcı kurallar `CLAUDE.md`'de.
 > Her oturum sonunda güncelle (bkz. en alttaki şablon).
 
-**Son güncelleme:** 2026-08-25 (Adım 3-4-5)
+**Son güncelleme:** 2026-08-25 (Notion tablo ölçümü + landing kaldırma / auth sayfaları)
 
 ## Aktif iş
 
-**Test altyapısı** — plan `docs/testing.md`, 5 adım. **CI dışında hepsi bitti.**
+**Auth yüzeyi yenilendi** (bu turun ikinci işi) — landing sayfası kaldırıldı,
+`/login` + `/register` Dokploy tarzı split-screen olarak kuruldu, Zotion tek
+kurulum sahibi modeline geçti. Detay `decisions.md` 2026-08-25 kaydında.
 
-| Adım | İçerik | Durum |
-|---|---|---|
-| 1 | Vitest kurulumu + saf mantığı `tests/unit/`'e taşıma | ✅ |
-| 2 | Convex backend testleri (`convex-test`) | ✅ |
-| 3 | Test kütüphanesi (data-builder, page-object) | ✅ |
-| 4 | Coverage threshold ✅ · paralellik ✅ · CI ⏸️ | ⏸️ CI ertelendi |
-| 5 | A11y + görsel regresyon | ✅ |
+Öncesinde: **Database (table) görünümünün Notion parity'si** — plan
+`docs/database-cell-interaction.md`, ölçüm kaydı
+**`docs/notion-research/table-parity.md`** (bu turda oluşturuldu).
 
-Board (kanban) görünümü ve view sistemi tamamlandı (`PLAN.md`). Faz 6 (performans
-bütçesi, a11y) hâlâ ölçülmedi — ayrı açık madde.
+Test altyapısı (`docs/testing.md`, 5 adım) CI dışında bitti — CI kullanıcı
+kararıyla ertelendi. Board (kanban) + view sistemi tamamlandı (`PLAN.md`).
 
 ## Bu turda yapılanlar
 
-**Adım 3 — test kütüphanesi + tek test kökü.** Test'e ait her şey `tests/`
-altına toplandı; `app/test-fixtures/` altında yalnızca üç satırlık route kabuğu
-kaldı (Next.js route'u `app/` altında olmak zorunda, bileşen değil):
+### 1. Doğrulanan gerçek hatalar (ölçümle bulundu, tahminle değil)
+
+| Bulgu | Önce | Sonra |
+|---|---|---|
+| Fill sürüklemesi | sürükleme boyunca 1 hücre, değer hiç kopyalanmıyor | 2 hücre, aralık büyüyor |
+| Bırakınca mavi vurgu | **takılı kalıyor** | temizleniyor |
+| Tutamaç | 10px, hücre içinde, `overflow-hidden` kırpıyor | köşe üzerinde, kırpılmıyor |
+| Başlık satırı | `bg-secondary/50` gri bant | sayfa arka planı |
+
+Kök neden: tutamaçta **pointer capture yoktu**; imleç tutamacın dışına çıkar
+çıkmaz `pointermove`/`pointerup` başka elemana gidiyordu.
+
+### 2. Notion tablosu ilk kez ÖLÇÜLDÜ
+
+Kullanıcı "Notion'a yakın diyorsun ama aynı diyemiyorsun" dedi — haklıydı, hedef
+değerler çıkarsamaydı. Kullanıcının kendi Notion oturumunda (Playwright CDP,
+headed Chromium) açık **ve** koyu tema ölçüldü. Çıkarsamaların yarısı yanlıştı;
+tam liste `docs/notion-research/table-parity.md`'de. En kritikleri:
+
+- Seçili hücrede **hafif mavi dolgu var** (`rgba(35,131,226,0.07)`), kontur
+  `rgb(39,131,222)` 2px inset, **2px radius** (keskin değil).
+- Fill tutamacı **9px, içi sayfa arka planı, 2px mavi halka**, `ns-resize` —
+  dolu mavi nokta değil.
+- Notion table view'da **satır hover tint'i yok**.
+- Hücre metni **16px / 24px** (bizde 14px'ti).
+- Çizgi: açık `rgba(42,28,0,0.07)`, koyu `rgba(255,255,243,0.082)`.
+
+Hepsi uygulandı.
+
+### 3. Dosya değişiklikleri
+
+- **Yeni**: `components/database/fill-handle.tsx` (pointer capture'lı tutamaç),
+  `docs/notion-research/table-parity.md`, `tests/unit/grid-fill-range.test.ts`.
+- `app/globals.css`: `--table-border`, `--table-selection`,
+  `--table-selection-fill` token'ları (açık + koyu, `@theme`'e bağlı).
+- `database-grid.tsx`: `overflow-hidden` iç sarmalayıcıya taşındı (tutamaç
+  köşede taşabilsin), satır hover tint'i kaldırıldı, seçim overlay stiline
+  geçti, hücreye `data-fill-range` işareti eklendi.
+- `use-grid-selection.ts`: `fillDragging` state'i kaldırıldı — sürükleme
+  durumu artık `FillHandle`'ın kendi ref'inde.
+- `grid-cell.tsx`: metin `text-base leading-6` (ölçülen 16/24).
+- `column-header.tsx`, `row-menu.tsx`: tablo çizgisi token'ına geçiş.
+- Testler: `table-parity.spec.ts`'e 3 regresyon testi; `TablePage`'e
+  `selectCell` / `dragFillHandle` / `highlightedCellCount`.
+- Silinen geçici dosyalar: `tests/e2e/_tmp-fill.spec.ts`, `after-blank.png`,
+  `after-enter.png`, `notion-selected-cell.png`, tüm `_measure*.mjs`.
+
+## Doğrulama durumu (2026-08-25, tam geçiş)
 
 ```
-tests/support/
-  data/database-builder.ts   veri kurucusu (değişmez, hücreler adla verilir)
-  pages/                     BoardPage · TablePage · CoverModalPage
-  fixtures/                  fixture bileşenleri (app/ yalnızca re-export)
-  assertions/                clipping.ts · a11y.ts
-  convex/harness.ts          (eski tests/convex/support/)
+npx tsc --noEmit        → temiz
+npm test                → 54 geçti (8 dosya)
+npm run test:e2e        → 37 geçti, 4 atlandı, 0 başarısız
+npm run build           → temiz
+npm run lint            → 15 sorun (7 hata / 8 uyarı) — baseline değişmedi,
+                          hiçbiri dokunulan dosyalarda değil
 ```
 
-3 fixture, 3 E2E spec'i ve unit test kurucuya taşındı; elle yazılmış `Doc<>`
-blokları (~150 satır) gitti. Piksel snapshot'ı `--update-snapshots` olmadan
-geçti — refactor render çıktısını değiştirmedi.
+Görsel snapshot **bilinçli olarak güncellendi**
+(`tests/e2e/visual-parity.spec.ts-snapshots/table-surface-chromium-linux.png`) —
+başlık bandı, çizgi renkleri, seçim ve tutamaç değişti.
 
-**Adım 4 (CI hariç).** `fullyParallel: true` → aynı 23 testte **11.8s → 5.4s**.
-Coverage eşiği `vitest.config.mts`'e kondu (global 31/23/38/32, `convex/lib/**`
-40/18/68/42 — ölçülenin hemen altı). Eşiğin ısırdığı ölçüldü: `statements`
-geçici olarak 99'a çekilip kırmızı görüldü.
+## Auth yüzeyi — bu turda yapılanlar
 
-**Adım 5.** `@axe-core/playwright` + `tests/e2e/a11y.spec.ts` (5 test, WCAG 2.1
-A/AA) ve `tests/e2e/visual-parity.spec.ts` (4 locator snapshot: table, property
-menü, icon picker, cover modal). Beklenti listesi kural kimliğiyle ve
-**eşitlikle** karşılaştırılıyor — yeni ihlal de, düzeltilen ihlal de testi kırar.
+- **Silindi**: `app/(landing)/` (7 dosya), `components/modals/AuthModal.tsx`,
+  `hooks/useAuthModal.tsx` (modal'ın tek tetikleyicisi landing'di).
+- **Yeni**: `app/(auth)/{layout,login/page,register/page}.tsx` +
+  `_components/{AuthHeader,LoginForm,RegisterForm}.tsx`, içerik tutmayan
+  yönlendirici `app/page.tsx`, saf karar fonksiyonu `lib/auth-routing.ts`
+  (+ `tests/unit/auth-routing.test.ts`, 4 test).
+- **Kayıt kapatma**: `lib/auth.ts`'e `hasAnyUser()` ve
+  `databaseHooks.user.create.before` — ilk hesaptan sonra sign-up API'si de
+  reddediyor, sadece redirect değil.
+- `proxy.ts`: girişsiz kullanıcı `/login`'e, PUBLIC_ROUTES'a `/login`+`/register`.
+- `scripts/screenshots/`: "landing" çekimi "login" ile değişti, `signedOut`
+  bayrağı eklendi (auth ekranları oturumsuz çekilmeli).
+- `CLAUDE.md` + `.claude/rules/project/frontend.md` route grupları güncellendi.
 
-**A11y taraması gerçek hata buldu** (aşağıda açık madde).
+Tarayıcıda doğrulanan yönlendirme akışı (bu kurulumda hesap var):
+`/` → `/login`, `/register` → `/login`, `/documents` → `/login`.
 
-## Doğrulama durumu (2026-08-25, Adım 5 sonrası)
+### Görsel altyapısı — bu turda çalışır hâle getirildi
 
-```
-npm test           → 46 geçti (10 unit + 36 convex)
-npm run test:coverage → eşikleri geçti (%31.89 / 23.47 / 38.71 / 32.94)
-npm run test:e2e   → 28 geçti, 4 atlandı, 0 başarısız (5 snapshot dahil), 9.0s
-npx tsc --noEmit   → temiz
-npm run build      → temiz (fixture route'ları production'a girmiyor)
-npm run lint       → 15 sorun (7 hata / 8 uyarı) — baseline değişmedi
-```
+- `docs/screenshots/landing-*.webp` **silindi**; `npm run screenshots` tam
+  olarak koşturuldu → `login-light/dark.webp` üretildi, iki README galerisi de
+  yeniden yazıldı (4 bölüm, landing kalıntısı yok).
+- **Galeri tek kullanımlık yığına taşındı** (`scripts/gallery/run.mjs`,
+  `docker/gallery/compose.yml`). `ZOTION_ALLOW_SIGNUP` kaçış kapısı **koddan
+  tamamen silindi**; demo hesabı boş yığında ilk kullanıcı olarak açılıyor,
+  seed operatörün verisine erişemiyor. Uçtan uca koşturuldu: 14 çekim, iki
+  README yeniden yazıldı, yığın volume'larıyla silindi, dev yığını
+  dokunulmadı.
+- **`/register` artık doğrulanabiliyor**: kabuk `AuthShell` olarak ayrıldı,
+  `app/test-fixtures/register` + `tests/support/fixtures/register-fixture.tsx`
+  gerçek bileşenleri veritabanından bağımsız render ediyor.
+  `tests/e2e/auth-pages.spec.ts` → 4 test.
+
+### Kod incelemesi bulguları (bu turda kapatıldı)
+
+- **Taslak silinmesi — GERÇEK, düzeltildi.** Düzenlenen hücrenin içine tıklamak
+  yazılanı siliyordu; `beginEditCell` aynı hücrede no-op yapıldı + regresyon
+  testi. Ölçümle doğrulandı (`"ab"` → tık → `"ab"`, önce `"A table page"`).
+- **"fill-handle.tsx yok" — YANLIŞ POZİTİF.** Dosyalar diskte var, sadece
+  git'te untracked; bulut incelemesi untracked dosyaları bundle'a almıyor.
+- **Karışık girinti — GERÇEK, düzeltildi** (`database-grid.tsx` prop listesi).
+  Not: `node_modules/.bin/prettier` bu makinede çalıştırılamıyor (izin hatası),
+  elle düzeltildi.
 
 ## Açık maddeler
 
-- **Tablo ARIA yapısı (yeni, gerçek hata)** — a11y taramasının bulduğu:
-  `components/database/database-grid.tsx` `role="grid"` ve `role="gridcell"`
-  kullanıyor ama arada `role="row"` yok; ekran okuyucu tabloyu satır satır
-  gezemiyor. Ayrıca başlık hücresi input'unun erişilebilir adı yok (`label`) ve
-  menü açıkken arkadaki hücreler `aria-hidden` içinde odaklanabilir kalıyor
-  (`aria-hidden-focus`). Düzeltme yerleşimi bozmamak için `display: contents`
-  taşıyan satır sarmalayıcı ister; `tests/e2e/a11y.spec.ts`'teki bilinen-ihlal
-  listesi düzeltmeyle birlikte kısalmalı.
-- **CI** — ⏸️ kullanıcı kararıyla ertelendi. Kurulduğunda gate hazır: eşikler
-  `vitest.config.mts`'te, Linux/Chromium snapshot baseline'ları depoda.
-- **`color-contrast` borcu** — Notion parity'sinin sonucu, ayrı tasarım kararı
-  olmadan kapanmaz.
-- **`lib/` kapsamı %5.98** — Convex dışı yardımcılar (storage, editorFont) hâlâ
-  testsiz; eşiği bir sonraki kademeye çekmek için en verimli hedef.
+- **Untracked dosyalar incelemeye girmiyor** — `app/(auth)/`, `app/page.tsx`,
+  `lib/auth-routing.ts`, `components/database/fill-handle.tsx` vb. hâlâ
+  `git add` edilmedi. **Auth işi fiilen hiç incelenmedi.** Commit'lemeden
+  (tablo + auth ayrı) yeni bir inceleme anlamlı olmaz.
+- **Escape sonrası odak `body`'ye düşüyor** — grid'in `onKeyDown`'ı devre dışı
+  kalıyor, "idle hücrede yazmaya başla" klavyeden erişilemez. A11y pürüzü,
+  ayrı iş (`gotchas.md`).
+- **Login sayfası 1920px'de seyrek duruyor** — sol panel `max-w-[560px]` ile
+  %29'a düşüyor, form geniş sağ panelde küçük kalıyor. README çekimi doğru ama
+  görsel olarak zayıf; panel oranı veya form ölçeği gözden geçirilebilir.
+
+- **Tabloda henüz ölçülmemiş yüzeyler** — kolon başlığı hover'ı ve ikon
+  boyutu, select/multi-select rozet paleti, checkbox/date/person hücreleri,
+  fill sürüklemesi sırasındaki hedef-aralık vurgu rengi, kolon boyutlandırma
+  tutamacı, boş tablo durumu. Liste `table-parity.md` sonunda. **Çıkarsama
+  yapılmayacak** — aynı yöntemle ölçülecek.
+- **Fixture fill'in değer yazdığını doğrulayamıyor** — `table-fixture.tsx`
+  satırları statik prop, Convex round-trip'i yok. E2E yalnızca vurgu aralığını
+  görüyor; değer kopyalama `tests/unit/grid-fill-range.test.ts` ve Convex
+  mutation testleriyle korunuyor.
+- **CI** — ⏸️ kullanıcı kararıyla ertelendi.
+- **`color-contrast` borcu** — Notion parity'sinin sonucu.
+- **`lib/` kapsamı %5.98** — storage, editorFont testsiz.
 - **Faz 6 (board)** — performans ölçümü ve a11y geçişi.
-- **Lint baseline** — 7 hata React-compiler kurallarından, ayrı bir iş.
+- **Lint baseline** — 7 hata React-compiler `set-state-in-effect`, ayrı iş.
+
+## Commit edilmemiş iş
+
+Her şey `master`'da **commit edilmemiş** (son commit `83ac4c8`) ve artık iki ayrı
+iş bir arada duruyor — **commit'lerken tabloyu ve auth'u ayır.**
+
+*Tablo parity'si*: `app/globals.css`,
+`components/database/{column-header,database-grid,grid-cell,row-menu,use-grid-selection}`,
+`tests/e2e/{a11y,table-parity}.spec.ts`,
+`tests/support/{fixtures/table-fixture,pages/table-page}`, görsel snapshot;
+yeni `components/database/fill-handle.tsx`,
+`docs/database-cell-interaction.md`, `docs/notion-research/table-parity.md`,
+`tests/unit/grid-fill-range.test.ts`.
+
+*Auth*: silinen `app/(landing)/`, `components/modals/AuthModal.tsx`,
+`hooks/useAuthModal.tsx`; değişen `lib/auth.ts`, `proxy.ts`,
+`components/providers/modal-provider.tsx`, `scripts/screenshots/{shots,capture.spec}.ts`,
+`CLAUDE.md`, `.claude/rules/project/frontend.md`, `docs/runbook.md`,
+`scripts/seed-demo.mjs`; silinen `docs/screenshots/landing-*.webp`; yeniden
+üretilen `README.md` + `README.tr.md` galerileri ve `docs/screenshots/*`;
+yeni `app/(auth)/`, `app/page.tsx`, `lib/auth-routing.ts`,
+`app/test-fixtures/register/`, `tests/support/fixtures/register-fixture.tsx`,
+`tests/unit/auth-routing.test.ts`, `tests/e2e/auth-pages.spec.ts`.
+
+`docs/notion-research/RESEARCH_STATUS.md` henüz **güncellenmedi** — tablo
+bölümünün oraya da eklenmesi gerekiyor.
 
 ## Oturum sonu şablonu
 

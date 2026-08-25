@@ -377,3 +377,165 @@ Determinizm iki ardışık koşuda doğrulandı.
 `fullyParallel: true`, `workers` yerelde otomatik. Fixture route'ları paylaşılan
 sunucu durumu tutmuyor (hepsi saf bileşen), bu yüzden çakışma yok. Aynı 23
 testte 11.8s → 5.4s.
+
+## 2026-08-25 — Tablo yüzeyi: parity değerleri ölçülür, çıkarsanmaz
+
+### Notion tablo değerleri artık `docs/notion-research/table-parity.md`'de
+Tablo yüzeyi tema/sidebar'ın aksine hiç ölçülmemişti; değerler Notion'ın
+"bilinen" token'larından ve ekran görüntüsünden çıkarsanıyordu. Kullanıcı canlı
+Notion ile yan yana koyunca fark görüldü ve **çıkarsamaların yarısı yanlış
+çıktı**: seçili hücrede hafif mavi dolgu (`rgba(35,131,226,0.07)`) olduğu,
+konturun `rgb(39,131,222)` + **2px radius** olduğu, fill tutamacının **dolu
+mavi değil, içi sayfa arka planı olan 2px halkalı 9px daire** olduğu, imlecin
+`ns-resize` olduğu, satır hover tint'inin **hiç olmadığı**, hücre metninin
+14px değil **16px/24px** olduğu ancak ölçümle ortaya çıktı.
+
+**Karar:** tablo (ve bundan sonra her yüzey) için parity değeri yalnızca gerçek
+Notion'da `getComputedStyle` ile ölçülerek yazılır. Ölçülmemiş bir şey
+uygulanmaz; `table-parity.md`'nin sonunda "henüz ölçülmemiş" listesi tutulur.
+Gerekçe: makul görünen çıkarsama, ölçümle yarı yarıya tutturuyor — "yakın"
+ile "aynı" arasındaki farkın tamamı burada.
+
+### Ölçüm ortamı: kullanıcının profiline dokunmayan headed Playwright
+Claude-in-Chrome eklentisi bu makinede bağlı değil. Ölçüm için Playwright
+`launchPersistentContext` ile görünür Chromium açıldı (profil scratchpad'de,
+CDP portu 9222); **kullanıcı kendi giriş yaptı**, parola hiçbir aşamada
+okunmadı/girilmedi. Tema değişkenleri UI'ya dokunmadan stylesheet'ten okunmaya
+çalışıldı; Notion bunları expose etmediği için kullanıcıdan temayı çevirmesi
+istenip ikinci ölçüm alındı. Tekrar gerekirse aynı yöntem.
+
+### Fill tutamacı ayrı bir bileşen ve pointer capture kullanır
+`components/database/fill-handle.tsx`. Tutamaç 9px; `setPointerCapture`
+olmadan imleç bu 9px'in dışına çıkar çıkmaz `pointermove`/`pointerup` başka
+elemana gidiyordu — sürükleme hiç ilerlemiyor, bırakma yakalanmadığı için de
+aralık vurgusu ekranda **takılı kalıyordu** (kullanıcının "sağ alttaki şey
+problemli" dediği şey buydu). Capture ile sürükleme grid'in tamamında çalışır
+ve bırakma her koşulda yakalanır; `pointercancel` de sürüklemeyi bitirir.
+Sürükleme durumu artık hook'ta değil bileşenin kendi ref'inde (`fillDragging`
+state'i kaldırıldı) — durum sahibi, olayı dinleyen taraf.
+
+### Hücrede `overflow-hidden` dış kapta değil iç sarmalayıcıda
+Tutamaç Notion'da hücrenin sağ-alt köşesinin **üzerinde** ortalanır, yani
+yarısı hücrenin dışında kalır. Dış kapta `overflow-hidden` olduğu sürece
+kırpılıp görünmez olur. Metin kırpması hâlâ gerekli, bu yüzden kırpma
+`DatabaseCell`'i saran iç div'e taşındı, dış `role="gridcell"` kabı taşımaya
+açık bırakıldı.
+
+### Fill aralığı `data-fill-range` ile işaretlenir
+Seçili hücre de, fill hedef aralığı da aynı mavi dolguyu taşıdığı için
+"arka planı dolu hücreleri say" testi ayırt edici değil. Aralık DOM'da açık
+bir işaretle (`data-fill-range`) belirtiliyor; test rengi değil anlamı sayıyor.
+
+## 2026-08-25 — Landing kaldırıldı, auth kendi sayfalarına taşındı
+
+### Zotion tek kurulum sahibi (single-owner) modeline geçti
+Kullanıcı kararı: bir Zotion sunucusunda **ilk hesap sunucuyu kurar, sonrası
+kapanır**. `/register` herhangi bir kullanıcı var olduğu anda `/login`'e
+yönlendirir. Gerekçe: self-hosted bir kurulumda açık kayıt, URL'i bilen herkesin
+hesap açabilmesi demek.
+
+**Zorlama iki katmanda ve asıl olan ikincisi:** sayfa yönlendirmesi yalnızca UI
+kolaylığı; `/api/auth/sign-up/email` doğrudan çağrılabildiği için kural
+`lib/auth.ts`'teki `databaseHooks.user.create.before` içinde, veritabanı
+yazımının önünde duruyor (`APIError("FORBIDDEN")`). Yalnız redirect'e güvenmek
+kaydı kapatmaz.
+
+### Landing sayfası ve auth modal'ı silindi
+`app/(landing)/` (7 dosya) ve `components/modals/AuthModal.tsx` +
+`hooks/useAuthModal.tsx` kaldırıldı. Modal'ın tek tetikleyicileri landing'deki
+iki butondu — landing gidince ölü kod olurdu. Giriş artık yalnızca `/login`'de.
+
+### `/` içerik tutmayan bir yönlendirici
+`app/page.tsx` hiçbir şey render etmiyor; oturum → `/documents`, hiç hesap yok →
+`/register`, diğer → `/login`. Karar `lib/auth-routing.ts`'te **saf** bir
+fonksiyon (`resolveRootDestination`) olarak duruyor ki üç dal da veritabanı veya
+tarayıcı olmadan test edilebilsin. Oturum varken kullanıcı sayımı sorgusu hiç
+yapılmıyor.
+
+`proxy.ts` artık girişsiz kullanıcıyı `/` yerine `/login`'e atıyor; `/` yine
+public (yönlendirme yaptığı için), `/login` ve `/register` PUBLIC_ROUTES'a eklendi.
+
+### Auth kabuğu: split-screen, sol panel `lg` altında gizli
+`app/(auth)/layout.tsx` — solda marka paneli (logo üstte, slogan altta),
+sağda ortalanmış form kolonu. Dar ekranda iki kolonu sıkıştırmak yerine sol
+panel tamamen kaldırılıp form tam genişliği alıyor. Referans: Dokploy'un
+"Setup the server" ekranı.
+
+Register formu First/Last Name olarak ikiye ayrılıyor ama Better Auth tek bir
+`name` alanı tuttuğu için istemcide `"First Last"` olarak birleşiyor — auth
+şemasına dokunmaya gerek kalmadı.
+
+### Ekran görüntüsü yakalayıcısına `signedOut` bayrağı
+`scripts/screenshots/`: eski "landing" çekimi "login" ile değiştirildi. Auth
+ekranları oturumluyu `/documents`'a attığı için çekim **oturumsuz** bağlamda
+yapılmalı — `View.signedOut` bayrağı `capture.spec.ts`'te `storageState`'i
+atlatıyor. Not: üretilen dosya adları `landing-*.webp` → `login-*.webp` olarak
+değişir, README galerileri bir sonraki `npm run screenshots` ile güncellenir.
+
+### ~~Tek sahip kuralı demo seed'ini kırıyordu — dev bayrağı eklendi~~ (İPTAL)
+> Aşağıdaki `ZOTION_ALLOW_SIGNUP` çözümü **geri alındı**; yerine tek kullanımlık
+> galeri yığını geldi (bu dosyanın sonundaki kayıt). Bayrak artık kodda yok.
+
+
+`scripts/seed-demo.mjs` README galerisi için **iki** hesap açıyor
+(`demo-en@`, `demo-tr@`). Kayıt kapatma bunu temiz bir kurulumda ikinci hesapta
+403'le durdururdu; bu kurulumda fark edilmedi çünkü hesaplar zaten vardı ve
+script sign-in'e düşüyordu. Çözüm: `lib/auth.ts`'te sunucu tarafı, varsayılan
+kapalı `ZOTION_ALLOW_SIGNUP=1` kaçış kapısı; seed script 403'ü ayırt edip
+bayrağı söyleyen bir hata mesajı veriyor. Üretimde ayarlanmaz.
+
+### `/register` fixture route'undan doğrulanıyor
+Gerçek `/register` yalnızca hesapsız kurulumda açılır, bu yüzden testte
+render edilemiyor. Kabuk `AuthShell` olarak layout'tan ayrıldı; hem
+`app/(auth)/layout.tsx` hem `tests/support/fixtures/register-fixture.tsx`
+aynı bileşeni kullanıyor — fixture gerçek işaretlemeyi doğruluyor, kopya değil.
+`tests/e2e/auth-pages.spec.ts` 4 test: split-screen kabuk, dar ekranda panelin
+gizlenmesi, kurulum formunun tüm alanları, parola eşleşmemesi.
+
+### `beginEditCell` aynı hücrede no-op
+Düzenlenen hücrenin İÇİNE tıklamak (imleci taşımak için) `onClick` üzerinden
+`beginEditCell`'i yeniden çağırıyordu; `setEditSeed(null)` `GridTextCell`'in
+`key`'ini değiştirdiği için input remount oluyor ve yazılan taslak siliniyordu.
+Ölçülen repro: idle hücre + grid odaklı → `a`, `b` → değer `"ab"` → input'a tık
+→ değer `"A table page"`. Koruma `onClick`'e değil hook'a kondu (aynı hücre +
+`mode === "editing"` ise erken dön), böylece `beginEditCell`'in her çağıranı
+korunuyor. Regresyon testi `table-parity.spec.ts`'te.
+
+## 2026-08-25 — README galerisi tek kullanımlık bir yığında üretiliyor
+
+`ZOTION_ALLOW_SIGNUP` kaçış kapısı **tamamen kaldırıldı**. Sorun şuydu: galeri
+iki dilde doküman seti istiyor, Zotion ise tek sahip modelinde — ikinci demo
+hesabı ancak üretim kuralı delinerek açılabiliyordu. Tek hesaba inmek de
+çözmüyordu, çünkü tek sahipli bir kurulumda o hesap **operatörün kendi
+hesabıdır** ve `seed:demoWorkspace` onun bütün dokümanlarını siler.
+
+**Karar:** `npm run screenshots` artık `scripts/gallery/run.mjs`. Kendi Compose
+**projesini** (`zotion-gallery`) kaldırıyor — ayrı volume'lar, kaydırılmış
+portlar (app 3100, Convex 3310/3311, Postgres 55433, MinIO 9010) — Convex
+fonksiyonlarını itiyor, demo hesabını **normal kayıt akışıyla** açıyor (o boş
+yığında gerçekten ilk kullanıcıdır), `en` ve `tr` içeriğini aynı hesaba sırayla
+seed'leyip her dilin çekimini hemen alıyor, README'leri yazıyor ve yığını
+`down -v` ile yok ediyor.
+
+Kazanımlar: kuralda delik yok; seed operatörün verisine erişemiyor; galeri her
+makinede tekrarlanabilir; CI'da da koşabilir.
+
+Uygulama detayları (hepsi denemeyle bulundu):
+- **Ağ**: uygulama host'ta çalışıyor, konteynerler ona `docker0` üzerinden
+  (`172.17.0.1`) ulaşıyor. Bu adres host'ta da yerel arayüz olduğu için tarayıcı
+  ve Convex backend aynı origin'i görür (tek JWT audience/çerez alanı). Compose
+  ağına sabit subnet vermek **işe yaramadı**: ağ oluşuyor ama gateway host'ta
+  arayüz olarak belirmiyor. `GALLERY_HOST` ile değiştirilebilir.
+- **Sunucu**: `next dev` değil `next build` + `next start`. Next 16 aynı dizinde
+  ikinci bir dev sunucusuna izin vermiyor; ayrıca galeri üretim çıktısını
+  göstermeli. Build ayrı dizine gidiyor (`NEXT_DIST_DIR=.next-gallery`) ki
+  çalışan dev sunucusunun `.next`'i ezilmesin. `output: "standalone"` o build'de
+  kapalı — `next start` standalone ile çalışmıyor.
+- **Convex**: `auth.config` issuer'ı push anında **deployment** ortamından okur;
+  `npx convex env set CONVEX_AUTH_ISSUER` deploy'dan önce gerekli
+  (`docker/convex-deploy.sh` ile aynı desen).
+- **Çekim iki geçişte**: `GALLERY_LOCALE` o geçişin çekimlerini filtreler,
+  `manifest.json` geçişler arasında birleştirilir (yoksa ikinci geçiş
+  birincinin sonuçlarını siler).
+- `.next-gallery` hem `.gitignore`'a hem eslint `ignores` listesine eklendi —
+  eklenmezse lint 15'ten 57 soruna fırlıyor.

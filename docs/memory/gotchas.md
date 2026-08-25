@@ -62,3 +62,61 @@ Vendor'lanmış script ağacında silme yapmadan önce bağımlılık kapanış�
 sonra aynı ölçümü tekrarla ve **sayıların birebir aynı** olduğunu gör (23 kök / 53 modül /
 0 eksik). Yalnızca "sonrası temiz" demek, baseline zaten kırıksa bir şey kanıtlamaz.
 
+
+## Tarayıcıda sürükleme
+
+### Küçük bir tutamaçtan sürüklenecekse `setPointerCapture` şart
+`pointermove`/`pointerup` varsayılan olarak imlecin **o anda üzerinde olduğu**
+elemana gider. 7-10px'lik bir tutamaçtan sürükleme başlatıp elemana
+`onPointerMove`/`onPointerUp` bağlamak, imleç ilk pikselde dışarı çıktığı için
+pratikte hiç çalışmaz — üstelik `pointerup` hiç gelmediğinden sürükleme state'i
+temizlenmez ve UI "takılı" görünür. Bu iki kez zaman kaybettirdi: önce görsel
+bir hata sanıldı (ekranda kalan mavi dolgu), asıl neden eksik capture'dı.
+`onPointerDown`'da `event.currentTarget.setPointerCapture(event.pointerId)`,
+`onPointerUp`'ta `releasePointerCapture`, ayrıca `onPointerCancel` ile bitir.
+
+### Playwright ile sürüklemeyi gerçekten test et
+`locator.click()` ya da tek bir `mouse.down()/up()` bu hatayı yakalamaz —
+`mouse.down()` → `mouse.move(..., { steps: N })` → `mouse.up()` zinciri gerekir
+ve **sürükleme sırasında** bir ölçüm alınmalı. Bırakma sonrası tek ölçüm,
+"hiç ilerlemedi" ile "ilerledi ve temizlendi" durumlarını ayırt edemez.
+
+## Notion parity ölçümü
+
+### Ölçmeden "Notion ile aynı" deme
+Tablo yüzeyinde makul görünen çıkarsamaların yaklaşık yarısı yanlıştı
+(bkz. `docs/notion-research/table-parity.md` "Çıkarsama yanlıştı" tablosu).
+Düşük çözünürlüklü bir ekran görüntüsü rengi verir ama padding, satır
+yüksekliği, font boyutu ve "içi boş mu dolu mu" gibi şeyleri vermez —
+9px'lik halkalı bir daire, küçük ölçekte dolu nokta gibi görünür.
+
+### Notion tema değişkenleri stylesheet'ten okunamıyor
+`.notion-light-theme` / `.notion-dark-theme` kurallarından CSS custom
+property çekme denemesi **boş döndü**. Her iki temanın değerini almak için
+kullanıcıdan temayı çevirmesini isteyip ikinci bir ölçüm almak gerekiyor;
+`waitForFunction` ile `.notion-dark-theme` beklenip otomatik ölçüm alınabilir.
+
+## Route silerken
+
+### `app/` altından route silince `.next/types` eskimiş kalır
+`app/(landing)` silindikten sonra `npx tsc --noEmit` iki hata verdi:
+`Cannot find module '../../app/(landing)/page.js'`. Kaynak kodda hiçbir referans
+yoktu — hata `.next/types/validator.ts` içindeki **üretilmiş** dosyadandı.
+`rm -rf .next/types` + bir sayfa isteği (ya da yeni build) yeterli. Kaynak
+ağacında referans aramakla vakit kaybetme.
+
+## Proje dili
+
+### Arayüz metni İngilizce, yorumlar Türkçe
+Kolayca karıştırılıyor: `CLAUDE.md`'deki "Türkçe" kuralı **kullanıcıyla
+iletişim** içindir. Ürün arayüzü tamamen İngilizce (README İngilizce, Türkçesi
+ayrı dosya). Kod yorumları ise Türkçe — `app/` + `lib/` altında 171 Türkçe yorum
+satırı var, bu yerleşik konvansiyon. Yeni bir kullanıcı-görünür string yazarken
+İngilizce yaz; yorumda Türkçe serbest.
+
+### Grid'de Escape sonrası odak `body`'ye düşüyor
+`role="grid"` üzerindeki `onKeyDown` yalnızca odak grid'deyken çalışır. Hücre
+düzenlemesinden Escape ile çıkınca input blur oluyor ve odak `body`'ye gidiyor
+— yani "idle hücrede yazmaya başla" yolu klavyeden erişilemiyor. Testte
+`TablePage.focusGrid()` ile açıkça odaklamak gerekti. Gerçek kullanıcı için de
+bu bir a11y pürüzü: Escape'ten sonra odağın grid'e dönmesi gerekir (açık madde).
