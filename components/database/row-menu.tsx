@@ -44,7 +44,10 @@ export const RowMenu = ({
   const duplicateRow = useMutation(api.databases.duplicateRow);
 
   return (
-    <div className="flex h-9 min-h-0 items-center justify-end gap-0 px-0">
+    <div
+      role="gridcell"
+      className="flex h-9 min-h-0 items-center justify-end gap-0 px-0"
+    >
       {editable && (
         <>
           <button

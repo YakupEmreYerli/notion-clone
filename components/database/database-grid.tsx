@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -37,11 +38,13 @@ import {
   PropertyType,
 } from "./types";
 import { DatabaseCell } from "./grid-cell";
+import { FillHandle } from "./fill-handle";
 import { ColumnHeader } from "./column-header";
 import { AddPropertyMenu } from "./add-property-menu";
 import { useColumnResize } from "./use-column-resize";
 import { RowMenu } from "./row-menu";
 import { useGridSelection } from "./use-grid-selection";
+import type { FillSelection } from "./use-grid-selection";
 import type {
   DatabaseFilter,
   DatabaseSort,
@@ -63,8 +66,16 @@ interface SortableDatabaseRowProps {
   activeCell: ReturnType<typeof useGridSelection>["activeCell"];
   mode: ReturnType<typeof useGridSelection>["mode"];
   editSeed: ReturnType<typeof useGridSelection>["editSeed"];
+  fill: ReturnType<typeof useGridSelection>["fill"];
+  getFillRange: ReturnType<typeof useGridSelection>["getFillRange"];
   onActivate: ReturnType<typeof useGridSelection>["activateCell"];
+  onBeginEdit: ReturnType<typeof useGridSelection>["beginEditCell"];
   onEditingDone: ReturnType<typeof useGridSelection>["exitEditing"];
+  onStartFill: ReturnType<typeof useGridSelection>["startFill"];
+  onUpdateFillTarget: ReturnType<typeof useGridSelection>["updateFillTarget"];
+  onEndFill: ReturnType<typeof useGridSelection>["endFill"];
+  /** Fill pointer-up'ında son hedefle commit eder (boş hedef varsa pasif). */
+  onCommitFill: (selection: FillSelection) => void;
   onCommit: (propertyId: Id<"databaseProperties">, value: CellValue) => void;
 }
 
@@ -79,8 +90,15 @@ const SortableDatabaseRow = ({
   activeCell,
   mode,
   editSeed,
+  fill,
+  getFillRange,
   onActivate,
+  onBeginEdit,
   onEditingDone,
+  onStartFill,
+  onUpdateFillTarget,
+  onEndFill,
+  onCommitFill,
   onCommit,
 }: SortableDatabaseRowProps) => {
   const {
@@ -96,6 +114,12 @@ const SortableDatabaseRow = ({
     ? `${transition}, background-color 200ms ease-out`
     : undefined;
 
+  // Bir satırın aktif fill aralığında olup olmadığı (kaynak satır da dahil).
+  const isRowInFillRange = (rowId: Id<"databaseRows">, sel: FillSelection) => {
+    const ids = getFillRange(sel)?.map((r) => r._id) ?? [];
+    return ids.includes(rowId);
+  };
+
   return (
     <div
       ref={setNodeRef}
@@ -106,31 +130,79 @@ const SortableDatabaseRow = ({
         opacity: isDragging ? 0.5 : 1,
         zIndex: isDragging ? 10 : undefined,
       }}
-      className="border-border hover:bg-primary/5 group/row grid h-9 grid-rows-[36px] border-b transition-colors duration-200 ease-out"
+      role="row"
+      data-row-id={row._id}
+      // Notion table view'da satır hover tint'i YOK (ölçüldü —
+      // docs/notion-research/table-parity.md). group/row yalnızca satır
+      // menüsünü göstermek için duruyor.
+      className="border-table-border group/row grid h-9 grid-rows-[36px] border-b"
     >
       {properties.map((property) => {
         const isActive =
           activeCell?.rowId === row._id &&
           activeCell.propertyId === property._id;
+        // Fill sürüklenirken kaynaktan target'a kadar olan hücreler vurgulanır.
+        const isInFillRange =
+          !!fill &&
+          fill.propertyId === property._id &&
+          isRowInFillRange(row._id, fill);
         return (
           <div
             key={property._id}
             role="gridcell"
-            onClick={() =>
-              onActivate({ rowId: row._id, propertyId: property._id })
-            }
-            className={`border-border h-9 min-h-0 overflow-hidden border-r ${isActive ? "ring-primary relative z-1 ring-1 ring-inset" : ""}`}
+            // Fill sürüklemesinin hedef aralığı. Seçili hücre de aynı mavi
+            // dolguyu taşıdığı için renk ayırt edici değil — aralığı testin
+            // sayabilmesi (ve DOM'un okunabilirliği) için açık işaret.
+            data-fill-range={isInFillRange || undefined}
+            onClick={() => {
+              const position = {
+                rowId: row._id,
+                propertyId: property._id,
+              };
+              // Text hücresine tıklayınca Notion gibi doğrudan düzenleme moduna
+              // geç — böylece Ctrl+V / yazı doğrudan çalışır. Diğer tipler
+              // (select, multiSelect) kendi popover'ını açar, "idle" kalır.
+              if (editable && property.type === "text") onBeginEdit(position);
+              else onActivate(position);
+            }}
+            className={[
+              // overflow-hidden BİLEREK burada değil: fill tutamacı hücrenin
+              // sağ-alt köşesinin üzerine taşar, dıştaki kap kırpsa görünmez.
+              "border-table-border group/cell relative h-9 min-h-0 border-r",
+              // Notion'da seçim ayrı bir overlay: hafif mavi dolgu + 2px inset
+              // kontur + 2px radius (ölçüldü, table-parity.md).
+              isActive
+                ? "bg-table-selection-fill shadow-[inset_0_0_0_2px_var(--table-selection)] z-1 rounded-[2px]"
+                : "outline-none",
+              isInFillRange && !isActive ? "bg-table-selection-fill" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
           >
-            <DatabaseCell
-              property={property}
-              editable={editable}
-              value={row.cells[property._id]}
-              isActive={isActive}
-              isEditing={isActive && mode === "editing"}
-              editSeed={isActive ? editSeed : null}
-              onCommit={(value) => onCommit(property._id, value)}
-              onEditingDone={onEditingDone}
-            />
+            <div className="h-full w-full overflow-hidden">
+              <DatabaseCell
+                property={property}
+                editable={editable}
+                value={row.cells[property._id]}
+                isActive={isActive}
+                isEditing={isActive && mode === "editing"}
+                editSeed={isActive ? editSeed : null}
+                onCommit={(value) => onCommit(property._id, value)}
+                onEditingDone={onEditingDone}
+              />
+            </div>
+            {isActive && mode === "idle" && property.type === "text" && (
+              <FillHandle
+                onStart={() =>
+                  onStartFill({ rowId: row._id, propertyId: property._id })
+                }
+                onTarget={onUpdateFillTarget}
+                onCommit={() => {
+                  if (fill) onCommitFill(fill);
+                }}
+                onEnd={onEndFill}
+              />
+            )}
           </div>
         );
       })}
@@ -184,14 +256,43 @@ export const DatabaseGrid = ({
 
   const { getWidth, startResize } = useColumnResize();
 
-  const { activeCell, activateCell, exitEditing, editSeed, mode, onKeyDown } =
-    useGridSelection({
-      properties,
-      rows,
-      editable,
-      onClearCell: ({ rowId, propertyId }, value) =>
-        updateCell({ rowId, propertyId, value }),
-    });
+  // dnd-kit'ın sürükleme durumunu ilan eden canlı bölgesi (`role="status"`)
+  // grid'in çocuğu olarak AX ağacına girerse `aria-required-children` kırılır
+  // — grid yalnızca satır tutmalı. Bu yüzden canlı bölgeyi grid'in dışındaki
+  // bir taşıyıcıya portal ederiz.
+  const [dndLiveRegionTarget, setDndLiveRegionTarget] =
+    useState<HTMLDivElement | null>(null);
+
+  const {
+    activeCell,
+    activateCell,
+    beginEditCell,
+    exitEditing,
+    editSeed,
+    mode,
+    onKeyDown,
+    fill,
+    startFill,
+    updateFillTarget,
+    endFill,
+    getFillRange,
+  } = useGridSelection({
+    properties,
+    rows,
+    editable,
+    onClearCell: ({ rowId, propertyId }, value) =>
+      updateCell({ rowId, propertyId, value }),
+    // Notion fill: aktif hücrenin değeri bir/pasif olmayan satırlara çoğaltılır.
+    onFill: ({ rowId, propertyId }, targetRowIds) => {
+      const source = rows.find((row) => row._id === rowId)?.cells[propertyId];
+      if (source === undefined || source === null) return;
+      void Promise.all(
+        targetRowIds.map((targetRowId) =>
+          updateCell({ rowId: targetRowId, propertyId, value: source }),
+        ),
+      );
+    },
+  });
 
   const template = [
     ...properties.map((property) => `${getWidth(property)}px`),
@@ -287,19 +388,42 @@ export const DatabaseGrid = ({
     });
   };
 
+  // Notion fill commit: kaynak hücrenin mevcut değeri, hedef aralıktaki tüm
+  // satırlara kopyalanır (kaynak satır hariç). Tek satırlık hedef = no-op.
+  const onCommitFill = (selection: FillSelection) => {
+    const sourceRow = rows.find((row) => row._id === selection.rowId);
+    const sourceValue = sourceRow?.cells[selection.propertyId];
+    if (sourceValue === undefined || sourceValue === null) return;
+    const targets = getFillRange(selection)
+      ?.filter((row) => row._id !== selection.rowId)
+      .map((row) => row._id);
+    if (!targets || targets.length === 0) return;
+    void Promise.all(
+      targets.map((targetRowId) =>
+        updateCell({
+          rowId: targetRowId,
+          propertyId: selection.propertyId,
+          value: sourceValue,
+        }),
+      ),
+    );
+  };
+
   return (
-    <div
-      role="grid"
-      tabIndex={0}
-      onKeyDown={onKeyDown}
-      className="overflow-x-auto outline-none"
-    >
-      <div className="w-max min-w-full">
-        <div
-          data-testid="database-header"
-          className="border-border bg-secondary/50 sticky top-0 z-10 grid h-9 grid-rows-[36px] border-b"
-          style={{ gridTemplateColumns: template }}
-        >
+    <>
+      <div
+        role="grid"
+        tabIndex={0}
+        onKeyDown={onKeyDown}
+        className="overflow-x-auto outline-none"
+      >
+        <div className="w-max min-w-full">
+          <div
+            data-testid="database-header"
+            role="row"
+            className="border-table-border bg-background sticky top-0 z-10 grid h-9 grid-rows-[36px] border-b"
+            style={{ gridTemplateColumns: template }}
+          >
           {properties.map((property, index) => (
             <ColumnHeader
               key={property._id}
@@ -337,9 +461,11 @@ export const DatabaseGrid = ({
             />
           ))}
           {editable ? (
-            <AddPropertyMenu onCreate={onAddProperty} />
+            <div role="columnheader" className="min-w-0">
+              <AddPropertyMenu onCreate={onAddProperty} />
+            </div>
           ) : (
-            <div />
+            <div role="columnheader" />
           )}
         </div>
 
@@ -348,6 +474,9 @@ export const DatabaseGrid = ({
           collisionDetection={closestCorners}
           modifiers={[restrictToVerticalAxis, restrictToParentElement]}
           onDragEnd={onRowDragEnd}
+          accessibility={{
+            container: dndLiveRegionTarget ?? undefined,
+          }}
         >
           <SortableContext
             items={rows.map((row) => row._id)}
@@ -366,8 +495,15 @@ export const DatabaseGrid = ({
                 activeCell={activeCell}
                 mode={mode}
                 editSeed={editSeed}
+                fill={fill}
+                getFillRange={getFillRange}
                 onActivate={activateCell}
+                onBeginEdit={beginEditCell}
                 onEditingDone={exitEditing}
+                onStartFill={startFill}
+                onUpdateFillTarget={updateFillTarget}
+                onEndFill={endFill}
+                onCommitFill={onCommitFill}
                 onCommit={(propertyId, value) =>
                   updateCell({ rowId: row._id, propertyId, value })
                 }
@@ -375,7 +511,10 @@ export const DatabaseGrid = ({
             ))}
           </SortableContext>
         </DndContext>
+        </div>
+      </div>
 
+      <div className="w-max min-w-full">
         <div className="h-7">
           {editable && (
             <button
@@ -388,6 +527,8 @@ export const DatabaseGrid = ({
           )}
         </div>
       </div>
-    </div>
+
+      <div ref={setDndLiveRegionTarget} className="sr-only" />
+    </>
   );
 };

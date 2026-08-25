@@ -7,6 +7,7 @@ const table = databaseBuilder("table-fixture")
   .withTitle("Name", { width: 320 })
   .withText("Author", { width: 200, icon: "user" })
   .withRow({ Name: "A table page", Author: "Ada Lovelace" })
+  .withRow({ Name: "Second page", Author: "Marie Curie" })
   .build();
 
 export function TableFixture() {

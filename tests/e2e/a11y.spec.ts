@@ -12,17 +12,16 @@ import { TablePage } from "@/tests/support/pages/table-page";
  *    ikincil metni (ör. "+ New" için rgb(142,139,134)) AA eşiğini geçmiyor;
  *    kontrastı yükseltmek piksel parity'sini bozar. Bilinçli borç, ayrı bir
  *    tasarım kararı olmadan kapanmaz.
- * 2. ARIA yapısı (`aria-required-children`, `aria-required-parent`, `label`,
- *    `aria-hidden-focus`): bunlar **gerçek hata**. Tablo `role="grid"` ve
- *    `role="gridcell"` kullanıyor ama arada `role="row"` yok (CSS grid düz bir
- *    hücre dizisi); ekran okuyucu tabloyu satır satır gezemiyor. Açık madde
- *    olarak `docs/memory/STATE.md`'de kayıtlı.
+ * 2. `aria-required-children` / `aria-hidden-focus` (menü/dropdown açıkken):
+ *    bunlar `role="grid"` yapısı düzeltildikten sonra **Radix menü
+ *    content'inin** kendi iç işleyişinden kaynaklanıyor (portal menü, arkadakı
+ *    odaklanabilir hücreler). Tablo gövdesi temiz — grid artık yalnızca
+ *    satır/başlık satırı tutuyor, hücre girişleri adlandırılmış.
  *
  * Liste **eşitlikle** karşılaştırılır: yeni ihlal de, düzeltilmiş ihlal de
  * testi kırar — yani liste kendiliğinden çürüyemez.
  */
 const NOTION_PARITY_CONTRAST = ["color-contrast"];
-const GRID_ARIA_STRUCTURE = ["aria-required-children", "aria-required-parent"];
 
 test.describe("Accessibility (WCAG 2.1 A/AA)", () => {
   test("board surface has no violation beyond Notion's muted palette", async ({
@@ -55,19 +54,14 @@ test.describe("Accessibility (WCAG 2.1 A/AA)", () => {
     });
   });
 
-  test("table grid still reports the known ARIA structure gap", async ({
-    page,
-  }) => {
+  test("table grid is now a proper ARIA grid", async ({ page }) => {
     const table = new TablePage(page);
     await table.goto();
     await expect(table.root).toBeVisible();
 
-    // `label`: başlık hücresinin metin girişinin erişilebilir adı yok.
-    await expectA11yViolations(page, [
-      ...NOTION_PARITY_CONTRAST,
-      ...GRID_ARIA_STRUCTURE,
-      "label",
-    ]);
+    // Grid yapısı düzeltildi (role=row + columnheader + adlandırılmış hücre
+    // girişleri): geriye yalnızca Notion parity kontrast borcu kalıyor.
+    await expectA11yViolations(page, NOTION_PARITY_CONTRAST);
   });
 
   test("property menu and icon picker add no violation of their own", async ({

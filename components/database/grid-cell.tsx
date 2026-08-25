@@ -11,6 +11,8 @@ interface GridTextCellProps {
   isEditing: boolean;
   editSeed: string | null;
   onCommit: (value: string) => void;
+  onEditingDone?: () => void;
+  ariaLabel?: string;
 }
 
 // `key={value}` kasıtlı: sunucudan gelen otoriter değer değiştiğinde
@@ -23,6 +25,8 @@ export const GridTextCell = ({
   isEditing,
   editSeed,
   onCommit,
+  onEditingDone,
+  ariaLabel,
 }: GridTextCellProps) => {
   const [draft, setDraft] = useState(editSeed ?? value);
 
@@ -30,13 +34,17 @@ export const GridTextCell = ({
     <input
       key={`${value}:${isEditing}:${editSeed ?? ""}`}
       defaultValue={editSeed ?? value}
+      aria-label={ariaLabel}
       readOnly={!editable || !isEditing}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         if (isEditing && draft !== value) onCommit(draft);
+        // Blur ile editing'den çıkınca idle'a döneriz (Notion davranışı):
+        // hücre seçili kalır ve fill kolu görünür.
+        if (isEditing) onEditingDone?.();
       }}
       autoFocus={isEditing}
-      className="text-foreground h-full min-h-0 w-full bg-transparent px-3 py-0 text-sm outline-none"
+      className="text-foreground h-full min-h-0 w-full bg-transparent px-3 py-0 text-base leading-6 outline-none"
     />
   );
 };
@@ -86,6 +94,8 @@ export const DatabaseCell = ({
       editSeed={editSeed}
       value={typeof value === "string" ? value : ""}
       onCommit={onCommit}
+      onEditingDone={onEditingDone}
+      ariaLabel={property.name}
     />
   );
 };

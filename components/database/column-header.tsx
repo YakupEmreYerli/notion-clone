@@ -43,8 +43,9 @@ export const ColumnHeader = ({
   return (
     <div
       data-testid="database-column-header"
+      role="columnheader"
       style={style}
-      className="border-border group/col hover:bg-primary/5 text-foreground/80 relative flex h-9 min-h-0 shrink-0 items-center border-r p-0 text-sm font-normal"
+      className="border-table-border group/col text-muted-foreground relative flex h-9 min-h-0 shrink-0 items-center border-r p-0 text-sm font-normal"
     >
       {editable ? (
         <ColumnMenu

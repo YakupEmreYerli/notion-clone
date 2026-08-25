@@ -25,6 +25,14 @@
   --border: #e6e5e3;
   --input: #e6e5e3;
   --ring: #2383e2;
+
+  /* Notion table (database) yüzeyi — hepsi app.notion.com'da ölçüldü,
+     kayıt: docs/notion-research/table-parity.md. Grid çizgisi genel
+     --border'dan ayrıdır; başlık bandının kendi dolgusu yoktur; Notion
+     table view'da satır hover tint'i UYGULAMAZ. */
+  --table-border: rgba(42, 28, 0, 0.07);
+  --table-selection: rgb(39, 131, 222);
+  --table-selection-fill: rgba(35, 131, 226, 0.07);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -189,6 +197,10 @@
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.15);
   --ring: #2383e2;
+
+  --table-border: rgba(255, 255, 243, 0.082);
+  --table-selection: rgb(39, 131, 222);
+  --table-selection-fill: rgba(35, 131, 226, 0.07);
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
@@ -302,6 +314,9 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
+  --color-table-border: var(--table-border);
+  --color-table-selection: var(--table-selection);
+  --color-table-selection-fill: var(--table-selection-fill);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);

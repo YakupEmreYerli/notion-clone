@@ -9,11 +9,38 @@ export interface GridCellPosition {
   propertyId: DatabaseProperty["_id"];
 }
 
+// Aktif hücre + fill hedef aralığı. Text hücresine tıklandığında Notion'daki
+// gibi köşe tutamacından aşağı sürüklenerek değer alt satırlara kopyalanır.
+export interface FillSelection {
+  rowId: DatabaseRow["_id"];
+  propertyId: DatabaseProperty["_id"];
+  /** Sürükleme sırasında hedefe alınan son satır id'si. */
+  targetRowId: DatabaseRow["_id"];
+}
+
+/**
+ * Kaynaktan hedefe (yön ne olursa olsun) düşen satırları döndürür. Notion fill
+ * tutamacı hem yukarı hem aşağı sürdürülebildiği için sıra normalize edilir.
+ * Kimlikler bulunamazsa null.
+ */
+export function getFillRange(
+  rows: DatabaseRow[],
+  selection: FillSelection,
+): DatabaseRow[] | null {
+  const startIndex = rows.findIndex((row) => row._id === selection.rowId);
+  const endIndex = rows.findIndex((row) => row._id === selection.targetRowId);
+  if (startIndex === -1 || endIndex === -1) return null;
+  const [from, to] = [startIndex, endIndex].sort((a, b) => a - b);
+  return rows.slice(from, to + 1);
+}
+
 interface UseGridSelectionArgs {
   properties: DatabaseProperty[];
   rows: DatabaseRow[];
   editable: boolean;
   onClearCell: (position: GridCellPosition, value: CellValue) => void;
+  /** Notion fill: Ctrl/⌘+D ile aktif hücrenin değerini seçili aralığa kopyalar. */
+  onFill?: (position: GridCellPosition, targetRowIds: DatabaseRow["_id"][]) => void;
 }
 
 export const useGridSelection = ({
@@ -21,16 +48,42 @@ export const useGridSelection = ({
   rows,
   editable,
   onClearCell,
+  onFill,
 }: UseGridSelectionArgs) => {
   const [activeCell, setActiveCell] = useState<GridCellPosition | null>(null);
   const [mode, setMode] = useState<"idle" | "editing">("idle");
   const [editSeed, setEditSeed] = useState<string | null>(null);
+  const [fill, setFill] = useState<FillSelection | null>(null);
 
   const activateCell = useCallback((position: GridCellPosition) => {
     setActiveCell(position);
     setMode("idle");
     setEditSeed(null);
+    setFill(null);
   }, []);
+
+  // Notion davranışı: hücreye tıklayınca (özellikle text) doğrudan düzenleme
+  // moduna girer — böylece içine tıklanıp yazı ya da Ctrl+V yapıştırılabilir.
+  // "idle" modda input readOnly kaldığı için yapıştırma çalışmıyordu.
+  const beginEditCell = useCallback(
+    (position: GridCellPosition) => {
+      // Zaten düzenlenen hücreye tekrar tıklamak (imleci taşımak için) state'i
+      // sıfırlamamalı. `setEditSeed(null)` GridTextCell'in `key`'ini
+      // değiştirir, input remount olur ve o ana kadar yazılan taslak gider.
+      if (
+        mode === "editing" &&
+        activeCell?.rowId === position.rowId &&
+        activeCell.propertyId === position.propertyId
+      ) {
+        return;
+      }
+      setActiveCell(position);
+      setMode("editing");
+      setEditSeed(null);
+      setFill(null);
+    },
+    [activeCell, mode],
+  );
 
   // select/multiSelect popover'ları kendi seçimlerinde kapanır (bkz.
   // select-cell.tsx) — bu sadece "editing" modundan çıkar, hücreyi değiştirmez.
@@ -52,9 +105,35 @@ export const useGridSelection = ({
       });
       setMode("idle");
       setEditSeed(null);
+      setFill(null);
     },
     [properties, rows],
   );
+
+  // Notion fill tutamacı: bir text hücresinden başlayıp aşağı sürüklenen
+  // hedef satırların listesini (kaynaktan hedefe) döndürür.
+  const getFillRangeFor = useCallback(
+    (selection: FillSelection) => getFillRange(rows, selection),
+    [rows],
+  );
+
+  const startFill = useCallback(
+    (position: GridCellPosition) => {
+      setActiveCell(position);
+      setMode("idle");
+      setEditSeed(null);
+      setFill({ ...position, targetRowId: position.rowId });
+    },
+    [],
+  );
+
+  const updateFillTarget = useCallback((targetRowId: DatabaseRow["_id"]) => {
+    setFill((prev) => (prev ? { ...prev, targetRowId } : prev));
+  }, []);
+
+  const endFill = useCallback(() => {
+    setFill(null);
+  }, []);
 
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -84,6 +163,7 @@ export const useGridSelection = ({
           event.preventDefault();
           setMode("idle");
           setEditSeed(null);
+          setFill(null);
           return;
         }
 
@@ -144,6 +224,22 @@ export const useGridSelection = ({
         return;
       }
 
+      // Notion fill kısayolu: Ctrl/⌘+D, seçili hücrenin değerini aşağıdaki
+      // satırlara kopyalar. Burada "aşağıdaki" = aktif hücreden sona kadar.
+      if (
+        editable &&
+        isTextCell &&
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "d"
+      ) {
+        event.preventDefault();
+        const targetRowIds = rows
+          .slice(rowIndex + 1)
+          .map((row) => row._id);
+        if (targetRowIds.length > 0) onFill?.(activeCell, targetRowIds);
+        return;
+      }
+
       if (event.key === "Delete" || event.key === "Backspace") {
         if (!editable) return;
         event.preventDefault();
@@ -164,15 +260,21 @@ export const useGridSelection = ({
         setEditSeed(event.key);
       }
     },
-    [activeCell, editable, mode, moveTo, onClearCell, properties, rows],
+    [activeCell, editable, mode, moveTo, onClearCell, onFill, properties, rows],
   );
 
   return {
     activeCell,
     activateCell,
+    beginEditCell,
     exitEditing,
     editSeed,
     mode,
     onKeyDown,
+    fill,
+    startFill,
+    updateFillTarget,
+    endFill,
+    getFillRange: getFillRangeFor,
   };
 };
