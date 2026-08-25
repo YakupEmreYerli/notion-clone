@@ -2,17 +2,8 @@
 
 import { useState } from "react";
 import { useMutation } from "convex/react";
-import {
-  ArrowLeftToLine,
-  ArrowDownNarrowWide,
-  ArrowRightToLine,
-  Copy,
-  EyeOff,
-  Info,
-  ListFilter,
-  Repeat2,
-  Trash,
-} from "lucide-react";
+import { ArrowLeftToLine, ArrowDownNarrowWide, ArrowRightToLine, Copy, EyeOff, Info, ListFilter, Repeat2 } from "lucide-react";
+import { TrashIcon } from "@/app/(main)/_components/icons/TrashIcon";
 import { toast } from "sonner";
 
 import {
@@ -229,7 +220,7 @@ export const ColumnMenu = ({
           onSelect={onDelete}
           className={MENU_ITEM_CLASS}
         >
-          <Trash className="size-4" />
+          <TrashIcon className="size-4" />
           Delete property
         </DropdownMenuItem>
       </DropdownMenuContent>

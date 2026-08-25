@@ -6,6 +6,8 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
+
+import { snackbar } from "@/lib/snackbar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +48,7 @@ export const Menu = ({ documentId }: MenuProps) => {
     documentId,
   });
   const archive = useMutation(api.documents.archive);
+  const restore = useMutation(api.documents.restore);
   const update = useMutation(api.documents.update);
   const [isMoveToOpen, setIsMoveToOpen] = useState(false);
 
@@ -56,13 +59,15 @@ export const Menu = ({ documentId }: MenuProps) => {
   const onArchive = () => {
     markArchiving(documentId);
     router.push("/documents");
-    const promise = archive({ id: documentId });
-
-    toast.promise(promise, {
-      loading: "Moving to trash...",
-      success: "Note moved to trash!",
-      error: "Failed to archive note.",
-    });
+    archive({ id: documentId })
+      .then(() => {
+        snackbar("Moved to Trash", {
+          label: "Restore",
+          onClick: () =>
+            restore({ id: documentId, keepPosition: true }),
+        });
+      })
+      .catch(() => toast.error("Failed to archive note."));
   };
 
   const onFullWidthChange = (checked: boolean) => {

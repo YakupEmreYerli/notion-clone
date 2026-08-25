@@ -49,11 +49,7 @@ const NavDrawer = ({ resetWidth, isMobile }: NavDrawerProps) => {
       router.push(`/documents/${documentId}?fresh=1`),
     );
 
-    toast.promise(promise, {
-      loading: "Creating a new note....",
-      success: "New note created.",
-      error: "Failed to create a note.",
-    });
+    promise.catch(() => toast.error("Failed to create a note."));
   };
 
   return (

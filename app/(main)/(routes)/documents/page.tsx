@@ -19,11 +19,7 @@ const DocumentsPage = () => {
       router.push(`/documents/${documentId}?fresh=1`),
     );
 
-    toast.promise(promise, {
-      loading: "Creating a new note....",
-      success: "New note created!",
-      error: "Failed to create a new note.",
-    });
+    promise.catch(() => toast.error("Failed to create a new note."));
   };
 
   return (

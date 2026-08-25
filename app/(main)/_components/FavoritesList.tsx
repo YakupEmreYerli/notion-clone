@@ -43,11 +43,7 @@ const FavoriteChildren = ({
 
   const onToggleFavorite = (id: Id<"documents">) => {
     const promise = toggleFavorite({ id });
-    toast.promise(promise, {
-      loading: "Updating favorites...",
-      success: "Favorites updated!",
-      error: "Failed to update favorites.",
-    });
+    promise.catch(() => toast.error("Failed to update favorites."));
   };
 
   const children = documents
@@ -109,11 +105,7 @@ export const FavoritesList = ({ navDrawer }: { navDrawer?: boolean }) => {
 
   const onToggleFavorite = (id: Id<"documents">) => {
     const promise = toggleFavorite({ id });
-    toast.promise(promise, {
-      loading: "Updating favorites...",
-      success: "Favorites updated!",
-      error: "Failed to update favorites.",
-    });
+    promise.catch(() => toast.error("Failed to update favorites."));
   };
 
   const onExpand = (id: string) => {

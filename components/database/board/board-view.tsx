@@ -303,13 +303,17 @@ export const BoardView = ({
                  editable && !disableRowReordering ? onPointerDown : undefined
                }
               suppressClickRef={suppressClickRef}
-              onOpenMenu={(e) =>
+              onOpenMenu={(e) => {
+                // Bu bir DÜĞME menüsü, sağ tık değil: konum düğmenin sol-alt
+                // köşesine sabit. Fare koordinatı kullanılsaydı menü her
+                // açılışta biraz farklı yerde belirirdi.
+                const rect = e.currentTarget.getBoundingClientRect();
                 setColumnMenu({
                   groupKey: group.key,
-                  x: e.clientX,
-                  y: e.clientY,
-                })
-              }
+                  x: rect.left,
+                  y: rect.bottom + 4,
+                });
+              }}
               creating={creating?.groupKey === group.key}
               createSequence={
                 creating?.groupKey === group.key ? creating.sequence : 0
@@ -397,7 +401,10 @@ export const BoardView = ({
             <div
               ref={cloneRef}
               className="pointer-events-none fixed top-0 left-0 z-[999] will-change-transform"
-              style={{ opacity: 0.4 }}
+              // Genişlik kaynağın ölçüsünden geliyor: sabitlenmiş bir kap
+              // içerik kadar daralır ve sürüklenen kart orijinalinden farklı
+              // boyutta görünürdü.
+              style={{ opacity: 0.4, width: drag.width }}
             >
               <BoardCard
                 row={rows.find((r) => r._id === drag.rowId) ?? rows[0]}

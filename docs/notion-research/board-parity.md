@@ -62,6 +62,43 @@ Sağ grup: `Share` (71×28), `Favorite` (yıldız, 28×28).
 **Zotion'da olmayanlar:** peek modu değiştirme (side ↔ center ↔ full),
 önceki/sonraki kayda geçme, Share, Favorite.
 
+### Panel yüzeyi ve düzeni (kullanıcının paylaştığı DOM'dan)
+
+| Şey | Ölçülen değer |
+|---|---|
+| Yüzey zemini | `var(--c-bacEle)` = **#202020** (sayfa zemininden bir kademe yukarıda) |
+| Gölge | `var(--c-shaOutMd)` = `0 0 0 1px #383836, 0 4px 12px -2px rgba(25,25,25,.08)` |
+| Sol kenarlık | **yok** — ayrımı gölge yapıyor |
+| Başlık çubuğu | `height: 44px`, `padding-inline: 12px 10px`, sol grup `column-gap: 2px` |
+| Boyutlandırma tutamacı | `role="separator"`, `cursor: col-resize`, **genişlik 12px**, tam yükseklik |
+| İçerik kolonu | grid, `--margin-width: **76px**` iki yanda; `padding-bottom: 120px` |
+| Kapak | `height: 20vh; max-height: 280px; object-position: center 100%` |
+| Kapaklıyken kontrol satırı | `padding-top: 16px` (kapaksızken 4px) |
+| İkon | 36×36, `font-size: 36px`, `border-radius: .25em`, `margin-inline-start: 8px` |
+| Başlık | `32px / 700 / line-height 1.2`, h1 `padding-inline: 8px` |
+
+### Property satırı
+
+| Şey | Ölçülen değer |
+|---|---|
+| Satır aralığı | `margin-bottom: 4px` |
+| Etiket hücresi | `160×34`, `color: var(--c-texSec)`, iç buton `radius 6px`, `padding: 0 6px` |
+| Etiket içeriği | `font-size 14px`, `line-height 20px`, `gap 6px`, `font-weight 400` |
+| Etiket ikonu | 16×16, `transform: scale(1.2)`; **hover'da sürükleme tutamacına dönüşüyor** |
+| Değer hücresi | soldan toplam 8px içeride, `min-height 34px`, `padding: 7px 6px`, `radius 4px` |
+| Rozet | `height 20px`, `radius 4px`, `padding-inline 6px`, `line-height 120%`, `14px` |
+| `Add a property` | `height 34px`, `14px`, `color var(--c-texTer)`, `padding-inline: 6px 8px` |
+
+### Property etiketi menüsü
+
+`width: 220px` (min 180, max-height 70vh), `background: var(--c-popBac)` (#252525),
+`border-radius: 10px`, `box-shadow: var(--c-shaOutLg)`. Sıra:
+Rename · Edit property · Comment │ Property visibility › · Duplicate property ·
+Delete property │ Customize layout.
+
+Zotion'da `Comment`, `Property visibility` ve `Customize layout` yok (yorum
+sistemi yok; diğer ikisi view ayarı ve panel view'ı bilmiyor).
+
 ## Henüz ÖLÇÜLMEDİ — çıkarsama yapılmayacak
 
 Bu tur ölçüm alınamayan yüzeyler (kart tıklaması peek'i toggle'ladığı için

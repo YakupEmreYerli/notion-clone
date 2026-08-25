@@ -4,9 +4,118 @@
 > kararlar `decisions.md`'de, kalıcı kurallar `CLAUDE.md`'de.
 > Her oturum sonunda güncelle (bkz. en alttaki şablon).
 
-**Son güncelleme:** 2026-08-25 (board kartı + side peek Notion parity)
+**Son güncelleme:** 2026-08-25 (undo/redo altyapısı — Faz 1-2 + tablo yüzeyi)
 
 ## Aktif iş
+
+**Undo/redo altyapısı** — plan ve kullanım kılavuzu **`docs/undo-redo.md`**,
+kararlar `decisions.md` (2026-08-25 undo/redo kaydı).
+
+Ölçüm: proje bu işten önce tablo/sidebar/board'da **hiç** geri alma
+taşımıyordu; çalışan tek şey BlockNote'un kendi ProseMirror history'siydi.
+Kullanıcı kararıyla seçilen mimari: **sunucu tarafı journal + hedefli
+soft-delete**, kapsam **doküman başına**, yığın **kalıcı** (reload'ı atlatır).
+
+### Bu turda biten
+
+| Parça | Durum |
+|---|---|
+| `history` tablosu + `deletedAt` (rows, properties) | ✅ |
+| `convex/lib/history.ts` — op-log, `recordHistory`, `patchInverse` | ✅ |
+| `convex/history.ts` — `undo` / `redo` / `getUndoState` | ✅ |
+| `convex/lib/softDelete.ts` + 14 sorgu noktasının taşınması | ✅ |
+| `databases.purgeSoftDeleted` + günlük cron (30 gün) | ✅ |
+| `hooks/useUndo.tsx` + Ctrl+Z / Ctrl+Y bağlanması | ✅ |
+| `databases.ts` — **tüm** mutation'lar (17) bağlandı | ✅ |
+| `databaseViews.ts` — **tamamı**: view CRUD + `moveRow` (board sürükleme) | ✅ |
+| `databaseViews` + `viewCardOrder` soft-delete'i (4 tablo oldu) | ✅ |
+| Op-log'dan `insert`/`delete` kaldırıldı — çift kayıt yapısal olarak imkânsız | ✅ |
+| `documents.ts` — update/removeIcon/removeCoverImage/toggleFavorite + 4 yerde `clearHistoryScope` | ✅ |
+| İstemci: `DatabaseView` (database) + `DocumentView` (sayfa), **toast'sız** | ✅ |
+| Testler — `history.test.ts` 26 + view/undo regresyonları | ✅ |
+
+### Bildirim (toast) yüzeyi bu turda sadeleşti
+
+18 `toast.promise` çağrısı kaldırıldı; başarı artık her yerde sessiz,
+hata mesajları korundu. Tek başarı bildirimi Notion'ın "Moved to Trash" +
+Restore snackbar'ı (`lib/snackbar.tsx`, `Item.tsx` + `Menu.tsx`).
+Gerekçe `decisions.md`'de.
+
+### Sidebar "..." menüsü Notion yapısına çekildi
+
+265px genişlik, 20px ikonlar, üç ayraçlı grup, tip etiketi, "Move to Trash",
+"Last edited by" altbilgisi. Yeni saf fonksiyon `formatLastEdited`
+(`lib/utils.ts`, 4 test). Gerekçe ve shadcn ikon-ezme tuzağı
+`decisions.md`'de.
+
+### View "..." menüsü de Notion yapısına çekildi
+
+220px, Notion sırası, "Duplicate view"/"Delete view", "Source" satırı,
+**"Edit view"** (toolbar ayar paneline bağlandı — panel state'i
+`database-view.tsx`'e kaldırıldı, toolbar artık kontrollü).
+Yeni `databaseViews.setViewType` ("Display as", journal'a bağlı, 3 test).
+**Source kaynak değiştirme kullanıcı kararıyla eklenmedi** — satır yalnızca
+kaynağı gösteriyor.
+
+### Property tipi + side peek menüsü
+
+Tip değişince otomatik ad da yenileniyor (kullanıcı adı korunuyor, 3 test).
+Side peek "Edit property" menüsünde seçili tip artık onay işaretiyle
+gösteriliyor.
+
+### Board sürüklemesi düzeltildi
+
+Kart artık TUTULDUĞU noktadan sürükleniyor (`grabX` eklendi; eskiden sol
+kenar imlece yapışıyordu) ve klon kaynağın genişliğini alıyor. Kapak
+`<img>`'i sürüklemeyi kırıyordu — `pointer-events: none` + `draggable=false`.
+
+### Board kartı kapak + ikon
+
+Kart `row.coverImage` ve `row.icon`'u hiç okumuyordu; kapak yerine gri yer
+tutucu vardı. İkisi de bağlandı, yer tutucu kaldırıldı. Ayrıca
+`cardPreview` varsayılanı "cover" yapıldı — alanı yazan bir ayar UI'ı
+olmadığı için her view'da `undefined` geliyordu ve kapak asla çizilmiyordu.
+
+### İç içe menü tıklaması düzeltildi + hover ile açılma
+
+Alt menüye tıklama hiç ulaşmıyordu (ayrı portal → ana menü pointerdown'da
+kapanıp alt menüyü unmount ediyordu). `ContextMenu`'ye `rootRef`/`ignoreRef`
+eklendi. "Display as" artık hover ile de açılıyor, komşu satırda kapanıyor.
+
+### "Display as" düzeltildi + menü açılış konumu
+
+"Display as" Notion'da view türü değil SEKME GÖRÜNÜMÜ (Text and icon /
+Text only / Icon only). Yeni `databaseViews.tabDisplay` alanı,
+`updateViewSettings` üzerinden gidiyor (journal'a bağlı, 2 test).
+`ContextMenu` ilk açılışta ekranın sol üstünden uçuyordu — konum artık
+render'da türetiliyor.
+
+### Menü konumları tetikleyiciye sabitlendi
+
+View sekmesi menüsü, board kolonu "..." menüsü ve "Display as" alt menüsü
+artık fare konumunu değil tetikleyicinin rect'ini kullanıyor. Gerçek sağ
+tık menüleri (editördeki görsel) bilinçli olarak fare konumunda kaldı.
+
+### Menü ikonları + animasyon
+
+View menüsü ikonları Notion'un kendi SVG'leriyle değiştirildi (6 yeni ikon
+`_components/icons/` altında). `ContextMenu` artık 200ms ease açılış
+animasyonu taşıyor. **Kırmızı çöp ikonu projeden tamamen kalktı** — her
+yerde sidebar'ın `TrashIcon`'u, `danger` prop'u kaldırıldı.
+
+### Side peek satır kapağı düzeltildi
+
+Kapak hiç render edilmiyordu (baştan eksik, regresyon değil). Artık panelin
+tam genişliğinde çiziliyor; hover'da Change cover / Remove.
+
+### Sıradaki (tam liste `docs/undo-redo.md` sonunda)
+
+1. `documents.reorder` (sidebar sıralaması).
+2. UI: menüde geri al/yinele düğmeleri (`getUndoState` etiketleri hazır).
+3. E2E testi + optimistic update (projede hiç `withOptimisticUpdate` yok,
+   her undo bir sunucu round-trip'i).
+
+### Önceki iş — board kartı + side peek Notion parity'si
 
 **Board kartı + side peek Notion parity'si** — bu turda tamamlandı ve
 commit'lendi (`f07fddf`, `bac6fb6`, `17b8a48`, `f7bc127`). Ölçüm kaydı
@@ -90,7 +199,19 @@ Hepsi uygulandı.
 - Silinen geçici dosyalar: `tests/e2e/_tmp-fill.spec.ts`, `after-blank.png`,
   `after-enter.png`, `notion-selected-cell.png`, tüm `_measure*.mjs`.
 
-## Doğrulama durumu (2026-08-25, tam geçiş)
+## Doğrulama durumu (2026-08-25, undo/redo turu sonu)
+
+```
+npx tsc --noEmit  → temiz
+npm test          → 83 geçti (9 dosya)
+npm run build     → temiz
+npm run lint      → 15 sorun (7 hata / 8 uyarı) — baseline DEĞİŞMEDİ,
+                    dokunulan dosyaların hepsi lint-temiz
+```
+
+E2E bu turda çalıştırılmadı — undo/redo'nun E2E kapsaması henüz yok.
+
+## Doğrulama durumu (önceki tur, tam geçiş)
 
 ```
 npx tsc --noEmit        → temiz
@@ -180,6 +301,20 @@ Tarayıcıda doğrulanan yönlendirme akışı (bu kurulumda hesap var):
 - **Lint baseline** — 7 hata React-compiler `set-state-in-effect`, ayrı iş.
 
 ## Commit edilmemiş iş
+
+**Undo/redo turu (bu tur).** Yeni: `convex/history.ts`,
+`convex/lib/history.ts`, `convex/lib/softDelete.ts`, `hooks/useUndo.tsx`,
+`tests/convex/history.test.ts`, `docs/undo-redo.md`. Değişen:
+`convex/schema.ts` (history tablosu + iki `deletedAt`), `convex/databases.ts`,
+`convex/databaseViews.ts`, `convex/crons.ts`, `convex/_generated/`,
+`components/database/database-view.tsx`, `components/document-view.tsx`,
+`convex/documents.ts`, `tests/convex/{databases,databaseViews}.test.ts`,
+`app/(main)/_components/{Banner,TrashBox,DocumentList,FavoritesList,Publish,Item,Menu,NavDrawer}.tsx`,
+`app/(main)/(routes)/documents/page.tsx`, `components/modals/NewPageModal.tsx`;
+yeni `lib/snackbar.tsx`, `tests/unit/format-last-edited.test.ts`;
+değişen `lib/utils.ts`,
+`docs/memory/{STATE,decisions}.md`.
+
 
 Her şey `master`'da **commit edilmemiş** (son commit `83ac4c8`) ve artık iki ayrı
 iş bir arada duruyor — **commit'lerken tabloyu ve auth'u ayır.**

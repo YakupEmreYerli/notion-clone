@@ -50,11 +50,7 @@ export const Publish = ({ initialData }: PublishProps) => {
       isPublished: true,
     }).finally(() => setIsSubmitting(false));
 
-    toast.promise(promise, {
-      loading: "Publishing...",
-      success: "Note published!",
-      error: "Failed to publish note.",
-    });
+    promise.catch(() => toast.error("Failed to publish note."));
   };
 
   const onUnpublish = () => {
@@ -65,11 +61,7 @@ export const Publish = ({ initialData }: PublishProps) => {
       isPublished: false,
     }).finally(() => setIsSubmitting(false));
 
-    toast.promise(promise, {
-      loading: "Unpublishing...",
-      success: "Note unpublished",
-      error: "Failed to unpublish note.",
-    });
+    promise.catch(() => toast.error("Failed to unpublish note."));
   };
 
   const onCopy = () => {

@@ -15,6 +15,7 @@ import { useMutation, useQuery } from "convex/react";
 import { BlockNoteEditor } from "@blocknote/core";
 import { TableOfContents } from "@/components/table-of-contents";
 import { useEditorFont } from "@/hooks/useEditorFont";
+import { useUndoShortcuts } from "@/hooks/useUndo";
 import { getDocumentLabel } from "@/lib/utils";
 
 // Modül kapsamında bir kez çağrılır — render içinde her seferinde yeni bir
@@ -56,6 +57,12 @@ export const DocumentView = ({
     isMarked.current = true;
     markOpened({ id: documentId });
   }, [documentId, markOpened]);
+
+  // Ctrl+Z / Ctrl+Y — YALNIZCA sayfa dalında. Database dalında `DatabaseView`
+  // kendisi bağlıyor; ikisi birden bağlanırsa tek tuşa iki undo çalışır.
+  // Editör metninin geri alması BlockNote'ta kalıyor (kısayol metin
+  // girişindeyken zaten bize gelmiyor, bkz. hooks/useUndo.tsx).
+  useUndoShortcuts(doc && doc.type !== "database" ? documentId : undefined);
 
   // Yeni oluşturulan page'de (URL'de ?fresh=1) başlığa otomatik focus —
   // Notion'da oluşturma sonrası imleç title'dadır. Parametreyi fokusladıktan

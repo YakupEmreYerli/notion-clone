@@ -30,7 +30,16 @@ const db = databaseBuilder("row-peek-fixture")
  * ayrıldığı için (RowPeekPanel) gerçek uygulamadakiyle aynı bileşen.
  */
 export function RowPeekFixture() {
-  const [row, setRow] = useState(db.rows[0]);
+  const [row, setRow] = useState<DatabaseRow>({
+    ...db.rows[0],
+    // Kapak render'ını doğrulayabilmek için: veri katmanı olmadan da
+    // panelin kapağı gösterdiğini görebilelim.
+    coverImage:
+      "data:image/svg+xml;utf8," +
+      encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="%232f2f2f"/></svg>',
+      ),
+  });
   const [open, setOpen] = useState(true);
 
   return (

@@ -21,8 +21,15 @@ import { DropTarget } from "./drop-target";
 export interface ActiveDrag {
   rowId: Id<"databaseRows">;
   groupKey: string;
-  /** Pointer'ın kartın üstünden uzaklığı (kartTop - pointerY, negatif olabilir). */
+  /**
+   * Pointer'ın karta göre tutma ofseti (kartSol/Üst - pointer). İKİ eksen
+   * de gerekli: yalnızca dikey saklanırsa klonun sol kenarı imlece yapışır
+   * ve kart sürüklerken sola sıçrar (Notion'da kart tutulduğu noktadan gider).
+   */
+  grabX: number;
   grabY: number;
+  /** Kaynak kartın genişliği — klon aynı boyutta görünmeli. */
+  width: number;
   x: number;
   y: number;
 }
@@ -51,7 +58,9 @@ export function useBoardDnd({
     groupKey: string;
     startX: number;
     startY: number;
+    grabX: number;
     grabY: number;
+    width: number;
   } | null>(null);
   const pointerRef = useRef({ x: 0, y: 0 });
   const cloneRef = useRef<HTMLDivElement | null>(null);
@@ -80,7 +89,7 @@ export function useBoardDnd({
     // döngü HER ZAMAN yeniden planlanır, yoksa ilk framede ölür.
     if (d && clone) {
       const { x, y } = pointerRef.current;
-      clone.style.transform = `translate3d(${x}px, ${y + d.grabY}px, 0)`;
+      clone.style.transform = `translate3d(${x + d.grabX}px, ${y + d.grabY}px, 0)`;
 
       // Auto-scroll: scroller kenarına ~100px kala, mesafeyle artan hız.
       const scroller = scrollerRef.current;
@@ -119,7 +128,9 @@ export function useBoardDnd({
       const d: ActiveDrag = {
         rowId: candidate.rowId,
         groupKey: candidate.groupKey,
+        grabX: candidate.grabX,
         grabY: candidate.grabY,
+        width: candidate.width,
         x: candidate.startX,
         y: candidate.startY,
       };
@@ -196,7 +207,8 @@ export function useBoardDnd({
       e: React.PointerEvent,
       rowId: Id<"databaseRows">,
       groupKey: string,
-      cardTop: number,
+      /** Kartın basma anındaki ekran dikdörtgeni (sol-üst köşesi). */
+      cardRect: { top: number; left: number; width: number },
     ) => {
       if (e.button !== 0 && e.pointerType === "mouse") return;
       candidateRef.current = {
@@ -204,7 +216,10 @@ export function useBoardDnd({
         groupKey,
         startX: e.clientX,
         startY: e.clientY,
-        grabY: cardTop - e.clientY,
+        // Notion: kart TUTULDUĞU noktadan sürüklenir.
+        grabX: cardRect.left - e.clientX,
+        grabY: cardRect.top - e.clientY,
+        width: cardRect.width,
       };
     },
     [],

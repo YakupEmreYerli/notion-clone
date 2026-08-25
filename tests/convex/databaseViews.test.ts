@@ -181,9 +181,9 @@ describe("view yaşam döngüsü", () => {
     expect(ORDER_GAP).toBeGreaterThan(0);
   });
 
-  it("deleteView view'ın sıra kayıtlarını da temizler", async () => {
+  it("deleteView view'ı ve sıra kayıtlarını canlı okumalardan düşürür", async () => {
     const { t, owner } = setup();
-    const { viewId, rows, next } = await boardFixture(owner);
+    const { databaseId, viewId, rows, next } = await boardFixture(owner);
     await owner.mutation(api.databaseViews.moveRow, {
       viewId,
       rowId: rows[0]._id,
@@ -192,9 +192,210 @@ describe("view yaşam döngüsü", () => {
 
     await owner.mutation(api.databaseViews.deleteView, { viewId });
 
-    const leftovers = await t.run(async (ctx) =>
+    expect(
+      (await owner.query(api.databaseViews.getViews, { databaseId })).map(
+        (v) => v._id,
+      ),
+    ).not.toContain(viewId);
+    expect(
+      await owner.query(api.databaseViews.getViewOrders, { viewId }),
+    ).toEqual([]);
+
+    // Kayıtlar SOFT-delete: `_id`'ler yaşıyor ki geri alma aynı kimlikler
+    // üzerinde çalışsın (bkz. docs/undo-redo.md).
+    const stored = await t.run(async (ctx) =>
       ctx.db.query("viewCardOrder").collect(),
     );
-    expect(leftovers).toEqual([]);
+    expect(stored).toHaveLength(1);
+    expect(stored[0].deletedAt).toBeTypeOf("number");
+  });
+
+  it("deleteView geri alınınca view ve kart sıraları AYNI id ile döner", async () => {
+    const { owner } = setup();
+    const { databaseId, viewId, rows, next } = await boardFixture(owner);
+    await owner.mutation(api.databaseViews.moveRow, {
+      viewId,
+      rowId: rows[0]._id,
+      toGroupKey: String(next),
+    });
+    const ordersBefore = await owner.query(api.databaseViews.getViewOrders, {
+      viewId,
+    });
+
+    await owner.mutation(api.databaseViews.deleteView, { viewId });
+    await owner.mutation(api.history.undo, { scopeId: databaseId });
+
+    expect(
+      (await owner.query(api.databaseViews.getViews, { databaseId })).map(
+        (v) => v._id,
+      ),
+    ).toContain(viewId);
+
+    const ordersAfter = await owner.query(api.databaseViews.getViewOrders, {
+      viewId,
+    });
+    expect(ordersAfter.map((o) => o._id)).toEqual(
+      ordersBefore.map((o) => o._id),
+    );
+    expect(ordersAfter.map((o) => o.groupKey)).toEqual(
+      ordersBefore.map((o) => o.groupKey),
+    );
+  });
+
+  it("moveRow → undo → redo → undo döngüsü çift kart üretmez", async () => {
+    const { owner } = setup();
+    const { databaseId, viewId, rows, next, reading } =
+      await boardFixture(owner);
+
+    await owner.mutation(api.databaseViews.moveRow, {
+      viewId,
+      rowId: rows[0]._id,
+      toGroupKey: String(next),
+    });
+    const afterFirst = await owner.query(api.databaseViews.getViewOrders, {
+      viewId,
+    });
+    expect(afterFirst).toHaveLength(1);
+
+    await owner.mutation(api.databaseViews.moveRow, {
+      viewId,
+      rowId: rows[0]._id,
+      toGroupKey: String(reading),
+    });
+    expect(
+      await owner.query(api.databaseViews.getViewOrders, { viewId }),
+    ).toHaveLength(1);
+
+    // Asıl sınav: undo → redo → undo. `insert`/`delete` op çifti kullanılsaydı
+    // redo yeni bir _id üretir ve burada İKİ kayıt görürdük.
+    for (const _ of [0, 1]) {
+      await owner.mutation(api.history.undo, { scopeId: databaseId });
+      await owner.mutation(api.history.redo, { scopeId: databaseId });
+      await owner.mutation(api.history.undo, { scopeId: databaseId });
+
+      const orders = await owner.query(api.databaseViews.getViewOrders, {
+        viewId,
+      });
+      expect(orders).toHaveLength(1);
+      expect(orders[0]._id).toBe(afterFirst[0]._id);
+      expect(orders[0].groupKey).toBe(String(next));
+
+      await owner.mutation(api.history.redo, { scopeId: databaseId });
+    }
+  });
+
+  it("createView geri alınınca görünüm listeden düşer, yinelenince döner", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+
+    const boardId = await owner.mutation(api.databaseViews.createView, {
+      databaseId,
+      type: "board",
+      name: "Board",
+    });
+
+    await owner.mutation(api.history.undo, { scopeId: databaseId });
+    expect(
+      (await owner.query(api.databaseViews.getViews, { databaseId })).map(
+        (v) => v._id,
+      ),
+    ).not.toContain(boardId);
+
+    await owner.mutation(api.history.redo, { scopeId: databaseId });
+    expect(
+      (await owner.query(api.databaseViews.getViews, { databaseId })).map(
+        (v) => v._id,
+      ),
+    ).toContain(boardId);
+  });
+});
+
+describe("setViewType (Display as)", () => {
+  it("view türünü değiştirir ve ayarları korur", async () => {
+    const { owner } = setup();
+    const { databaseId, viewId, statusId } = await boardFixture(owner);
+
+    await owner.mutation(api.databaseViews.setViewType, {
+      viewId,
+      type: "table",
+    });
+
+    const views = await owner.query(api.databaseViews.getViews, { databaseId });
+    const view = views.find((v) => v._id === viewId);
+    expect(view?.type).toBe("table");
+    // Board'a özgü ayar silinmiyor — geri dönünce yerinde duruyor.
+    expect(view?.groupByPropertyId).toBe(statusId);
+  });
+
+  it("değişiklik geri alınabilir", async () => {
+    const { owner } = setup();
+    const { databaseId, viewId } = await boardFixture(owner);
+
+    await owner.mutation(api.databaseViews.setViewType, {
+      viewId,
+      type: "table",
+    });
+    await owner.mutation(api.history.undo, { scopeId: databaseId });
+
+    const views = await owner.query(api.databaseViews.getViews, { databaseId });
+    expect(views.find((v) => v._id === viewId)?.type).toBe("board");
+  });
+
+  it("aynı tür verilirse yığına kayıt düşmez", async () => {
+    const { owner } = setup();
+    const { databaseId, viewId } = await boardFixture(owner);
+    const before = await owner.query(api.history.getUndoState, {
+      scopeId: databaseId,
+    });
+
+    await owner.mutation(api.databaseViews.setViewType, {
+      viewId,
+      type: "board",
+    });
+
+    const after = await owner.query(api.history.getUndoState, {
+      scopeId: databaseId,
+    });
+    expect(after.undoLabel).toBe(before.undoLabel);
+  });
+});
+
+describe("tabDisplay (Display as)", () => {
+  it("varsayılan tanımsız — istemci textAndIcon'a düşer", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+    const [view] = await owner.query(api.databaseViews.getViews, {
+      databaseId,
+    });
+    expect(view.tabDisplay).toBeUndefined();
+  });
+
+  it("updateViewSettings ile ayarlanır ve geri alınabilir", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+    const [view] = await owner.query(api.databaseViews.getViews, {
+      databaseId,
+    });
+
+    await owner.mutation(api.databaseViews.updateViewSettings, {
+      viewId: view._id,
+      tabDisplay: "iconOnly",
+    });
+    expect(
+      (await owner.query(api.databaseViews.getViews, { databaseId }))[0]
+        .tabDisplay,
+    ).toBe("iconOnly");
+
+    await owner.mutation(api.history.undo, { scopeId: databaseId });
+    expect(
+      (await owner.query(api.databaseViews.getViews, { databaseId }))[0]
+        .tabDisplay,
+    ).toBeUndefined();
   });
 });

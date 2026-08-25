@@ -7,7 +7,9 @@ import {
 } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 import { cascadeDeleteDatabase } from "./databases";
+import { clearHistoryScope } from "./history";
 import { buildSearchText } from "./lib/searchText";
+import { HistoryOp, patchInverse, recordHistory } from "./lib/history";
 import { requireUser } from "./lib/auth";
 import { deleteFileRefs, syncFileRefs } from "./lib/fileRefs";
 
@@ -188,7 +190,13 @@ export const getTrash = query({
 });
 
 export const restore = mutation({
-  args: { id: v.id("documents") },
+  args: {
+    id: v.id("documents"),
+    // Snackbar'daki "Restore" az önceki arşivlemenin GERİ ALINMASI, trash'ten
+    // geri yükleme değil — sayfa eski sırasına dönmeli. Trash'ten yükleme
+    // (TrashBox) bu bayrağı geçmez ve Notion'daki gibi listenin sonuna gider.
+    keepPosition: v.optional(v.boolean()),
+  },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
 
@@ -239,30 +247,36 @@ export const restore = mutation({
       }
     }
 
-    // Notion'da doğrulanan davranış: trash'ten restore edilen sayfa eski
+    // Notion'da doğrulanan davranış: TRASH'TEN restore edilen sayfa eski
     // konumuna değil, ait olduğu listenin EN SONUNA eklenir (bkz.
     // docs/notion-research/sidebar-pages.md).
-    const targetParent =
-      "parentDocument" in options
-        ? options.parentDocument
-        : exisingDocument.parentDocument;
+    //
+    // `keepPosition` bunu atlar: `archive` `order` alanına dokunmadığı için
+    // sırayı yeniden yazmamak sayfayı olduğu yere geri koyar. Snackbar'ın
+    // "Restore" düğmesi bu yolu kullanır.
+    if (!args.keepPosition) {
+      const targetParent =
+        "parentDocument" in options
+          ? options.parentDocument
+          : exisingDocument.parentDocument;
 
-    const siblings = await ctx.db
-      .query("documents")
-      .withIndex("by_user_parent", (q) =>
-        q.eq("userId", userId).eq("parentDocument", targetParent),
-      )
-      .filter((q) => q.eq(q.field("isArchived"), false))
-      .collect();
+      const siblings = await ctx.db
+        .query("documents")
+        .withIndex("by_user_parent", (q) =>
+          q.eq("userId", userId).eq("parentDocument", targetParent),
+        )
+        .filter((q) => q.eq(q.field("isArchived"), false))
+        .collect();
 
-    const maxOrder = siblings.reduce(
-      (max, sibling) =>
-        sibling.order !== undefined && sibling.order > max
-          ? sibling.order
-          : max,
-      -1,
-    );
-    options.order = maxOrder + 1;
+      const maxOrder = siblings.reduce(
+        (max, sibling) =>
+          sibling.order !== undefined && sibling.order > max
+            ? sibling.order
+            : max,
+        -1,
+      );
+      options.order = maxOrder + 1;
+    }
 
     const document = await ctx.db.patch(args.id, options);
 
@@ -312,6 +326,9 @@ export const remove = mutation({
         }
 
         await deleteFileRefs(ctx, child._id);
+        // Kalıcı silinen dokümanın undo yığını da gitmeli — yoksa
+        // journal kayıtları ölü bir scopeId'yi gösterir.
+        await clearHistoryScope(ctx, child._id);
         await ctx.db.delete(child._id);
       }
     };
@@ -323,6 +340,9 @@ export const remove = mutation({
     }
 
     await deleteFileRefs(ctx, args.id);
+    // Kalıcı silinen dokümanın undo yığını da gitmeli — yoksa
+    // journal kayıtları ölü bir scopeId'yi gösterir.
+    await clearHistoryScope(ctx, args.id);
 
     const document = await ctx.db.delete(args.id);
 
@@ -580,6 +600,45 @@ export const update = mutation({
 
     const document = await ctx.db.patch(args.id, patch);
 
+    // Editör İÇERİĞİ bilinçli olarak journal dışında: BlockNote'un kendi
+    // ProseMirror history'si Ctrl+Z'yi zaten yönetiyor, ikisini birden
+    // bağlamak çift geri alma üretir. `searchText`/`updatedAt` türetilmiş
+    // alanlar — geri alınacak bir kullanıcı niyeti değiller.
+    const journaled = Object.keys(patch).filter(
+      (key) => !["content", "searchText", "updatedAt"].includes(key),
+    );
+    if (journaled.length > 0) {
+      await recordHistory(ctx, {
+        scopeId: args.id,
+        userId,
+        kind: "document.update",
+        label:
+          args.title !== undefined
+            ? "Başlık değişti"
+            : args.icon !== undefined
+              ? "İkon değişti"
+              : args.coverImage !== undefined || args.coverImageY !== undefined
+                ? "Kapak değişti"
+                : "Sayfa ayarı değişti",
+        undo: [patchInverse("documents", existingDocument, journaled)],
+        redo: [
+          {
+            t: "patch",
+            table: "documents",
+            id: args.id,
+            fields: Object.fromEntries(
+              journaled
+                .map((key) => [key, (patch as Record<string, unknown>)[key]])
+                .filter(([, value]) => value !== undefined),
+            ),
+            remove: journaled.filter(
+              (key) => (patch as Record<string, unknown>)[key] === undefined,
+            ),
+          },
+        ],
+      });
+    }
+
     // `fileRefs` de `searchText` gibi türetilmiş veridir: kapak veya içerik
     // değiştiği anda yeniden hesaplanmazsa `/api/files` erişim kontrolü
     // bayat kalır (silinen görsel erişilebilir kalır, yeni görsel 404 olur).
@@ -623,6 +682,23 @@ export const removeIcon = mutation({
       updatedAt: Date.now(),
     });
 
+    await recordHistory(ctx, {
+      scopeId: args.id,
+      userId,
+      kind: "document.icon.remove",
+      label: "İkon kaldırıldı",
+      undo: [patchInverse("documents", existingDocument, ["icon"])],
+      redo: [
+        {
+          t: "patch",
+          table: "documents",
+          id: args.id,
+          fields: {},
+          remove: ["icon"],
+        },
+      ],
+    });
+
     return document;
   },
 });
@@ -652,6 +728,28 @@ export const removeCoverImage = mutation({
       coverImage: undefined,
       coverImageY: undefined,
       updatedAt: Date.now(),
+    });
+
+    await recordHistory(ctx, {
+      scopeId: args.id,
+      userId,
+      kind: "document.cover.remove",
+      label: "Kapak kaldırıldı",
+      undo: [
+        patchInverse("documents", existingDocument, [
+          "coverImage",
+          "coverImageY",
+        ]),
+      ],
+      redo: [
+        {
+          t: "patch",
+          table: "documents",
+          id: args.id,
+          fields: {},
+          remove: ["coverImage", "coverImageY"],
+        },
+      ],
     });
 
     await syncFileRefs(
@@ -734,6 +832,9 @@ export const removeAll = mutation({
         await cascadeDeleteDatabase(ctx, document._id);
       }
       await deleteFileRefs(ctx, document._id);
+      // Kalıcı silinen dokümanın undo yığını da gitmeli — yoksa
+      // journal kayıtları ölü bir scopeId'yi gösterir.
+      await clearHistoryScope(ctx, document._id);
       await ctx.db.delete(document._id);
     });
     await Promise.all(promises);
@@ -762,8 +863,23 @@ export const toggleFavorite = mutation({
       throw new Error("Unauthorized");
     }
 
-    const document = await ctx.db.patch(args.id, {
-      isFavorite: !existingDocument.isFavorite,
+    const isFavorite = !existingDocument.isFavorite;
+    const document = await ctx.db.patch(args.id, { isFavorite });
+
+    await recordHistory(ctx, {
+      scopeId: args.id,
+      userId,
+      kind: "document.favorite",
+      label: isFavorite ? "Favorilere eklendi" : "Favorilerden çıkarıldı",
+      undo: [patchInverse("documents", existingDocument, ["isFavorite"])],
+      redo: [
+        {
+          t: "patch",
+          table: "documents",
+          id: args.id,
+          fields: { isFavorite },
+        },
+      ],
     });
 
     return document;
@@ -962,6 +1078,9 @@ export const purgeExpiredTrash = internalMutation({
         await cascadeDeleteDatabase(ctx, doc._id);
       }
       await deleteFileRefs(ctx, doc._id);
+      // Kalıcı silinen dokümanın undo yığını da gitmeli — yoksa
+      // journal kayıtları ölü bir scopeId'yi gösterir.
+      await clearHistoryScope(ctx, doc._id);
       await ctx.db.delete(doc._id);
     }
 

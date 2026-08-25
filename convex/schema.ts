@@ -5,6 +5,7 @@ import {
   propertyOptionValidator,
   propertyTypeValidator,
 } from "./lib/cellValue";
+import { historyOpValidator } from "./lib/history";
 
 export default defineSchema({
   documents: defineTable({
@@ -64,6 +65,10 @@ export default defineSchema({
     icon: v.optional(v.string()),
     options: v.optional(v.array(propertyOptionValidator)),
     isTitle: v.optional(v.boolean()),
+    // Soft-delete. Silme geri alınabilir olmalı ve `_id` yaşamalı:
+    // `databaseRows.cells` propertyId ile anahtarlı, yeni id ile geri
+    // gelen bir kolon eski hücrelerine asla bağlanmaz. undefined = canlı.
+    deletedAt: v.optional(v.number()),
   }).index("by_database_order", ["databaseId", "order"]),
 
   databaseRows: defineTable({
@@ -77,6 +82,10 @@ export default defineSchema({
     /** Satır kapağı — dokümanlardaki `coverImage` ile aynı, göreli URL. */
     coverImage: v.optional(v.string()),
     cells: v.record(v.id("databaseProperties"), cellValueValidator),
+    // Soft-delete — bkz. databaseProperties.deletedAt. Satırın `_id`'si
+    // `viewCardOrder.rowId` tarafından referans edilir; hard delete +
+    // yeniden yaratma board sırasını sessizce koparır.
+    deletedAt: v.optional(v.number()),
   }).index("by_database_order", ["databaseId", "order"]),
 
   // View sistemi: bir database'in N görünümü olabilir (table/board/...).
@@ -106,6 +115,21 @@ export default defineSchema({
     cardSize: v.optional(
       v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
     ),
+    // View sekmesinin nasıl çizileceği (Notion: "Display as").
+    // undefined = "textAndIcon" (varsayılan). Notion bunu "Only applies to
+    // you" diye işaretler — Zotion tek sahipli olduğu için view kaydında
+    // tutmak fiilen aynı şey.
+    tabDisplay: v.optional(
+      v.union(
+        v.literal("textAndIcon"),
+        v.literal("textOnly"),
+        v.literal("iconOnly"),
+      ),
+    ),
+    // Soft-delete — bkz. databaseRows.deletedAt. View'ın `_id`'si
+    // `viewCardOrder.viewId` tarafından referans ediliyor; hard delete +
+    // geri alırken yeniden yaratma o bağı kalıcı koparır.
+    deletedAt: v.optional(v.number()),
   }).index("by_database_position", ["databaseId", "position"]),
 
   // Kartların view+grup bazlı elle sırası. (viewId, groupKey, order) üçlüsü
@@ -122,6 +146,12 @@ export default defineSchema({
     groupKey: v.string(),
     rowId: v.id("databaseRows"),
     order: v.number(),
+    // Soft-delete — bkz. databaseRows.deletedAt. Sıra kaydının kimliği
+    // dışarıdan referans edilmiyor ama undo/redo için `_id` yine de
+    // sabit kalmalı: `insert`/`delete` çiftinde redo yeni bir `_id`
+    // üretir ve journal'daki undo op'u ölü id'yi gösterip çift kart
+    // bırakır. `softDelete`/`restore` aynı `_id` üzerinde çalışır.
+    deletedAt: v.optional(v.number()),
   })
     .index("by_view_group_order", ["viewId", "groupKey", "order"])
     .index("by_view_row", ["viewId", "rowId"])
@@ -141,6 +171,28 @@ export default defineSchema({
   })
     .index("by_key", ["key"])
     .index("by_document", ["documentId"]),
+
+  // Undo/redo journal'ı. Kapsam DOKÜMAN BAŞINA (`scopeId`): bir tablodaki
+  // Ctrl+Z başka bir sayfadaki değişikliği geri almaz — Notion'ın davranışı.
+  // Kayıtlar sunucuda durduğu için yığın reload'ı da atlatır; `HISTORY_LIMIT`
+  // aşılınca en eskiler budanır (bkz. convex/lib/history.ts).
+  history: defineTable({
+    scopeId: v.id("documents"),
+    userId: v.string(),
+    /** Kapsam içinde artan sıra numarası. */
+    seq: v.number(),
+    /** Makine tarafı ayrım: "cell.update", "row.delete", … */
+    kind: v.string(),
+    /** Kullanıcıya gösterilen etiket. */
+    label: v.string(),
+    undo: v.array(historyOpValidator),
+    redo: v.array(historyOpValidator),
+    /** true ise geri alınmış — redo bunu ileri oynatır. */
+    undone: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_scope_seq", ["scopeId", "seq"])
+    .index("by_user", ["userId"]),
 
   userSettings: defineTable({
     userId: v.string(),

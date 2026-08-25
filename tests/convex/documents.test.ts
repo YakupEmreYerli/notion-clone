@@ -181,3 +181,54 @@ describe("türetilmiş alanlar update ile senkron kalır", () => {
     expect(refs).toEqual([]);
   });
 });
+
+describe("restore — sıralama", () => {
+  /** Kökte üç sayfa. `create` `order` yazmaz; sidebar en yeniyi üste alır. */
+  async function threePages(owner: ReturnType<typeof setup>["owner"]) {
+    const ids = [];
+    for (const title of ["Bir", "İki", "Üç"]) {
+      ids.push(await owner.mutation(api.documents.create, { title }));
+    }
+    return ids;
+  }
+
+  it("trash'ten geri yükleme sayfayı listenin SONUNA taşır", async () => {
+    const { owner } = setup();
+    const [first] = await threePages(owner);
+
+    // Sidebar başlangıçta [Üç, İki, Bir] — sıralama _creationTime desc.
+    const before = (await owner.query(api.documents.getSidebar, {})).map(
+      (d) => d._id,
+    );
+    expect(before[before.length - 1]).toBe(first);
+
+    await owner.mutation(api.documents.archive, { id: first });
+    await owner.mutation(api.documents.restore, { id: first });
+
+    // Zaten sondaydı; asıl kanıt EN ÜSTTEKİ sayfanın sona düşmesi.
+    const [top] = before;
+    await owner.mutation(api.documents.archive, { id: top });
+    await owner.mutation(api.documents.restore, { id: top });
+
+    const after = await owner.query(api.documents.getSidebar, {});
+    expect(after[after.length - 1]._id).toBe(top);
+  });
+
+  it("keepPosition ile geri yükleme sırayı hiç bozmaz", async () => {
+    const { owner } = setup();
+    await threePages(owner);
+    const before = (await owner.query(api.documents.getSidebar, {})).map(
+      (d) => d._id,
+    );
+    const top = before[0];
+
+    await owner.mutation(api.documents.archive, { id: top });
+    await owner.mutation(api.documents.restore, {
+      id: top,
+      keepPosition: true,
+    });
+
+    const after = await owner.query(api.documents.getSidebar, {});
+    expect(after.map((d) => d._id)).toEqual(before);
+  });
+});

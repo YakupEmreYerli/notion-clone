@@ -43,6 +43,9 @@ interface DatabaseToolbarProps {
   sorts: DatabaseSort[];
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  /** Ayar paneli kontrollü — view menüsündeki "Edit view" de bunu açıyor. */
+  settingsOpen?: boolean;
+  onSettingsOpenChange?: (open: boolean) => void;
   editable?: boolean;
 }
 
@@ -64,12 +67,16 @@ export function DatabaseToolbar({
   searchQuery,
   onSearchChange,
   editable = true,
+  settingsOpen,
+  onSettingsOpenChange,
 }: DatabaseToolbarProps) {
   const updateSettings = useMutation(api.databaseViews.updateViewSettings);
   const setGroupBy = useMutation(api.databaseViews.setGroupByProperty);
   const createRow = useMutation(api.databases.createRow);
   const createRowInView = useMutation(api.databaseViews.createRowInView);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Ayar paneli KONTROLLÜ: view menüsündeki "Edit view" de buradan açıyor.
+  // (bkz. database-view.tsx — state orada, iki tetikleyici paylaşıyor.)
   const [optimisticFilters, setOptimisticFilters] = useOptimistic(filters);
   const [optimisticSorts, setOptimisticSorts] = useOptimistic(sorts);
 
@@ -216,7 +223,7 @@ export function DatabaseToolbar({
         )}
       </div>
 
-      <DropdownMenu>
+      <DropdownMenu open={settingsOpen} onOpenChange={onSettingsOpenChange}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"

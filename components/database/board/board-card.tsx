@@ -2,14 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import {
-  ArrowUpRight,
-  Copy,
-  File,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+import { ArrowUpRight, Copy, MoreHorizontal, Pencil } from "lucide-react";
+import { TrashIcon } from "@/app/(main)/_components/icons/TrashIcon";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -43,7 +37,7 @@ interface BoardCardProps {
     e: React.PointerEvent,
     rowId: Id<"databaseRows">,
     groupKey: string,
-    cardTop: number,
+    cardRect: { top: number; left: number; width: number },
   ) => void;
   suppressClickRef?: React.RefObject<boolean | null>;
 }
@@ -54,7 +48,11 @@ export const BoardCard = ({
   titleProperty,
   visibleProperties,
   groupColor,
-  cardPreview,
+  // Notion'ın board varsayılanı "Card preview: Page cover". Alan view'da
+  // optional ve şu an onu YAZAN bir ayar UI'ı yok, yani her view'da
+  // `undefined` geliyordu — varsayılanı burada vermezsek kapak hiçbir
+  // zaman çizilmez.
+  cardPreview = "cover",
   onOpen,
   onDragPointerDown,
   suppressClickRef,
@@ -107,6 +105,9 @@ export const BoardCard = ({
           transition: "background 0.1s ease-out",
           overflow: "hidden",
           touchAction: "none",
+          // Notion kartında da `user-select: none`. Olmadan sürükleme
+          // sırasında başlık/rozet metni seçiliyor ve sürükleme tutukluyor.
+          userSelect: "none",
         } as React.CSSProperties
       }
       onMouseEnter={() => setHovered(true)}
@@ -114,8 +115,14 @@ export const BoardCard = ({
       onPointerDown={
         onDragPointerDown
           ? (e) => {
-              const top = surfaceRef.current?.getBoundingClientRect().top ?? 0;
-              onDragPointerDown(e, row._id, groupKey, top);
+              // Notion: kart TUTULDUĞU noktadan sürüklenir — sol-üst köşe
+              // geçiliyor ki motor iki eksende de tutma ofsetini saklasın.
+              const rect = surfaceRef.current?.getBoundingClientRect();
+              onDragPointerDown(e, row._id, groupKey, {
+                top: rect?.top ?? 0,
+                left: rect?.left ?? 0,
+                width: rect?.width ?? 0,
+              });
             }
           : undefined
       }
@@ -194,7 +201,7 @@ export const BoardCard = ({
                   )
                 }
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <TrashIcon className="mr-2 size-4" />
                 Move to Trash
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -224,7 +231,9 @@ export const BoardCard = ({
             autoFocus
             defaultValue={titleText}
             aria-label="Card title"
-            className="w-full min-w-0 bg-transparent outline-none"
+            // Kart `user-select: none` taşıyor (sürükleme için); başlık
+            // düzenlenirken metin seçilebilmeli.
+            className="w-full min-w-0 bg-transparent outline-none select-text"
             style={{
               fontSize: "var(--kanban-title-size)",
               fontWeight: "var(--kanban-title-weight)",
@@ -263,19 +272,32 @@ export const BoardCard = ({
           onOpen?.(row);
         }}
       >
-        {/* Cover preview — satırların sayfası olmadığı için (önceki karar)
-            şimdilik cover gelmez; slot Faz 6'da per-row sayfa ile dolar. */}
-        {cardPreview === "cover" && (
+        {/* Kapak. Satırlar artık kapak taşıyor (`databaseRows.coverImage`,
+            `setRowCover`) — eskiden burada gri bir yer tutucu vardı.
+            Notion ölçüsü: 148px yükseklik, object-fit cover, altında 1px
+            ayraç. Kapak yoksa Notion'da da bu alan HİÇ çizilmez. */}
+        {cardPreview === "cover" && row.coverImage && (
           <div
-            className="w-full"
+            className="relative w-full overflow-hidden"
             style={{
               height: "var(--kanban-cover-h)",
-              backgroundColor: "var(--muted)",
+              // Notion'da da kapak sarmalayıcısı `pointer-events: none`.
+              // Şart: `<img>` tarayıcıda VARSAYILAN OLARAK sürüklenebilir,
+              // kapaktan tutunca kartın pointer sürüklemesi yerine tarayıcının
+              // kendi görsel sürüklemesi başlıyor ve kart sürüklenemiyordu.
+              pointerEvents: "none",
             }}
           >
-            <div className="text-muted-foreground flex h-full items-center justify-center text-xs">
-              <File className="mr-1 h-3 w-3" /> Cover
-            </div>
+            {/* Göreli URL (`/api/files/...`) ya da galeri seçimiyle gelen
+                harici URL — erişim kontrolü sunucuda. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={row.coverImage}
+              alt=""
+              draggable={false}
+              className="h-full w-full object-cover select-none"
+            />
+            <div className="border-border absolute inset-x-0 bottom-0 border-b" />
           </div>
         )}
 
@@ -290,6 +312,20 @@ export const BoardCard = ({
               : undefined,
           }}
         >
+          {/* Satır ikonu — Notion ölçüsü: 24x24 yuva, içinde 20x20, emoji
+              14px, radius 5, sola -2px taşar, başlığa 4px boşluk, uzun
+              başlıkta üste hizalanır. */}
+          {row.icon && (
+            <span
+              aria-hidden="true"
+              className="flex size-6 shrink-0 items-center justify-center self-start rounded-[5px]"
+              style={{ marginInline: "-2px 4px" }}
+            >
+              <span className="grid size-5 place-items-center text-[14px] leading-none">
+                {row.icon}
+              </span>
+            </span>
+          )}
           <span
             data-testid="board-card-title"
             className="block min-w-0 flex-1 font-medium break-words"

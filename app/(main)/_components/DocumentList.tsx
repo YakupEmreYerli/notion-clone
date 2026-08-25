@@ -153,11 +153,7 @@ function TreeNode({
 
   const onToggleFavorite = () => {
     const promise = toggleFavorite({ id: document._id });
-    toast.promise(promise, {
-      loading: "Updating favorites...",
-      success: "Favorites updated!",
-      error: "Failed to update favorites.",
-    });
+    promise.catch(() => toast.error("Failed to update favorites."));
   };
 
   return (
@@ -290,12 +286,13 @@ export const DocumentList = ({
       return;
     }
 
-    toast.promise(promise, {
-      loading: "Moving page...",
-      success: "Page moved",
-      error: (error) =>
+    // Farklı ebeveyne taşıma da sessiz — sonuç sidebar'da zaten görünüyor.
+    // Hata mesajı sunucudan geliyor (döngüsel taşıma vb.), o korunuyor.
+    promise.catch((error) =>
+      toast.error(
         error instanceof Error ? error.message : "Failed to move page.",
-    });
+      ),
+    );
   };
 
   if (treeData === undefined) {

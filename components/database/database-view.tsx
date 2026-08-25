@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "convex/react";
 
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useUndoShortcuts } from "@/hooks/useUndo";
 
 import { DatabaseGrid } from "./database-grid";
 import { DatabaseSkeleton } from "./database-skeleton";
@@ -43,8 +44,21 @@ const DatabaseView = ({ documentId, editable = true }: DatabaseViewProps) => {
   const views = useQuery(api.databaseViews.getViews, {
     databaseId: documentId,
   });
+  // View menüsündeki "Source" satırı için. Aynı sorgu `DocumentView`'da da
+  // çalışıyor — Convex istemcisi aynı sorguyu tekilleştirir, ek maliyet yok.
+  const databaseDoc = useQuery(api.documents.getById, {
+    documentId,
+  });
 
   const createView = useMutation(api.databaseViews.createView);
+
+  // Toolbar'daki ayar paneli burada tutuluyor: hem toolbar düğmesi hem view
+  // menüsündeki "Edit view" aynı paneli açıyor.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Ctrl+Z / Ctrl+Y — yığın bu dokümana ait (bkz. convex/history.ts).
+  // Salt-okunur (yayınlanmış) görünümde bağlanmaz.
+  useUndoShortcuts(editable ? documentId : undefined);
 
   // Aktif view: URL'deki ?v= (yenilenince korunur); yoksa ilk view.
   const activeViewId = searchParams.get("v") ?? undefined;
@@ -140,6 +154,8 @@ const DatabaseView = ({ documentId, editable = true }: DatabaseViewProps) => {
         <ViewSwitcher
           views={views}
           activeViewId={activeView?._id}
+          databaseTitle={databaseDoc?.title}
+          onEditView={() => setSettingsOpen(true)}
           onSelect={onSelectView}
           onCreate={onCreateView}
           editable={editable}
@@ -160,6 +176,8 @@ const DatabaseView = ({ documentId, editable = true }: DatabaseViewProps) => {
                 [activeView._id]: query,
               }))
             }
+            settingsOpen={settingsOpen}
+            onSettingsOpenChange={setSettingsOpen}
             editable={editable}
           />
         )}

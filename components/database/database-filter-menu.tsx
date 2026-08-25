@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
+import { TrashIcon } from "@/app/(main)/_components/icons/TrashIcon";
 
 import {
   Popover,
@@ -244,7 +245,7 @@ export function DatabaseFilterMenu({
                         }
                         className="text-muted-foreground hover:bg-secondary flex h-6 w-6 items-center justify-center rounded"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <TrashIcon className="size-3.5" />
                       </button>
                     )}
                   </div>

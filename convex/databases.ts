@@ -1,5 +1,10 @@
 import { v } from "convex/values";
-import { mutation, query, MutationCtx } from "./_generated/server";
+import {
+  internalMutation,
+  mutation,
+  query,
+  MutationCtx,
+} from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 import {
   requireOwnedDatabase,
@@ -12,6 +17,18 @@ import { ORDER_GAP, orderBetween } from "./lib/ordering";
 import { cellValueValidator, propertyTypeValidator } from "./lib/cellValue";
 import { deleteDatabaseChildren } from "./lib/databaseCascade";
 import { coerceValue, generateOptionId } from "./lib/coerce";
+import {
+  assertLive,
+  liveProperties,
+  liveRows,
+  liveViews,
+} from "./lib/softDelete";
+import {
+  HistoryOp,
+  orderDiffOps,
+  patchInverse,
+  recordHistory,
+} from "./lib/history";
 import { isPropertyIconId } from "../lib/property-icons";
 
 // getSchema ve getRows bilerek ayrı sorgular: birleşik olsaydı her hücre
@@ -23,12 +40,7 @@ export const getSchema = query({
   handler: async (ctx, args) => {
     await requireReadableDatabase(ctx, args.databaseId);
 
-    return await ctx.db
-      .query("databaseProperties")
-      .withIndex("by_database_order", (q) =>
-        q.eq("databaseId", args.databaseId),
-      )
-      .collect();
+    return await liveProperties(ctx, args.databaseId);
   },
 });
 
@@ -37,12 +49,7 @@ export const getRows = query({
   handler: async (ctx, args) => {
     await requireReadableDatabase(ctx, args.databaseId);
 
-    return await ctx.db
-      .query("databaseRows")
-      .withIndex("by_database_order", (q) =>
-        q.eq("databaseId", args.databaseId),
-      )
-      .collect();
+    return await liveRows(ctx, args.databaseId);
   },
 });
 
@@ -103,10 +110,7 @@ async function nextPropertyOrder(
   databaseId: Id<"documents">,
   afterPropertyId: Id<"databaseProperties"> | undefined,
 ) {
-  const properties = await ctx.db
-    .query("databaseProperties")
-    .withIndex("by_database_order", (q) => q.eq("databaseId", databaseId))
-    .collect();
+  const properties = await liveProperties(ctx, databaseId);
 
   // afterPropertyId verilmemişse en başa eklenir — çağıran taraf sona
   // eklemek istiyorsa son sütunun id'sini açıkça geçmeli.
@@ -179,10 +183,7 @@ export const createProperty = mutation({
       args.afterPropertyId,
     );
 
-    const existing = await ctx.db
-      .query("databaseProperties")
-      .withIndex("by_database_order", (q) => q.eq("databaseId", args.databaseId))
-      .collect();
+    const existing = await liveProperties(ctx, args.databaseId);
 
     const name =
       args.name ??
@@ -201,12 +202,15 @@ export const createProperty = mutation({
       options: args.type === "text" ? undefined : [],
     });
 
-    const views = await ctx.db
-      .query("databaseViews")
-      .withIndex("by_database_position", (q) =>
-        q.eq("databaseId", args.databaseId),
-      )
-      .collect();
+    const views = await liveViews(ctx, args.databaseId);
+
+    const undo: HistoryOp[] = [
+      { t: "softDelete", table: "databaseProperties", id: propertyId },
+    ];
+    const redo: HistoryOp[] = [
+      { t: "restore", table: "databaseProperties", id: propertyId },
+    ];
+
     await Promise.all(
       views.flatMap((view) => {
         if (view.visiblePropertyIds === undefined) return [];
@@ -215,9 +219,25 @@ export const createProperty = mutation({
           ? visiblePropertyIds.indexOf(args.afterPropertyId)
           : -1;
         visiblePropertyIds.splice(afterIndex + 1, 0, propertyId);
+        undo.push(patchInverse("databaseViews", view, ["visiblePropertyIds"]));
+        redo.push({
+          t: "patch",
+          table: "databaseViews",
+          id: view._id,
+          fields: { visiblePropertyIds },
+        });
         return [ctx.db.patch(view._id, { visiblePropertyIds })];
       }),
     );
+
+    await recordHistory(ctx, {
+      scopeId: args.databaseId,
+      userId,
+      kind: "property.create",
+      label: `"${name}" kolonu eklendi`,
+      undo,
+      redo,
+    });
 
     return propertyId;
   },
@@ -227,8 +247,29 @@ export const renameProperty = mutation({
   args: { propertyId: v.id("databaseProperties"), name: v.string() },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedProperty(ctx, args.propertyId, userId);
+    const property = assertLive(
+      await requireOwnedProperty(ctx, args.propertyId, userId),
+      "Property",
+    );
+    if (property.name === args.name) return;
+
     await ctx.db.patch(args.propertyId, { name: args.name });
+
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "property.rename",
+      label: `Kolon adı "${args.name}" oldu`,
+      undo: [patchInverse("databaseProperties", property, ["name"])],
+      redo: [
+        {
+          t: "patch",
+          table: "databaseProperties",
+          id: args.propertyId,
+          fields: { name: args.name },
+        },
+      ],
+    });
   },
 });
 
@@ -239,11 +280,41 @@ export const setPropertyIcon = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedProperty(ctx, args.propertyId, userId);
+    const property = assertLive(
+      await requireOwnedProperty(ctx, args.propertyId, userId),
+      "Property",
+    );
     if (args.icon !== null && !isPropertyIconId(args.icon)) {
       throw new Error("Unsupported property icon");
     }
-    await ctx.db.patch(args.propertyId, { icon: args.icon ?? undefined });
+    const icon = args.icon ?? undefined;
+    if (property.icon === icon) return;
+
+    await ctx.db.patch(args.propertyId, { icon });
+
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "property.icon",
+      label: icon ? "Kolon ikonu değişti" : "Kolon ikonu kaldırıldı",
+      undo: [patchInverse("databaseProperties", property, ["icon"])],
+      redo: [
+        icon === undefined
+          ? {
+              t: "patch",
+              table: "databaseProperties",
+              id: args.propertyId,
+              fields: {},
+              remove: ["icon"],
+            }
+          : {
+              t: "patch",
+              table: "databaseProperties",
+              id: args.propertyId,
+              fields: { icon },
+            },
+      ],
+    });
   },
 });
 
@@ -260,21 +331,14 @@ export const duplicateProperty = mutation({
   args: { propertyId: v.id("databaseProperties") },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+    const property = assertLive(
+      await requireOwnedProperty(ctx, args.propertyId, userId),
+      "Property",
+    );
     const [order, rows, views] = await Promise.all([
       nextPropertyOrder(ctx, property.databaseId, property._id),
-      ctx.db
-        .query("databaseRows")
-        .withIndex("by_database_order", (q) =>
-          q.eq("databaseId", property.databaseId),
-        )
-        .collect(),
-      ctx.db
-        .query("databaseViews")
-        .withIndex("by_database_position", (q) =>
-          q.eq("databaseId", property.databaseId),
-        )
-        .collect(),
+      liveRows(ctx, property.databaseId),
+      liveViews(ctx, property.databaseId),
     ]);
 
     if (rows.length > 2000) {
@@ -292,24 +356,53 @@ export const duplicateProperty = mutation({
       options: property.options,
     });
 
+    // Kopyanın kendisi soft-delete ile geri alınıyor; satırlara yazılan
+    // kopya hücreler ve view görünürlüğü de aynı kayda giriyor.
+    const undo: HistoryOp[] = [
+      { t: "softDelete", table: "databaseProperties", id: duplicateId },
+    ];
+    const redo: HistoryOp[] = [
+      { t: "restore", table: "databaseProperties", id: duplicateId },
+    ];
+
     await Promise.all([
       ...rows.flatMap((row) => {
         const value = row.cells[property._id];
         if (value === undefined) return [];
-        return [
-          ctx.db.patch(row._id, {
-            cells: { ...row.cells, [duplicateId]: value },
-          }),
-        ];
+        const cells = { ...row.cells, [duplicateId]: value };
+        undo.push(patchInverse("databaseRows", row, ["cells"]));
+        redo.push({
+          t: "patch",
+          table: "databaseRows",
+          id: row._id,
+          fields: { cells },
+        });
+        return [ctx.db.patch(row._id, { cells })];
       }),
       ...views.flatMap((view) => {
         if (!view.visiblePropertyIds?.includes(property._id)) return [];
         const sourceIndex = view.visiblePropertyIds.indexOf(property._id);
         const visiblePropertyIds = [...view.visiblePropertyIds];
         visiblePropertyIds.splice(sourceIndex + 1, 0, duplicateId);
+        undo.push(patchInverse("databaseViews", view, ["visiblePropertyIds"]));
+        redo.push({
+          t: "patch",
+          table: "databaseViews",
+          id: view._id,
+          fields: { visiblePropertyIds },
+        });
         return [ctx.db.patch(view._id, { visiblePropertyIds })];
       }),
     ]);
+
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "property.duplicate",
+      label: `"${property.name}" kolonu çoğaltıldı`,
+      undo,
+      redo,
+    });
 
     return duplicateId;
   },
@@ -323,7 +416,13 @@ export const reorderProperty = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+    const property = assertLive(
+      await requireOwnedProperty(ctx, args.propertyId, userId),
+      "Property",
+    );
+
+    // Rebalance tüm kardeşleri yeniden numaralandırabilir — bkz. reorderRow.
+    const orderSnapshot = await liveProperties(ctx, property.databaseId);
 
     const [before, after] = await Promise.all([
       args.beforePropertyId ? ctx.db.get(args.beforePropertyId) : null,
@@ -332,12 +431,7 @@ export const reorderProperty = mutation({
 
     let order = orderBetween(before?.order, after?.order);
     if (order === null) {
-      const siblings = await ctx.db
-        .query("databaseProperties")
-        .withIndex("by_database_order", (q) =>
-          q.eq("databaseId", property.databaseId),
-        )
-        .collect();
+      const siblings = await liveProperties(ctx, property.databaseId);
       siblings.sort((a, b) => a.order - b.order);
       await Promise.all(
         siblings.map((p, i) => ctx.db.patch(p._id, { order: i * ORDER_GAP })),
@@ -356,6 +450,19 @@ export const reorderProperty = mutation({
     }
 
     await ctx.db.patch(args.propertyId, { order });
+
+    const ops = orderDiffOps(
+      "databaseProperties",
+      orderSnapshot,
+      await liveProperties(ctx, property.databaseId),
+    );
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "property.reorder",
+      label: "Kolon taşındı",
+      ...ops,
+    });
   },
 });
 
@@ -363,18 +470,45 @@ export const changePropertyType = mutation({
   args: { propertyId: v.id("databaseProperties"), type: propertyTypeValidator },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+    const property = assertLive(
+      await requireOwnedProperty(ctx, args.propertyId, userId),
+      "Property",
+    );
 
     if (property.type === args.type) return;
 
-    const rows = await ctx.db
-      .query("databaseRows")
-      .withIndex("by_database_order", (q) =>
-        q.eq("databaseId", property.databaseId),
-      )
-      .collect();
+    const rows = await liveRows(ctx, property.databaseId);
 
     let options = property.options ?? [];
+
+    // Tip değişimi hücre değerlerini de dönüştürüyor (coerceValue) —
+    // dokunulan HER satırın eski `cells` hâli de journal'a girmeli, yoksa
+    // geri alma kolonu eski tipine döndürür ama veriyi dönüştürülmüş
+    // bırakır.
+    // Notion: adı hâlâ tipten TÜRETİLMİŞ varsayılan olan bir kolonun tipi
+    // değişince adı da yeni tipin varsayılanına döner ("Text" → "Select").
+    // Kullanıcı kendi adını yazdıysa dokunulmaz.
+    const oldLabel = PROPERTY_TYPE_LABELS[property.type] ?? "Property";
+    const isAutoNamed =
+      property.name === oldLabel ||
+      new RegExp(`^${oldLabel} \\d+$`).test(property.name);
+    const nextName = isAutoNamed
+      ? uniquePropertyName(
+          (await liveProperties(ctx, property.databaseId))
+            .filter((p) => p._id !== property._id)
+            .map((p) => p.name),
+          PROPERTY_TYPE_LABELS[args.type] ?? "Property",
+        )
+      : property.name;
+
+    const undo: HistoryOp[] = [
+      patchInverse("databaseProperties", property, [
+        "type",
+        "options",
+        "name",
+      ]),
+    ];
+    const redo: HistoryOp[] = [];
 
     for (const row of rows) {
       const current = row.cells[args.propertyId];
@@ -394,12 +528,41 @@ export const changePropertyType = mutation({
       } else {
         cells[args.propertyId] = result.value;
       }
+      undo.push(patchInverse("databaseRows", row, ["cells"]));
+      redo.push({
+        t: "patch",
+        table: "databaseRows",
+        id: row._id,
+        fields: { cells },
+      });
       await ctx.db.patch(row._id, { cells });
     }
 
+    const nextOptions = args.type === "text" ? undefined : options;
     await ctx.db.patch(args.propertyId, {
       type: args.type,
-      options: args.type === "text" ? undefined : options,
+      options: nextOptions,
+      name: nextName,
+    });
+
+    redo.push({
+      t: "patch",
+      table: "databaseProperties",
+      id: args.propertyId,
+      fields:
+        nextOptions === undefined
+          ? { type: args.type, name: nextName }
+          : { type: args.type, options: nextOptions, name: nextName },
+      ...(nextOptions === undefined ? { remove: ["options"] } : {}),
+    });
+
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "property.type",
+      label: `Kolon tipi "${args.type}" oldu`,
+      undo,
+      redo,
     });
   },
 });
@@ -420,6 +583,23 @@ export const addSelectOption = mutation({
       { id: optionId, label: args.label, color: args.color },
     ];
     await ctx.db.patch(args.propertyId, { options });
+
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "option.add",
+      label: `"${args.label}" seçeneği eklendi`,
+      undo: [patchInverse("databaseProperties", property, ["options"])],
+      redo: [
+        {
+          t: "patch",
+          table: "databaseProperties",
+          id: args.propertyId,
+          fields: { options },
+        },
+      ],
+    });
+
     return optionId;
   },
 });
@@ -443,6 +623,22 @@ export const updateSelectOption = mutation({
         : o,
     );
     await ctx.db.patch(args.propertyId, { options });
+
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "option.update",
+      label: "Seçenek güncellendi",
+      undo: [patchInverse("databaseProperties", property, ["options"])],
+      redo: [
+        {
+          t: "patch",
+          table: "databaseProperties",
+          id: args.propertyId,
+          fields: { options },
+        },
+      ],
+    });
   },
 });
 
@@ -457,15 +653,31 @@ export const deleteSelectOption = mutation({
     );
     await ctx.db.patch(args.propertyId, { options });
 
-    const rows = await ctx.db
-      .query("databaseRows")
-      .withIndex("by_database_order", (q) =>
-        q.eq("databaseId", property.databaseId),
-      )
-      .collect();
+    const undo: HistoryOp[] = [
+      patchInverse("databaseProperties", property, ["options"]),
+    ];
+    const redo: HistoryOp[] = [
+      {
+        t: "patch",
+        table: "databaseProperties",
+        id: args.propertyId,
+        fields: { options },
+      },
+    ];
+
+    const rows = await liveRows(ctx, property.databaseId);
 
     if (rows.length > 2000) {
       // Kemer + askı: süpürme atlanır, orphan-toleranslı render devreye girer.
+      // Seçenek listesinin kendisi yine de geri alınabilir.
+      await recordHistory(ctx, {
+        scopeId: property.databaseId,
+        userId,
+        kind: "option.delete",
+        label: "Seçenek silindi",
+        undo,
+        redo,
+      });
       return;
     }
 
@@ -487,9 +699,25 @@ export const deleteSelectOption = mutation({
         } else {
           return [];
         }
+        undo.push(patchInverse("databaseRows", row, ["cells"]));
+        redo.push({
+          t: "patch",
+          table: "databaseRows",
+          id: row._id,
+          fields: { cells },
+        });
         return [ctx.db.patch(row._id, { cells })];
       }),
     );
+
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "option.delete",
+      label: "Seçenek silindi",
+      undo,
+      redo,
+    });
   },
 });
 
@@ -497,31 +725,36 @@ export const deleteProperty = mutation({
   args: { propertyId: v.id("databaseProperties") },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const property = await requireOwnedProperty(ctx, args.propertyId, userId);
+    const property = assertLive(
+      await requireOwnedProperty(ctx, args.propertyId, userId),
+      "Property",
+    );
 
     if (property.isTitle) {
-      const siblingCount = await ctx.db
-        .query("databaseProperties")
-        .withIndex("by_database_order", (q) =>
-          q.eq("databaseId", property.databaseId),
-        )
-        .collect();
+      const siblingCount = await liveProperties(ctx, property.databaseId);
       if (siblingCount.length <= 1) {
         throw new Error("Database must have at least one property");
       }
     }
 
-    await ctx.db.delete(args.propertyId);
+    // Soft-delete. Hücreler BİLEREK süpürülmüyor: `cells` propertyId ile
+    // anahtarlı, süpürülen veri geri alınamaz. Kolon canlı şemadan
+    // (`liveProperties`) düştüğü için render etmez — zaten orphan-toleranslı.
+    // Bu ayrıca eski 2000 satır süpürme limitini de ortadan kaldırıyor.
+    await ctx.db.patch(args.propertyId, { deletedAt: Date.now() });
 
     // Property'ye bağlı view ayarlarını temizle: group-by/sub-group bu
     // property'yi kullanıyorsa sıfırlanır; visible/groupOrder/hidden listeleri
     // property'nin option key'lerine bağlı olduğu için boşa düşer.
-    const views = await ctx.db
-      .query("databaseViews")
-      .withIndex("by_database_position", (q) =>
-        q.eq("databaseId", property.databaseId),
-      )
-      .collect();
+    const views = await liveViews(ctx, property.databaseId);
+
+    const undo: HistoryOp[] = [
+      { t: "restore", table: "databaseProperties", id: args.propertyId },
+    ];
+    const redo: HistoryOp[] = [
+      { t: "softDelete", table: "databaseProperties", id: args.propertyId },
+    ];
+
     await Promise.all(
       views.flatMap((view) => {
         const patch: Record<string, unknown> = {};
@@ -539,33 +772,34 @@ export const deleteProperty = mutation({
           );
         }
         if (Object.keys(patch).length === 0) return [];
+        // View ayarları da geri alınmalı — yoksa kolon geri geldiğinde
+        // gruplama ve görünürlük sıfırlanmış kalır.
+        undo.push(
+          patchInverse("databaseViews", view, Object.keys(patch)),
+        );
+        redo.push({
+          t: "patch",
+          table: "databaseViews",
+          id: view._id,
+          fields: Object.fromEntries(
+            Object.entries(patch).filter(([, value]) => value !== undefined),
+          ),
+          remove: Object.entries(patch)
+            .filter(([, value]) => value === undefined)
+            .map(([key]) => key),
+        });
         return [ctx.db.patch(view._id, patch)];
       }),
     );
 
-    // Kemer + askı: süpürme birincil, ama renderer da orphan-toleranslı.
-    const rows = await ctx.db
-      .query("databaseRows")
-      .withIndex("by_database_order", (q) =>
-        q.eq("databaseId", property.databaseId),
-      )
-      .collect();
-
-    if (rows.length > 2000) {
-      // Çok büyük tablolarda mutation başına yazma limitini aşmamak için
-      // süpürme atlanır; orphan-toleranslı render devreye girer.
-      return;
-    }
-
-    await Promise.all(
-      rows
-        .filter((row) => args.propertyId in row.cells)
-        .map((row) => {
-          const cells = { ...row.cells };
-          delete cells[args.propertyId];
-          return ctx.db.patch(row._id, { cells });
-        }),
-    );
+    await recordHistory(ctx, {
+      scopeId: property.databaseId,
+      userId,
+      kind: "property.delete",
+      label: `"${property.name}" kolonu silindi`,
+      undo,
+      redo,
+    });
   },
 });
 
@@ -574,10 +808,7 @@ async function nextRowOrder(
   databaseId: Id<"documents">,
   afterRowId: Id<"databaseRows"> | undefined,
 ) {
-  const rows = await ctx.db
-    .query("databaseRows")
-    .withIndex("by_database_order", (q) => q.eq("databaseId", databaseId))
-    .collect();
+  const rows = await liveRows(ctx, databaseId);
 
   // afterRowId verilmemişse en başa eklenir — çağıran taraf sona eklemek
   // istiyorsa son satırın id'sini açıkça geçmeli.
@@ -612,12 +843,23 @@ export const createRow = mutation({
 
     const order = await nextRowOrder(ctx, args.databaseId, args.afterRowId);
 
-    return await ctx.db.insert("databaseRows", {
+    const rowId = await ctx.db.insert("databaseRows", {
       databaseId: args.databaseId,
       userId,
       order,
       cells: {},
     });
+
+    await recordHistory(ctx, {
+      scopeId: args.databaseId,
+      userId,
+      kind: "row.create",
+      label: "Satır eklendi",
+      undo: [{ t: "softDelete", table: "databaseRows", id: rowId }],
+      redo: [{ t: "restore", table: "databaseRows", id: rowId }],
+    });
+
+    return rowId;
   },
 });
 
@@ -625,18 +867,29 @@ export const deleteRow = mutation({
   args: { rowId: v.id("databaseRows") },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const row = await requireOwnedRow(ctx, args.rowId, userId);
+    const row = assertLive(
+      await requireOwnedRow(ctx, args.rowId, userId),
+      "Row",
+    );
 
-    // Tüm view'lardaki sıra kayıtlarını da sil — yoksa view'ların
-    // board'larında hayalet kartlar kalır.
-    const orders = await ctx.db
-      .query("viewCardOrder")
-      .withIndex("by_row", (q) => q.eq("rowId", args.rowId))
-      .collect();
-    await Promise.all([
-      ...orders.map((o) => ctx.db.delete(o._id)),
-      ctx.db.delete(args.rowId),
-    ]);
+    // Soft-delete: satırın `_id`'si yaşamalı. Hard delete + geri alırken
+    // yeniden yaratma, `viewCardOrder.rowId` referansını koparır ve satırın
+    // board'daki yeri kalıcı olarak kaybolur.
+    //
+    // `viewCardOrder` kayıtları BİLEREK silinmiyor: satır canlı okumalardan
+    // (`liveRows`) düştüğü için board'da hayalet kart oluşmaz — istemci
+    // zaten orphan-toleranslı join yapıyor — ve geri alındığında kart eski
+    // grubundaki eski sırasına döner.
+    await ctx.db.patch(args.rowId, { deletedAt: Date.now() });
+
+    await recordHistory(ctx, {
+      scopeId: row.databaseId,
+      userId,
+      kind: "row.delete",
+      label: "Satır silindi",
+      undo: [{ t: "restore", table: "databaseRows", id: args.rowId }],
+      redo: [{ t: "softDelete", table: "databaseRows", id: args.rowId }],
+    });
   },
 });
 
@@ -648,8 +901,26 @@ export const setRowIcon = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedRow(ctx, args.rowId, userId);
+    const row = assertLive(
+      await requireOwnedRow(ctx, args.rowId, userId),
+      "Row",
+    );
+    if (row.icon === args.icon) return;
+
     await ctx.db.patch(args.rowId, { icon: args.icon });
+
+    await recordHistory(ctx, {
+      scopeId: row.databaseId,
+      userId,
+      kind: "row.icon",
+      label: args.icon ? "Satır ikonu değişti" : "Satır ikonu kaldırıldı",
+      undo: [patchInverse("databaseRows", row, ["icon"])],
+      redo: [
+        args.icon === undefined
+          ? { t: "patch", table: "databaseRows", id: args.rowId, fields: {}, remove: ["icon"] }
+          : { t: "patch", table: "databaseRows", id: args.rowId, fields: { icon: args.icon } },
+      ],
+    });
   },
 });
 
@@ -661,8 +932,37 @@ export const setRowCover = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedRow(ctx, args.rowId, userId);
+    const row = assertLive(
+      await requireOwnedRow(ctx, args.rowId, userId),
+      "Row",
+    );
+    if (row.coverImage === args.coverImage) return;
+
     await ctx.db.patch(args.rowId, { coverImage: args.coverImage });
+
+    await recordHistory(ctx, {
+      scopeId: row.databaseId,
+      userId,
+      kind: "row.cover",
+      label: args.coverImage ? "Satır kapağı değişti" : "Satır kapağı kaldırıldı",
+      undo: [patchInverse("databaseRows", row, ["coverImage"])],
+      redo: [
+        args.coverImage === undefined
+          ? {
+              t: "patch",
+              table: "databaseRows",
+              id: args.rowId,
+              fields: {},
+              remove: ["coverImage"],
+            }
+          : {
+              t: "patch",
+              table: "databaseRows",
+              id: args.rowId,
+              fields: { coverImage: args.coverImage },
+            },
+      ],
+    });
   },
 });
 
@@ -670,16 +970,30 @@ export const duplicateRow = mutation({
   args: { rowId: v.id("databaseRows") },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const row = await requireOwnedRow(ctx, args.rowId, userId);
+    const row = assertLive(
+      await requireOwnedRow(ctx, args.rowId, userId),
+      "Row",
+    );
 
     const order = await nextRowOrder(ctx, row.databaseId, args.rowId);
 
-    return await ctx.db.insert("databaseRows", {
+    const duplicateId = await ctx.db.insert("databaseRows", {
       databaseId: row.databaseId,
       userId,
       order,
       cells: row.cells,
     });
+
+    await recordHistory(ctx, {
+      scopeId: row.databaseId,
+      userId,
+      kind: "row.duplicate",
+      label: "Satır çoğaltıldı",
+      undo: [{ t: "softDelete", table: "databaseRows", id: duplicateId }],
+      redo: [{ t: "restore", table: "databaseRows", id: duplicateId }],
+    });
+
+    return duplicateId;
   },
 });
 
@@ -691,7 +1005,15 @@ export const reorderRow = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const row = await requireOwnedRow(ctx, args.rowId, userId);
+    const row = assertLive(
+      await requireOwnedRow(ctx, args.rowId, userId),
+      "Row",
+    );
+
+    // Sıralama rebalance'a düşerse TÜM kardeşler yeniden numaralandırılır;
+    // bu yüzden tek satırın order'ını elle geri yazmak yerine önce/sonra
+    // fotoğrafının farkı alınıyor (bkz. orderDiffOps).
+    const orderSnapshot = await liveRows(ctx, row.databaseId);
 
     const [before, after] = await Promise.all([
       args.beforeRowId ? ctx.db.get(args.beforeRowId) : null,
@@ -700,12 +1022,7 @@ export const reorderRow = mutation({
 
     let order = orderBetween(before?.order, after?.order);
     if (order === null) {
-      const siblings = await ctx.db
-        .query("databaseRows")
-        .withIndex("by_database_order", (q) =>
-          q.eq("databaseId", row.databaseId),
-        )
-        .collect();
+      const siblings = await liveRows(ctx, row.databaseId);
       siblings.sort((a, b) => a.order - b.order);
       await Promise.all(
         siblings.map((r, i) => ctx.db.patch(r._id, { order: i * ORDER_GAP })),
@@ -724,6 +1041,19 @@ export const reorderRow = mutation({
     }
 
     await ctx.db.patch(args.rowId, { order });
+
+    const ops = orderDiffOps(
+      "databaseRows",
+      orderSnapshot,
+      await liveRows(ctx, row.databaseId),
+    );
+    await recordHistory(ctx, {
+      scopeId: row.databaseId,
+      userId,
+      kind: "row.reorder",
+      label: "Satır taşındı",
+      ...ops,
+    });
   },
 });
 
@@ -735,7 +1065,10 @@ export const updateCell = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const row = await requireOwnedRow(ctx, args.rowId, userId);
+    const row = assertLive(
+      await requireOwnedRow(ctx, args.rowId, userId),
+      "Row",
+    );
 
     // `ctx.db.patch` sığ merge yapar: `cells` her patch'te komple
     // değiştiği için önce mevcut hücreleri okuyup üstüne yazıyoruz.
@@ -751,7 +1084,25 @@ export const updateCell = mutation({
       cells[args.propertyId] = args.value;
     }
 
+    // Değer gerçekten değişmediyse journal'a kayıt düşme — yoksa hücreye
+    // girip çıkmak bile yığını doldurur ve Ctrl+Z hiçbir şey yapmıyormuş
+    // gibi görünür.
+    if (cells[args.propertyId] === row.cells[args.propertyId]) return;
+
     await ctx.db.patch(args.rowId, { cells });
+
+    await recordHistory(ctx, {
+      scopeId: row.databaseId,
+      userId,
+      kind: "cell.update",
+      label: "Hücre güncellendi",
+      // `cells` bir record — tek hücreyi değil, alanın tamamını geri
+      // yazıyoruz (patch sığ merge yapar, bkz. convex.md).
+      undo: [patchInverse("databaseRows", row, ["cells"])],
+      redo: [
+        { t: "patch", table: "databaseRows", id: args.rowId, fields: { cells } },
+      ],
+    });
   },
 });
 
@@ -763,3 +1114,107 @@ export async function cascadeDeleteDatabase(
 ) {
   await deleteDatabaseChildren(ctx, documentId);
 }
+
+// Soft-delete edilen satır/kolonlar sonsuza kadar durmaz. Undo penceresi
+// (`HISTORY_LIMIT` kayıt) çoktan geçmiş olan kayıtlar, trash ile aynı 30
+// günlük pencereden sonra kalıcı silinir. Bir satır kalıcı silinirken
+// `viewCardOrder` kayıtları da gider; bir kolon silinirken hücreleri
+// süpürülür — o noktada geri alınacak bir şey kalmadığı için güvenli.
+const SOFT_DELETE_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Tek çalıştırmada işlenecek kayıt sayısı: Convex mutation'ları
+// transactional, yazma limitini aşmak tüm işi geri alır. Kalanlar bir
+// sonraki turda temizlenir (cron günlük çalışır).
+const PURGE_BATCH = 100;
+
+export const purgeSoftDeleted = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cutoff = Date.now() - SOFT_DELETE_RETENTION_MS;
+
+    const rows = (
+      await ctx.db
+        .query("databaseRows")
+        .filter((q) =>
+          q.and(
+            q.neq(q.field("deletedAt"), undefined),
+            q.lt(q.field("deletedAt"), cutoff),
+          ),
+        )
+        .take(PURGE_BATCH)
+    );
+
+    for (const row of rows) {
+      const orders = await ctx.db
+        .query("viewCardOrder")
+        .withIndex("by_row", (q) => q.eq("rowId", row._id))
+        .collect();
+      await Promise.all(orders.map((o) => ctx.db.delete(o._id)));
+      await ctx.db.delete(row._id);
+    }
+
+    const properties = await ctx.db
+      .query("databaseProperties")
+      .filter((q) =>
+        q.and(
+          q.neq(q.field("deletedAt"), undefined),
+          q.lt(q.field("deletedAt"), cutoff),
+        ),
+      )
+      .take(PURGE_BATCH);
+
+    for (const property of properties) {
+      // Kolonun hücrelerini süpür — silme artık geri alınamaz.
+      const siblings = await liveRows(ctx, property.databaseId);
+      await Promise.all(
+        siblings
+          .filter((row) => property._id in row.cells)
+          .map((row) => {
+            const cells = { ...row.cells };
+            delete cells[property._id];
+            return ctx.db.patch(row._id, { cells });
+          }),
+      );
+      await ctx.db.delete(property._id);
+    }
+
+    // Soft-delete edilmiş sıra kayıtları ve view'lar. View'ı silmek onun
+    // sıra kayıtlarını da soft-delete ettiği için ikisi aynı pencerede
+    // düşer; sıra kayıtları önce gider ki view ölürken öksüz kalmasın.
+    const staleOrders = await ctx.db
+      .query("viewCardOrder")
+      .filter((q) =>
+        q.and(
+          q.neq(q.field("deletedAt"), undefined),
+          q.lt(q.field("deletedAt"), cutoff),
+        ),
+      )
+      .take(PURGE_BATCH);
+    await Promise.all(staleOrders.map((o) => ctx.db.delete(o._id)));
+
+    const staleViews = await ctx.db
+      .query("databaseViews")
+      .filter((q) =>
+        q.and(
+          q.neq(q.field("deletedAt"), undefined),
+          q.lt(q.field("deletedAt"), cutoff),
+        ),
+      )
+      .take(PURGE_BATCH);
+    for (const view of staleViews) {
+      const orphans = await ctx.db
+        .query("viewCardOrder")
+        .withIndex("by_view_group_order", (q) => q.eq("viewId", view._id))
+        .collect();
+      await Promise.all(orphans.map((o) => ctx.db.delete(o._id)));
+      await ctx.db.delete(view._id);
+    }
+
+    return {
+      rows: rows.length,
+      properties: properties.length,
+      orders: staleOrders.length,
+      views: staleViews.length,
+    };
+  },
+});

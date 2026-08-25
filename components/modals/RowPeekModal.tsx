@@ -20,6 +20,7 @@ export const RowPeekModal = () => {
   const changePropertyType = useMutation(api.databases.changePropertyType);
   const duplicateProperty = useMutation(api.databases.duplicateProperty);
   const deleteProperty = useMutation(api.databases.deleteProperty);
+  const setRowCover = useMutation(api.databases.setRowCover);
   const coverImage = useCoverImage();
 
   const properties = useQuery(
@@ -41,6 +42,12 @@ export const RowPeekModal = () => {
       onIconChange={(icon) => row && setRowIcon({ rowId: row._id, icon })}
       onAddCover={() =>
         row && coverImage.onOpenRow(row._id, row.coverImage ?? undefined)
+      }
+      onRemoveCover={() =>
+        row &&
+        setRowCover({ rowId: row._id, coverImage: undefined }).catch(() =>
+          toast.error("Cover could not be removed"),
+        )
       }
       propertyActions={{
         rename: (propertyId, name) =>

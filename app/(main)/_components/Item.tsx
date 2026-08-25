@@ -8,12 +8,17 @@ import { cn } from "@/lib/utils";
 import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
+
+import { snackbar } from "@/lib/snackbar";
+import { formatLastEdited } from "@/lib/utils";
+import { authClient } from "@/lib/auth-client";
 import {
   DropdownMenu,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   Files,
@@ -37,6 +42,40 @@ import { LinkIcon } from "./icons/LinkIcon";
 import { ArrowDiagonalUpRightIcon } from "./icons/ArrowDiagonalUpRightIcon";
 import { SidebarRightIcon } from "./icons/SidebarRightIcon";
 import { TrashIcon } from "./icons/TrashIcon";
+
+/**
+ * Notion'un "..." menüsündeki satır. Ölçüler paylaşılan DOM'dan:
+ * 20px ikon, 14px metin, 14px yan boşluk, kısayol 12px ve soluk.
+ */
+const MenuAction = ({
+  icon,
+  label,
+  shortcut,
+  onClick,
+  onSelect,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  shortcut?: string;
+  onClick?: (event: React.MouseEvent<HTMLElement, MouseEvent>) => void;
+  onSelect?: () => void;
+}) => (
+  <DropdownMenuItem
+    onClick={onClick}
+    onSelect={onSelect}
+    className="mx-[6px] gap-[10px] rounded-[6px] px-[8px] py-[6px] text-[14px] focus:bg-sidebar-hover focus:text-sidebar-text-active"
+  >
+    <span className="flex size-5 shrink-0 items-center justify-center">
+      {icon}
+    </span>
+    <span className="flex-1 truncate">{label}</span>
+    {shortcut && (
+      <span className="ml-auto shrink-0 text-[12px] whitespace-nowrap text-sidebar-muted">
+        {shortcut}
+      </span>
+    )}
+  </DropdownMenuItem>
+);
 
 type SidebarIconType =
   | LucideIcon
@@ -83,6 +122,7 @@ export const Item = ({
   const params = useParams();
   const origin = useOrigin();
 
+  const { data: session } = authClient.useSession();
   const { setInnerPopoverOpen } = useNavDrawer();
   const markArchiving = useArchivingDoc((state) => state.markArchiving);
   const peek = usePeek();
@@ -157,21 +197,14 @@ export const Item = ({
       router.push("/documents");
     }
 
-    const promise = archive({ id });
-
-    toast.promise(promise, {
-      loading: "Moving to trash...",
-      error: "Failed to archive note.",
-    });
-
-    promise.then(() => {
-      toast("Note moved to trash", {
-        action: {
-          label: "Undo",
-          onClick: () => restore({ id }),
-        },
-      });
-    });
+    archive({ id })
+      .then(() => {
+        snackbar("Moved to Trash", {
+          label: "Restore",
+          onClick: () => restore({ id, keepPosition: true }),
+        });
+      })
+      .catch(() => toast.error("Failed to archive note."));
   };
 
   const handleExpand = (
@@ -194,11 +227,7 @@ export const Item = ({
       },
     );
 
-    toast.promise(promise, {
-      loading: "Creating new note",
-      success: "New note created.",
-      error: "Failed to create note.",
-    });
+    promise.catch(() => toast.error("Failed to create note."));
   };
 
   const onDuplicate = (event: React.MouseEvent<HTMLElement, MouseEvent>) => {
@@ -209,11 +238,7 @@ export const Item = ({
       router.push(`/documents/${documentId}`);
     });
 
-    toast.promise(promise, {
-      loading: "Duplicating note...",
-      success: "Note duplicated.",
-      error: "Failed to duplicate note.",
-    });
+    promise.catch(() => toast.error("Failed to duplicate note."));
   };
 
   const onOpenChange = (open: boolean) => {
@@ -392,118 +417,107 @@ export const Item = ({
               </DropdownMenuTrigger>
             </ActionTooltip>
             <DropdownMenuContent
-              className="w-64 border-sidebar-border bg-popover text-popover-foreground"
+              // Notion ölçüleri (paylaşılan DOM): genişlik 265px, en fazla
+              // 70vh, taşarsa kendi içinde kayar.
+              className="max-h-[70vh] w-[265px] overflow-y-auto border-sidebar-border bg-popover p-0 py-[6px] text-popover-foreground"
               align="start"
               side="right"
               forceMount
             >
-              <DropdownMenuItem
+              {/* Notion menüsü doküman tipini üstte küçük ve soluk yazar. */}
+              <DropdownMenuLabel className="px-[14px] pt-[6px] pb-[4px] text-[12px] font-normal text-sidebar-muted">
+                {document?.type === "database" ? "Database" : "Page"}
+              </DropdownMenuLabel>
+
+              <MenuAction
+                icon={
+                  <Star
+                    className={cn(
+                      "size-5",
+                      isFavorite
+                        ? "fill-yellow-400 text-yellow-400"
+                        : "text-sidebar-icon",
+                    )}
+                  />
+                }
+                label={
+                  isFavorite ? "Remove from Favorites" : "Add to Favorites"
+                }
                 onClick={(e) => {
                   e.stopPropagation();
                   onFavorite?.();
                 }}
-                className="text-[13px] focus:bg-accent focus:text-accent-foreground"
-              >
-                <Star
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    isFavorite && "fill-yellow-400 text-yellow-400",
-                  )}
-                />
-                {isFavorite ? "Remove from favorites" : "Add to favorites"}
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              />
+
+              <DropdownMenuSeparator className="my-[6px] bg-sidebar-border" />
+
+              <MenuAction
+                icon={<LinkIcon className="size-auto h-5 w-auto text-sidebar-icon" />}
+                label="Copy link"
                 onClick={(e) => {
                   e.stopPropagation();
                   onCopyLink();
                 }}
-                className="text-[13px] focus:bg-accent"
-              >
-                <LinkIcon className="mr-2 h-4 w-auto" />
-                Copy link
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              />
+              <MenuAction
+                icon={<Files className="size-5 text-sidebar-icon" />}
+                label="Duplicate"
                 onClick={onDuplicate}
-                className="text-[13px] focus:bg-accent"
-              >
-                <Files className="mr-2 h-4 w-4" />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              />
+              <MenuAction
+                icon={<Pencil className="size-5 text-sidebar-icon" />}
+                label="Rename"
                 onClick={(e) => {
                   e.stopPropagation();
                   onStartRename();
                 }}
-                className="text-[13px] focus:bg-accent"
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              />
+              <MenuAction
+                icon={<FolderInput className="size-5 text-sidebar-icon" />}
+                label="Move to"
                 onSelect={() => {
                   setTimeout(() => setIsMoveToOpen(true), 0);
                 }}
-                className="text-[13px] focus:bg-accent"
-              >
-                <FolderInput className="mr-2 h-4 w-4" />
-                Move to
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              />
+              <MenuAction
+                icon={<TrashIcon className="size-5 text-sidebar-icon" />}
+                label="Move to Trash"
+                onClick={onArchive}
+              />
+
+              <DropdownMenuSeparator className="my-[6px] bg-sidebar-border" />
+
+              <MenuAction
+                icon={<ArrowDiagonalUpRightIcon className="size-auto h-5 w-auto text-sidebar-icon" />}
+                label="Open in new tab"
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenInNewTab();
                 }}
-                className="text-[13px] focus:bg-accent"
-              >
-                <ArrowDiagonalUpRightIcon className="mr-2 h-4 w-auto" />
-                Open in new tab
-              </DropdownMenuItem>
-              <DropdownMenuItem
+              />
+              <MenuAction
+                icon={<SidebarRightIcon className="size-5 text-sidebar-icon" />}
+                label="Open in side peek"
+                // Bu ipucu gerçek: Alt+Click sidebar'da side peek açıyor
+                // (DocumentList.tsx). Notion'daki Ctrl+⇧+R / ⇧+P / ⇧+↵
+                // kısayolları BİZDE YOK, o yüzden yazılmıyor.
+                shortcut="Alt+Click"
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenInSidePeek();
                 }}
-                className="text-[13px] focus:bg-accent"
-              >
-                <SidebarRightIcon className="mr-2 h-4 w-4" />
-                Open in side peek
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={onArchive}
-                className="text-[13px] focus:bg-accent"
-              >
-                <TrashIcon className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-sidebar-border" />
-              <div className="space-y-0.5 p-2 text-[11px] text-sidebar-muted">
+              />
+
+              <DropdownMenuSeparator className="my-[6px] bg-sidebar-border" />
+
+              <div className="px-[14px] py-[6px] text-[12px] leading-[16px] text-sidebar-muted">
+                <p>Last edited by {session?.user?.name ?? "you"}</p>
                 <p>
-                  Last edited on{" "}
                   {document
-                    ? new Date(
+                    ? formatLastEdited(
                         document.updatedAt ?? document._creationTime,
-                      ).toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })
-                    : "..."}
-                </p>
-                <p>
-                  Created on{" "}
-                  {document
-                    ? new Date(document._creationTime).toLocaleString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        },
                       )
-                    : "..."}
+                    : "…"}
                 </p>
               </div>
             </DropdownMenuContent>

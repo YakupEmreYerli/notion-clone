@@ -16,6 +16,19 @@ import {
   sortByOrderThenId,
   sortByPositionThenId,
 } from "./lib/ordering";
+import {
+  assertLive,
+  liveProperties,
+  liveRows,
+  liveViewOrders,
+  liveViews,
+} from "./lib/softDelete";
+import {
+  HistoryOp,
+  orderDiffOps,
+  patchInverse,
+  recordHistory,
+} from "./lib/history";
 
 // Board (ve ileride gallery/list) görünümlerinin backend'i. View ayarları
 // view kaydında, kart sırası viewCardOrder'da; ikisi de database dokümanından
@@ -29,14 +42,7 @@ export const getViews = query({
   handler: async (ctx, args) => {
     await requireReadableDatabase(ctx, args.databaseId);
 
-    return sortByPositionThenId(
-      await ctx.db
-        .query("databaseViews")
-        .withIndex("by_database_position", (q) =>
-          q.eq("databaseId", args.databaseId),
-        )
-        .collect(),
-    );
+    return sortByPositionThenId(await liveViews(ctx, args.databaseId));
   },
 });
 
@@ -49,12 +55,7 @@ export const getViewOrders = query({
     // Published-before-auth: yayınlanmış database'in board'u anonim okunabilir.
     await requireReadableDatabase(ctx, view.databaseId);
 
-    return sortByOrderThenId(
-      await ctx.db
-        .query("viewCardOrder")
-        .withIndex("by_view_group_order", (q) => q.eq("viewId", args.viewId))
-        .collect(),
-    );
+    return sortByOrderThenId(await liveViewOrders(ctx, args.viewId));
   },
 });
 
@@ -75,14 +76,7 @@ async function fetchGroupOrders(
   viewId: Id<"databaseViews">,
   groupKey: string,
 ): Promise<OrderEntry[]> {
-  return sortByOrderThenId(
-    await ctx.db
-      .query("viewCardOrder")
-      .withIndex("by_view_group_order", (q) =>
-        q.eq("viewId", viewId).eq("groupKey", groupKey),
-      )
-      .collect(),
-  );
+  return sortByOrderThenId(await liveViewOrders(ctx, viewId, groupKey));
 }
 
 // Komşular birbirine çok yakınsa (orderBetween null) insertion çevresindeki
@@ -161,12 +155,7 @@ async function nextViewPosition(
   databaseId: Id<"documents">,
   afterViewId: Id<"databaseViews"> | undefined,
 ): Promise<number> {
-  const views = sortByPositionThenId(
-    await ctx.db
-      .query("databaseViews")
-      .withIndex("by_database_position", (q) => q.eq("databaseId", databaseId))
-      .collect(),
-  );
+  const views = sortByPositionThenId(await liveViews(ctx, databaseId));
   const afterIndex = afterViewId
     ? views.findIndex((w) => w._id === afterViewId)
     : views.length - 1;
@@ -200,13 +189,24 @@ export const createView = mutation({
 
     const position = await nextViewPosition(ctx, args.databaseId, args.afterViewId);
 
-    return await ctx.db.insert("databaseViews", {
+    const viewId = await ctx.db.insert("databaseViews", {
       databaseId: args.databaseId,
       userId,
       name: args.name ?? "New view",
       type: args.type,
       position,
     });
+
+    await recordHistory(ctx, {
+      scopeId: args.databaseId,
+      userId,
+      kind: "view.create",
+      label: "Görünüm eklendi",
+      undo: [{ t: "softDelete", table: "databaseViews", id: viewId }],
+      redo: [{ t: "restore", table: "databaseViews", id: viewId }],
+    });
+
+    return viewId;
   },
 });
 
@@ -214,8 +214,64 @@ export const renameView = mutation({
   args: { viewId: v.id("databaseViews"), name: v.string() },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedView(ctx, args.viewId, userId);
+    const view = await requireOwnedView(ctx, args.viewId, userId);
+    if (view.name === args.name) return;
+
     await ctx.db.patch(args.viewId, { name: args.name });
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "view.rename",
+      label: `Görünüm adı "${args.name}" oldu`,
+      undo: [patchInverse("databaseViews", view, ["name"])],
+      redo: [
+        {
+          t: "patch",
+          table: "databaseViews",
+          id: args.viewId,
+          fields: { name: args.name },
+        },
+      ],
+    });
+  },
+});
+
+/**
+ * View'ın türünü değiştirir (Notion: "Display as"). Ayarlar korunur —
+ * board'a özgü alanlar (groupBy, kart sırası) tabloda görmezden gelinir,
+ * geri dönünce yerinde durur.
+ */
+export const setViewType = mutation({
+  args: {
+    viewId: v.id("databaseViews"),
+    type: v.union(v.literal("table"), v.literal("board")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    const view = assertLive(
+      await requireOwnedView(ctx, args.viewId, userId),
+      "View",
+    );
+    if (view.type === args.type) return;
+
+    await ctx.db.patch(args.viewId, { type: args.type });
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "view.type",
+      label: `Görünüm "${args.type}" oldu`,
+      undo: [patchInverse("databaseViews", view, ["type"])],
+      redo: [
+        {
+          t: "patch",
+          table: "databaseViews",
+          id: args.viewId,
+          fields: { type: args.type },
+        },
+      ],
+    });
   },
 });
 
@@ -226,24 +282,47 @@ export const deleteView = mutation({
     const view = await requireOwnedView(ctx, args.viewId, userId);
 
     // Bir database view'sız kalamaz (Notion davranışı: son view silinemez).
-    const siblings = await ctx.db
-      .query("databaseViews")
-      .withIndex("by_database_position", (q) => q.eq("databaseId", view.databaseId))
-      .collect();
+    const siblings = await liveViews(ctx, view.databaseId);
     if (siblings.length <= 1) {
       throw new Error("Database must have at least one view");
     }
 
-    // Sıra kayıtlarını da temizle — view'a ait (viewId, groupKey, rowId)
-    // üçlüsü başka hiçbir yerden ulaşılamaz.
-    const orders = await ctx.db
-      .query("viewCardOrder")
-      .withIndex("by_view_group_order", (q) => q.eq("viewId", args.viewId))
-      .collect();
+    // Soft-delete: view'ın ve sıra kayıtlarının `_id`'leri yaşamalı ki
+    // geri alma aynı kimlikler üzerinde çalışsın — kart sıraları da
+    // birebir geri gelsin.
+    const orders = await liveViewOrders(ctx, args.viewId);
+    const now = Date.now();
     await Promise.all([
-      ...orders.map((o) => ctx.db.delete(o._id)),
-      ctx.db.delete(args.viewId),
+      ...orders.map((o) => ctx.db.patch(o._id, { deletedAt: now })),
+      ctx.db.patch(args.viewId, { deletedAt: now }),
     ]);
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "view.delete",
+      label: `"${view.name}" görünümü silindi`,
+      undo: [
+        { t: "restore", table: "databaseViews", id: args.viewId },
+        ...orders.map(
+          (o): HistoryOp => ({
+            t: "restore",
+            table: "viewCardOrder",
+            id: o._id,
+          }),
+        ),
+      ],
+      redo: [
+        { t: "softDelete", table: "databaseViews", id: args.viewId },
+        ...orders.map(
+          (o): HistoryOp => ({
+            t: "softDelete",
+            table: "viewCardOrder",
+            id: o._id,
+          }),
+        ),
+      ],
+    });
   },
 });
 
@@ -274,11 +353,8 @@ export const duplicateView = mutation({
     });
 
     // Kart sıralarını da kopyala — view'ın kimliği sırasında da saklıdır.
-    const orders = await ctx.db
-      .query("viewCardOrder")
-      .withIndex("by_view_group_order", (q) => q.eq("viewId", args.viewId))
-      .collect();
-    await Promise.all(
+    const orders = await liveViewOrders(ctx, args.viewId);
+    const copiedOrderIds = await Promise.all(
       orders.map((o) =>
         ctx.db.insert("viewCardOrder", {
           viewId: copyId,
@@ -290,6 +366,25 @@ export const duplicateView = mutation({
         }),
       ),
     );
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "view.duplicate",
+      label: `"${view.name}" görünümü çoğaltıldı`,
+      undo: [
+        { t: "softDelete", table: "databaseViews", id: copyId },
+        ...copiedOrderIds.map(
+          (id): HistoryOp => ({ t: "softDelete", table: "viewCardOrder", id }),
+        ),
+      ],
+      redo: [
+        { t: "restore", table: "databaseViews", id: copyId },
+        ...copiedOrderIds.map(
+          (id): HistoryOp => ({ t: "restore", table: "viewCardOrder", id }),
+        ),
+      ],
+    });
 
     return copyId;
   },
@@ -303,7 +398,13 @@ export const reorderView = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const view = await requireOwnedView(ctx, args.viewId, userId);
+    const view = assertLive(
+      await requireOwnedView(ctx, args.viewId, userId),
+      "View",
+    );
+
+    // Rebalance tüm kardeşleri yeniden numaralandırabilir — bkz. reorderRow.
+    const positionSnapshot = await liveViews(ctx, view.databaseId);
 
     const [before, after] = await Promise.all([
       args.beforeViewId ? ctx.db.get(args.beforeViewId) : null,
@@ -313,12 +414,7 @@ export const reorderView = mutation({
     let position = orderBetween(before?.position, after?.position);
     if (position === null) {
       const siblings = sortByPositionThenId(
-        await ctx.db
-          .query("databaseViews")
-          .withIndex("by_database_position", (q) =>
-            q.eq("databaseId", view.databaseId),
-          )
-          .collect(),
+        await liveViews(ctx, view.databaseId),
       );
       await Promise.all(
         siblings.map((w, i) => ctx.db.patch(w._id, { position: i * ORDER_GAP })),
@@ -353,6 +449,14 @@ const SETTING_FIELDS = {
   cardSize: v.optional(
     v.union(v.literal("small"), v.literal("medium"), v.literal("large")),
   ),
+  // "Display as" — sekmenin metin/ikon gösterimi.
+  tabDisplay: v.optional(
+    v.union(
+      v.literal("textAndIcon"),
+      v.literal("textOnly"),
+      v.literal("iconOnly"),
+    ),
+  ),
 } as const;
 
 export const updateViewSettings = mutation({
@@ -362,16 +466,32 @@ export const updateViewSettings = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedView(ctx, args.viewId, userId);
+    const view = await requireOwnedView(ctx, args.viewId, userId);
 
     const patch: Record<string, unknown> = {};
     for (const key of Object.keys(SETTING_FIELDS)) {
       const value = (args as Record<string, unknown>)[key];
       if (value !== undefined) patch[key] = value;
     }
-    if (Object.keys(patch).length > 0) {
-      await ctx.db.patch(args.viewId, patch);
-    }
+    if (Object.keys(patch).length === 0) return;
+
+    await ctx.db.patch(args.viewId, patch);
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "view.settings",
+      label: "Görünüm ayarları değişti",
+      undo: [patchInverse("databaseViews", view, Object.keys(patch))],
+      redo: [
+        {
+          t: "patch",
+          table: "databaseViews",
+          id: args.viewId,
+          fields: patch,
+        },
+      ],
+    });
   },
 });
 
@@ -395,6 +515,33 @@ export const setGroupByProperty = mutation({
       groupOrder: undefined,
       hiddenGroupKeys: undefined,
     });
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "view.groupBy",
+      label: args.propertyId ? "Gruplama değişti" : "Gruplama kaldırıldı",
+      undo: [
+        patchInverse("databaseViews", view, [
+          "groupByPropertyId",
+          "groupOrder",
+          "hiddenGroupKeys",
+        ]),
+      ],
+      redo: [
+        {
+          t: "patch",
+          table: "databaseViews",
+          id: args.viewId,
+          fields: args.propertyId
+            ? { groupByPropertyId: args.propertyId }
+            : {},
+          remove: args.propertyId
+            ? ["groupOrder", "hiddenGroupKeys"]
+            : ["groupByPropertyId", "groupOrder", "hiddenGroupKeys"],
+        },
+      ],
+    });
   },
 });
 
@@ -405,8 +552,36 @@ export const setSubGroupByProperty = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    await requireOwnedView(ctx, args.viewId, userId);
+    const view = await requireOwnedView(ctx, args.viewId, userId);
+    if (view.subGroupByPropertyId === args.propertyId) return;
+
     await ctx.db.patch(args.viewId, { subGroupByPropertyId: args.propertyId });
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "view.subGroupBy",
+      label: args.propertyId
+        ? "Alt gruplama değişti"
+        : "Alt gruplama kaldırıldı",
+      undo: [patchInverse("databaseViews", view, ["subGroupByPropertyId"])],
+      redo: [
+        args.propertyId === undefined
+          ? {
+              t: "patch",
+              table: "databaseViews",
+              id: args.viewId,
+              fields: {},
+              remove: ["subGroupByPropertyId"],
+            }
+          : {
+              t: "patch",
+              table: "databaseViews",
+              id: args.viewId,
+              fields: { subGroupByPropertyId: args.propertyId },
+            },
+      ],
+    });
   },
 });
 
@@ -427,8 +602,20 @@ export const moveRow = mutation({
   },
   handler: async (ctx, args) => {
     const userId = await requireUser(ctx);
-    const view = await requireOwnedView(ctx, args.viewId, userId);
-    const row = await requireOwnedRow(ctx, args.rowId, userId);
+    const view = assertLive(
+      await requireOwnedView(ctx, args.viewId, userId),
+      "View",
+    );
+    const row = assertLive(
+      await requireOwnedRow(ctx, args.rowId, userId),
+      "Row",
+    );
+
+    const undo: HistoryOp[] = [];
+    const redo: HistoryOp[] = [];
+    // Respace/rebalance başka kartların order'ını da yeniden yazabilir —
+    // fotoğraf farkı hepsini yakalar (bkz. orderDiffOps).
+    const orderSnapshot = await liveViewOrders(ctx, args.viewId);
 
     // 1) Group-by property hücresini güncelle (varsa).
     if (view.groupByPropertyId) {
@@ -438,20 +625,27 @@ export const moveRow = mutation({
       } else {
         cells[view.groupByPropertyId] = args.toGroupKey;
       }
+      undo.push(patchInverse("databaseRows", row, ["cells"]));
+      redo.push({
+        t: "patch",
+        table: "databaseRows",
+        id: row._id,
+        fields: { cells },
+      });
       await ctx.db.patch(row._id, { cells });
     }
 
-    // 2) Eski gruptaki sıra kaydını kaldır.
-    const existing = await ctx.db
-      .query("viewCardOrder")
-      .withIndex("by_view_row", (q) => q.eq("viewId", args.viewId).eq("rowId", args.rowId))
-      .first();
-    if (existing) {
-      await ctx.db.delete(existing._id);
-    }
+    // 2) Mevcut sıra kaydı SİLİNMİYOR — sonunda `groupKey` + `order`
+    // alanları patch'leniyor. Sil+ekle yapılsaydı redo yeni bir `_id`
+    // üretir, journal'daki undo op'u ölü id'yi gösterir ve çift kart
+    // kalırdı (bkz. convex/lib/history.ts).
+    const existing = orderSnapshot.find((o) => o.rowId === args.rowId);
 
-    // 3) Hedef grupta yeni order'ı hesapla (sunucu otoriter).
-    const orders = await fetchGroupOrders(ctx, args.viewId, args.toGroupKey);
+    // 3) Hedef grupta yeni order'ı hesapla (sunucu otoriter). Taşınan
+    // kaydın kendisi komşu adayı olmamalı — hâlâ eski yerinde duruyor.
+    const orders = (
+      await fetchGroupOrders(ctx, args.viewId, args.toGroupKey)
+    ).filter((o) => o._id !== existing?._id);
     const beforeIdx = args.beforeRowId
       ? orders.findIndex((o) => o.rowId === args.beforeRowId)
       : -1;
@@ -490,13 +684,49 @@ export const moveRow = mutation({
       }
     }
 
-    await ctx.db.insert("viewCardOrder", {
-      viewId: args.viewId,
-      databaseId: view.databaseId,
+    if (existing) {
+      undo.push(patchInverse("viewCardOrder", existing, ["groupKey", "order"]));
+      redo.push({
+        t: "patch",
+        table: "viewCardOrder",
+        id: existing._id,
+        fields: { groupKey: args.toGroupKey, order },
+      });
+      await ctx.db.patch(existing._id, {
+        groupKey: args.toGroupKey,
+        order,
+      });
+    } else {
+      // İlk kez sıralanıyor: yaratmanın tersi de aynı `_id` üzerinde
+      // soft-delete, yani redo'dan sonra kimlik yine değişmiyor.
+      const orderId = await ctx.db.insert("viewCardOrder", {
+        viewId: args.viewId,
+        databaseId: view.databaseId,
+        userId,
+        groupKey: args.toGroupKey,
+        rowId: args.rowId,
+        order,
+      });
+      undo.push({ t: "softDelete", table: "viewCardOrder", id: orderId });
+      redo.push({ t: "restore", table: "viewCardOrder", id: orderId });
+    }
+
+    // Respace'in dokunduğu DİĞER kartlar (taşınan hariç, o yukarıda).
+    const respaced = orderDiffOps(
+      "viewCardOrder",
+      orderSnapshot.filter((o) => o._id !== existing?._id),
+      (await liveViewOrders(ctx, args.viewId)).filter(
+        (o) => o._id !== existing?._id,
+      ),
+    );
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
       userId,
-      groupKey: args.toGroupKey,
-      rowId: args.rowId,
-      order,
+      kind: "card.move",
+      label: "Kart taşındı",
+      undo: [...undo, ...respaced.undo],
+      redo: [...redo, ...respaced.redo],
     });
 
     return { moved: true };
@@ -607,12 +837,7 @@ export const createRowInView = mutation({
     const view = await requireOwnedView(ctx, args.viewId, userId);
 
     const rows = sortByOrderThenId(
-      await ctx.db
-        .query("databaseRows")
-        .withIndex("by_database_order", (q) =>
-          q.eq("databaseId", view.databaseId),
-        )
-        .collect(),
+      await liveRows(ctx, view.databaseId),
     );
     const afterIndex = args.afterRowId
       ? rows.findIndex((r) => r._id === args.afterRowId)
@@ -640,13 +865,9 @@ export const createRowInView = mutation({
       cells[view.groupByPropertyId] = args.groupKey;
     }
     if (args.title?.trim()) {
-      const titleProperty = await ctx.db
-        .query("databaseProperties")
-        .withIndex("by_database_order", (q) =>
-          q.eq("databaseId", view.databaseId),
-        )
-        .filter((q) => q.eq(q.field("isTitle"), true))
-        .first();
+      const titleProperty = (await liveProperties(ctx, view.databaseId)).find(
+        (property) => property.isTitle === true,
+      );
       if (titleProperty) cells[titleProperty._id] = args.title.trim();
     }
 
@@ -668,13 +889,28 @@ export const createRowInView = mutation({
         afterIdx >= 0 ? orders[afterIdx + 1]?.order : undefined,
       ) ?? 0;
 
-    await ctx.db.insert("viewCardOrder", {
+    const orderId = await ctx.db.insert("viewCardOrder", {
       viewId: args.viewId,
       databaseId: view.databaseId,
       userId,
       groupKey: args.groupKey,
       rowId,
       order,
+    });
+
+    await recordHistory(ctx, {
+      scopeId: view.databaseId,
+      userId,
+      kind: "card.create",
+      label: "Kart eklendi",
+      undo: [
+        { t: "softDelete", table: "databaseRows", id: rowId },
+        { t: "softDelete", table: "viewCardOrder", id: orderId },
+      ],
+      redo: [
+        { t: "restore", table: "databaseRows", id: rowId },
+        { t: "restore", table: "viewCardOrder", id: orderId },
+      ],
     });
 
     return rowId;
@@ -698,10 +934,7 @@ export const ensureDefaultViews = internalMutation({
       .collect();
 
     for (const db of databases) {
-      const views = await ctx.db
-        .query("databaseViews")
-        .withIndex("by_database_position", (q) => q.eq("databaseId", db._id))
-        .collect();
+      const views = await liveViews(ctx, db._id);
       if (views.length === 0) {
         await ctx.db.insert("databaseViews", {
           databaseId: db._id,

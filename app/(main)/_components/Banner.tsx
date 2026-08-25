@@ -20,11 +20,7 @@ export const Banner = ({ documentId }: BannerProps) => {
   const onRemove = () => {
     const promise = remove({ id: documentId });
 
-    toast.promise(promise, {
-      loading: "Deleting note...",
-      success: "Note Deleted!",
-      error: "Failed to delete note.",
-    });
+    promise.catch(() => toast.error("Failed to delete note."));
 
     router.push("/documents");
   };
@@ -32,11 +28,7 @@ export const Banner = ({ documentId }: BannerProps) => {
   const onRestore = () => {
     const promise = restore({ id: documentId });
 
-    toast.promise(promise, {
-      loading: "Restoring note...",
-      success: "Note restored!",
-      error: "Failed to restore note.",
-    });
+    promise.catch(() => toast.error("Failed to restore note."));
   };
 
   return (

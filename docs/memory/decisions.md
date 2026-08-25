@@ -575,3 +575,395 @@ doküman **veya** satır olabilecek hale getirildi (`useCoverImage.onOpenRow`).
 ### Yeni property'nin adı tipinden gelir
 Sabit "Property" adı, birkaç property eklenince Board'un görünürlük listesini
 okunamaz hale getiriyordu. Ad tipten üretiliyor ve çakışırsa numaralanıyor.
+
+## 2026-08-25 — Undo/redo: sunucu tarafı journal + hedefli soft-delete
+
+### Yığın sunucuda, doküman başına, kalıcı
+İstemci tarafı komut yığını elendi. Sebep ölçüldü: `databaseRows.cells`
+**propertyId ile anahtarlı** ve `viewCardOrder.rowId` satırı id'siyle
+referans ediyor; Convex `db.insert` id seçtirmediği için "sil → geri al =
+yeniden yarat" veriyi sessizce koparıyor. Bu yüzden `databaseRows` ve
+`databaseProperties` soft-delete (`deletedAt`) kazandı ve geri alma bir
+patch'e dönüştü. Yığın `history` tablosunda, `scopeId` başına — Notion gibi
+doküman kapsamlı — ve reload'ı atlatıyor. Detay `docs/undo-redo.md`.
+
+### Tipli inverse yerine jenerik op-log
+Her mutation için ayrı inverse yazmak yerine beş op: `patch`, `restore`,
+`softDelete`, `insert`, `delete`. Yeni bir mutation'ı bağlamak yeni bir op
+tipi gerektirmiyor.
+
+### `patch` op'unda `remove` listesi ayrı taşınır
+Convex bir objeyi saklarken `undefined` değerli anahtarları DÜŞÜRÜR:
+`fields: { icon: undefined }` diskte `fields: {}` olur ve patch no-op'a
+döner. "Bu alan eskiden yoktu" durumu bu yüzden `fields` ile temsil
+edilemiyor; kaldırılacak alan adları ayrı bir `remove` dizisinde taşınıyor
+ve `undefined` uygulama anında üretiliyor. Testle yakalandı (ilk geçişte
+"iki kez undo" testi kırmızıydı), tahminle değil.
+
+### `deleteProperty` artık hücreleri süpürmüyor
+Hücreler propertyId ile anahtarlı olduğu için süpürülen veri geri
+alınamaz. Kolon canlı şemadan (`liveProperties`) düştüğü için render
+etmiyor — zaten orphan-toleranslı. Yan fayda: eski "2000 satırdan büyük
+tabloda süpürmeyi atla" özel durumu ortadan kalktı. Kalıcı süpürme 30 gün
+sonra `databases.purgeSoftDeleted` cron'una taşındı.
+
+### `deleteRow` `viewCardOrder` kayıtlarını KORUYOR
+Eski davranış hepsini siliyordu ("hayalet kart" gerekçesiyle). Satır artık
+canlı okumalardan düştüğü için hayalet kart oluşmuyor, kayıtların
+korunması ise geri alındığında kartın eski grubuna ve sırasına dönmesini
+sağlıyor. `tests/convex/databases.test.ts`'teki ilgili test yeni sözleşmeye
+göre yeniden yazıldı.
+
+### Soft-delete okuması tek yardımcıdan geçer
+`liveRows` / `liveProperties` (`convex/lib/softDelete.ts`). 14 sorgu
+noktası bunlara taşındı; tek bilinçli istisna `databaseCascade.ts` —
+database kalıcı silinirken soft-delete edilmişler de gitmeli.
+
+### Ctrl+Z metin girişinde bize ait DEĞİL
+`useUndoShortcuts` `contentEditable`, `textarea` ve `readOnly` olmayan
+`input` hedeflerinde çekiliyor. Böylece hücrede yazarken Ctrl+Z yazılan
+harfi geri alıyor (tarayıcı), satır silmeyi değil; BlockNote'un kendi
+ProseMirror history'si de elinden alınmıyor. Editör **içeriği** bilinçli
+olarak journal dışında — ikisini birden bağlamak çift geri alma üretirdi.
+
+### `setPropertyWidth` bilinçli olarak journal dışında
+Sürükleyerek boyutlandırma her pikselde kayıt düşürüp yığını doldururdu.
+Notion da kolon genişliğini geri almıyor.
+
+### `moveRow` ve view CRUD journal'a BAĞLANMADI — id kararlılığı
+`insert`/`delete` op çifti undo→redo→undo döngüsünde bozuluyor: redo
+kaydı yeniden eklerken Convex yeni bir `_id` veriyor, journal'daki undo
+op'u eski id'yi gösteriyor, ikinci undo hiçbir şey bulamayıp sessizce
+atlanıyor ve çift kayıt kalıyor. `deleteView` aynı sınıfta —
+`viewCardOrder.viewId` view'ın id'sini referans ediyor. Çözüm
+`viewCardOrder` + `databaseViews` tablolarına da `deletedAt` eklemek;
+ayrı bir iş olarak bırakıldı. Yarım bağlamaktansa hiç bağlamamak seçildi:
+sessizce çift kart üreten bir undo, olmayan undo'dan kötü.
+
+### Sıralama geri alması fotoğraf farkıyla yapılır
+`reorderRow`/`reorderProperty` normalde tek satır yazıyor ama fractional
+index sıkışınca TÜM kardeşleri yeniden numaralandırıyor (rebalance). Elle
+"şu satırın order'ını geri yaz" demek o durumu kaçırırdı; `orderDiffOps`
+önce/sonra fotoğrafının farkını alıyor, iki durumu da aynı kodla doğru
+geri alıyor.
+
+### `archive`/`restore` journal dışında
+Yığın doküman kapsamlı, arşivlenen dokümandan zaten yönlendiriliyorsun —
+kapsamına Ctrl+Z ulaşamıyor. `Item.tsx`'teki toast "Undo" bu akışı
+karşılamaya devam ediyor.
+
+### Kalıcı silme yığını da siler
+`documents.remove`/`removeAll`/`purgeExpiredTrash`'in dört
+`deleteFileRefs` çağrı noktasının yanına `clearHistoryScope` kondu —
+yoksa journal kayıtları ölü bir `scopeId`'yi gösterirdi.
+
+## 2026-08-25 — Undo/redo tamamlandı: op-log'dan `insert`/`delete` kaldırıldı
+
+### Kimlik kararlılığı op şemasıyla garanti altına alındı
+Önceki turda `moveRow` ve view CRUD "id kararsızlığı" gerekçesiyle
+bağlanmamıştı. Doğru çözüm mutation'ları özel-durumlamak değil, **op
+şemasından `insert`/`delete`'i tamamen çıkarmak** oldu. Artık üç op var:
+`patch`, `restore`, `softDelete`. Yaratmanın tersi aynı `_id` üzerinde
+`softDelete`, redo aynı `_id` üzerinde `restore` — kimlik hiç değişmediği
+için `undo→redo→undo` döngüsü tutarlı kalıyor. Çift kayıt yapısal olarak
+imkânsız; regresyon testi `databaseViews.test.ts`'te ("moveRow → undo →
+redo → undo döngüsü çift kart üretmez").
+
+### `databaseViews` ve `viewCardOrder` de soft-delete taşıyor
+Dört tablo oldu. `deleteView` artık view'ı ve sıra kayıtlarını
+soft-delete ediyor; geri alma hepsini AYNI id'lerle döndürüyor, yani kart
+sıraları birebir geri geliyor.
+
+### `moveRow` sil+ekle yerine patch yapıyor
+Eski akış sıra kaydını silip hedef grupta yenisini ekliyordu. Yeni akış
+kaydı hiç öldürmüyor — `groupKey` + `order` patch'leniyor. Kart ilk kez
+sıralanıyorsa ekleniyor ve tersi `softDelete` oluyor. Yan etki: hedef
+grubun komşuları hesaplanırken taşınan kaydın kendisi listeden çıkarılıyor
+(eskiden silinmiş olduğu için listede olmuyordu).
+
+### `rebalanceGroupChunk` journal dışında
+Kullanıcı niyeti değil; istemcinin sıkışmış fractional index'i açmak için
+sürdüğü bakım işi.
+
+### Ctrl+Z / Ctrl+Y sessiz — toast yok
+İlk uygulamada her geri almada "Geri alındı: Kart taşındı" toast'ı
+çıkıyordu. Notion'da böyle bir bildirim yok ve kullanıcı da bunu istemedi:
+geri alınan şey zaten ekranda görünüyor, üstüne toast koymak gürültü.
+`getUndoState`'in `undoLabel`/`redoLabel` alanları kaldı — ileride menü
+öğesi/ipucu için kullanılacak, kısayolda değil.
+
+## 2026-08-25 — Bildirimler: başarı sessiz, tek istisna çöpe taşıma
+
+### Başarı toast'ları kaldırıldı (18 → 0 `toast.promise`)
+Sidebar/doküman chrome'u her işlemde loading+success+error üçlüsü
+gösteriyordu ("Moving to trash..." → "Note moved to trash!"); database
+yüzeyi ise zaten yalnızca hatada konuşuyordu. İki gelenek, database
+yüzeyinin kuralında birleştirildi: **başarı sessiz, hata konuşur.**
+Başarılı bir işlemin sonucu zaten ekranda görünüyor. `toast.promise`
+çağrılarının hepsi `promise.catch(() => toast.error(...))` oldu — hata
+mesajları birebir korundu.
+
+### Tek başarı bildirimi: Notion'ın "Moved to Trash" snackbar'ı
+Çöpe taşıma bunun istisnası, çünkü bildirim dekoratif değil **işlevsel**:
+içindeki `Restore` düğmesi tek geri alma yolu (arşivleme undo journal'ına
+bağlı değil, bkz. aynı dosyadaki undo/redo kaydı). `lib/snackbar.tsx`
+Notion'ın hapını uyguluyor — ters renk, 8px radius, 11px/16px padding,
+14px metin; ölçüler kullanıcının paylaştığı Notion DOM'undan alındı.
+İki çağrı yeri var ve ikisi de aynı eylem: `Item.tsx` (sidebar) ve
+`Menu.tsx` (doküman menüsü). `Menu.tsx` eskiden Restore sunmuyordu,
+artık sunuyor.
+
+### TrashBox'ta hiçbir başarı bildirimi yok
+Kalıcı silme, geri yükleme ve çöpü boşaltma sessiz. Kalıcı silmeye
+"Restore" düğmesi konulamaz — `documents.remove` geri dönüşsüz ve alt
+ağacı da siliyor.
+
+### Korunanlar: ekranda karşılığı olmayan onaylar
+`"Link copied"` (Item), `"Link copied to clipboard"` (view-switcher),
+`"Name updated!"` / `"Password changed!"` (AccountModal). Bunlarda ekranda
+hiçbir şey değişmiyor, bildirim tek geri besleme. NOT: iki link mesajı
+farklı yazılmış — birleştirilmedi, ayrı bir tutarlılık işi.
+
+### Snackbar'daki "Restore" sırayı korur, trash'ten yükleme korumaz
+`documents.restore` sayfayı bilerek listenin SONUNA taşıyor — bu Notion'da
+ölçülmüş davranış, ama **trash'ten geri yükleme** için (bkz.
+`docs/notion-research/sidebar-pages.md`). Snackbar'ın "Restore" düğmesi ise
+az önceki arşivlemenin GERİ ALINMASI; Notion orada sayfayı eski yerinde
+bırakıyor. Tek mutation iki işi görüyordu, `keepPosition` bayrağıyla
+ayrıldı: bayrak varsa `order` yeniden yazılmıyor (`archive` zaten `order`
+alanına dokunmuyor, o yüzden dokunmamak sırayı korumaya yetiyor).
+TrashBox bayrağı geçmez, davranışı değişmedi. İkisinin de testi
+`tests/convex/documents.test.ts`'te.
+
+### Snackbar stilinde `!` zorunlu — provider her toast'ı eziyor
+`components/providers/toaster-provider.tsx` `toastOptions.classNames.toast`
+ile TÜM toast'lara `bg-popover! text-popover-foreground!` dayatıyor
+(üstelik ternary'nin iki dalı birebir aynı — eski bir artık). Bu yüzden
+snackbar'ın ters renkli hapı açık zeminli çıkıyor ve "Restore" yazısı
+okunmaz koyulukta oluyordu. `lib/snackbar.tsx` kendi renklerini `!` ile
+yazıyor. Provider'daki ölü ternary temizlenmedi: kaldırmak richColors'ı
+devreye sokup TÜM hata toast'larının görünümünü değiştirir, istenmeyen
+kapsam. Ayrı bir iş olarak duruyor.
+
+## 2026-08-25 — Sidebar "..." menüsü Notion yapısına çekildi
+
+### Yapı ve ölçüler paylaşılan Notion DOM'undan
+Genişlik 265px, en fazla 70vh; ikonlar 20px; menü metni 14px; kısayol
+ipucu 12px ve soluk; üstte doküman tipini yazan soluk 12px etiket
+("Page" / "Database"). Öğeler üç gruba ayrıldı ve aralarına ayraç kondu:
+(1) favori, (2) Copy link / Duplicate / Rename / Move to / Move to Trash,
+(3) Open in new tab / Open in side peek. Altbilgi "Last edited by <ad>" +
+`formatLastEdited` damgası ("Today at 5:57 PM").
+"Delete" etiketi Notion'daki gibi **"Move to Trash"** oldu.
+
+### Kısayol ipucu yalnızca ÇALIŞAN kısayol için yazılır
+Notion menüsü Ctrl+⇧+R (Rename), Ctrl+⇧+P (Move to), Ctrl+⇧+↵ (yeni sekme)
+gösteriyor; bunlar projede yok, o yüzden yazılmadı — çalışmayan ipucu
+yanıltıcı. Yazılan tek ipucu `Alt+Click` ve o gerçekten çalışıyor
+(`DocumentList.tsx:147`, Notion-doğrulanmış).
+
+### shadcn `DropdownMenuItem` ikon boyutunu ve rengini EZİYOR
+Primitive'in sınıfında `[&_svg:not([class*='size-'])]:size-4` ve
+`[&_svg:not([class*='text-'])]:text-muted-foreground` var. Bunlar
+descendant seçici olduğu için svg'nin kendi `h-5 w-5`/renk utility'sinden
+daha yüksek özgüllükte — ikonlar sessizce 16px ve soluk çıkardı. Çözüm
+seçicinin kaçış kapısını kullanmak: her ikonun sınıfında **"size-" ve
+"text-" alt dizileri** geçiyor (`size-5 text-sidebar-icon`; kare olmayan
+LinkIcon/ArrowDiagonalUpRightIcon için `size-auto h-5 w-auto`). Bu
+dosyada yeni ikon eklerken aynı kural geçerli.
+
+## 2026-08-25 — View "..." menüsü Notion yapısına çekildi
+
+### Yapı ve ölçüler
+Genişlik 220px (paylaşılan Notion DOM'u), ikonlar 20px. Sıra Notion'ınki:
+Rename · Display as ▸ · Source — ayraç — Copy link to view — ayraç —
+Duplicate view · Delete view. "Duplicate"/"Delete" etiketleri Notion'daki
+gibi "… view" ekiyle yazıldı.
+
+### `setViewType` mutation'ı eklendi ("Display as")
+View'ın türünü table↔board değiştiriyor; board'a özgü ayarlar (groupBy,
+kart sırası) SİLİNMİYOR — tabloda görmezden geliniyor, geri dönünce
+yerinde duruyor. Journal'a bağlı, geri alınabilir. `ContextMenu`
+primitive'i iç içe menü desteklemediği için alt menü, ana menünün sağına
+(x + 220) açılan ikinci bir `ContextMenu` olarak kuruldu.
+
+### "Source" satırı chevron'suz ve tıklanamaz
+Notion'da bu satır kaynağı DEĞİŞTİREN bir alt menü açıyor; bizde kaynak
+değiştirilemiyor. Chevron koymak olmayan bir yeteneği vaat ederdi —
+satır yalnızca hangi database olduğunu gösteriyor (`databaseTitle` prop'u,
+`database-view.tsx`'ten geliyor; aynı `getById` sorgusu `DocumentView`'da
+da çalıştığı için Convex tekilleştirmesi sayesinde ek maliyeti yok).
+
+### "Edit view" eklenmedi
+Notion'da view ayar panelini açıyor. Bizde panel `database-toolbar`'ın
+kendi state'inde; menüden açmak bileşenler arası state kaldırmayı
+gerektirir. Ayrı bir iş olarak bırakıldı — dead menü öğesi konmadı.
+
+### Side peek satır kapağı hiç render EDİLMİYORDU
+`bac6fb6` "Add cover" düğmesini ve `databases.setRowCover` mutation'ını
+ekledi ama `row-peek-panel.tsx` kapağı ekrana basmıyordu — `row.coverImage`
+yalnızca düğmeyi gizlemek için okunuyordu. Semptom: kapak seçilince düğme
+kayboluyor, kapak hiç görünmüyor. Regresyon DEĞİL, baştan eksikmiş
+(kullanıcının hatırladığı çalışan kapak doküman kapağı, `components/cover.tsx`).
+Kapak artık panelin tam genişliğinde (yatay padding'in dışında) render
+ediliyor; hover'da "Change cover" / "Remove" düğmeleri çıkıyor
+(`onRemoveCover` → `setRowCover(undefined)`).
+
+### "Edit view" toolbar ayar paneline bağlandı
+Panelin açık/kapalı state'i `database-view.tsx`'e kaldırıldı;
+`DatabaseToolbar` artık `settingsOpen` / `onSettingsOpenChange` ile
+kontrollü. Böylece hem toolbar düğmesi hem view menüsündeki "Edit view"
+aynı paneli açıyor — ikinci bir panel kopyası yok.
+
+### "Source" kaynak değiştirme özelliği EKLENMEDİ (kullanıcı kararı)
+Bizde view kaynak dokümana ait (`databaseViews.databaseId`), Notion'daki
+gibi sayfaya konan bağımsız bir blok değil. Kaynağı değiştirmek view'ı
+hedef database'e TAŞIR ve bulunulan sayfadan kaldırır; ayrıca property'ye
+bağlı tüm ayarların ve kart sıralarının temizlenmesini gerektirir. Bir
+`setViewSource` mutation'ı yazılıp denendi, sonra kullanıcı kararıyla
+tamamen geri alındı. Menüdeki "Source" satırı yalnızca kaynağı gösteriyor:
+chevron yok, tıklanmıyor.
+
+## 2026-08-25 — Menü ikonları Notion'un kendi çizimleri, kırmızı çöp ikonu kaldırıldı
+
+### View menüsü ikonları lucide değil, Notion SVG'leri
+Paylaşılan DOM'daki path'ler birebir alındı ve
+`app/(main)/_components/icons/` altına kondu: `PencilLineIcon` (Rename),
+`PaintBrushIcon` (Display as), `SlidersLargeIcon` (Edit view),
+`PathRoundEndsIcon` (Source), `DuplicateIcon`, `ChevronRightSmallIcon`.
+`SlidersIcon` (16px `slidersSmall`) ile `SlidersLargeIcon` (20px `sliders`)
+FARKLI çizimler — birbirinin yerine kullanılmaz.
+
+### Kırmızı çöp ikonu projede YOK
+Kullanıcı kuralı: her yerde sidebar'ın `TrashIcon`'u kullanılır, kırmızı
+varyant kullanılmaz. lucide `Trash`/`Trash2` kullanan altı dosya
+(`row-peek-panel`, `row-menu`, `column-menu`, `database-sort-menu`,
+`database-filter-menu`, `board-card`) `TrashIcon`'a geçirildi.
+`ContextMenuItem`'ın `danger` prop'u — tek işi satırı kırmızıya boyamaktı —
+tamamen kaldırıldı ki yanlışlıkla geri gelmesin. Notion menülerinde de
+"Delete"/"Move to Trash" normal renkte.
+
+### `ContextMenu` açılış animasyonu
+Ölçülen değerler: 200ms, `ease`, `opacity + transform`, transform-origin
+sol-üst (`0% top`). Başlangıç değerleri DOM'da yoktu (fotoğraf animasyon
+bittikten sonra alınmıştı); Radix menülerimizin `zoom-in-95` açılışı
+kullanıldı ki uygulamadaki iki menü türü aynı hissetsin. State + rAF ile
+denendi ama React-compiler'ın `set-state-in-effect` kuralına takıldı —
+CSS animasyonu (`animate-in`) doğru araç.
+
+### `ContextMenuItem` ikon yuvası 20px, boyut ezme guard'lı
+Yuva `size-[18px]` + `[&_svg]:size-[15px]` idi; descendant seçici olduğu
+için ikonun kendi boyutunu eziyordu (aynı tuzak shadcn
+`DropdownMenuItem`'da da var). Artık yuva `size-5` ve zorlama
+`[&_svg:not([class*='size-'])]:size-[15px]` — kendi boyutunu söyleyen
+Notion ikonları 20px kalıyor, eskiler 15px'te.
+
+### Düğme/sekme menüleri fare konumuna DEĞİL, tetikleyiciye sabitlenir
+Notion DOM'u: view sekmesinin menüsü `--x-insetInlineStart: 0`,
+sarmalayıcı `top: 100%` — yani sekmenin sol-alt köşesine sabit. Bizimki
+`e.clientX/clientY` kullanıyordu, menü her açılışta biraz farklı yerde
+beliriyordu. Artık tetikleyicinin `getBoundingClientRect()`'i kullanılıyor:
+view sekmesi menüsü ve board kolonunun "..." menüsü. "Display as" alt
+menüsü de sabit piksel tahmini (`menu.x + 220`) yerine tetikleyen SATIRIN
+sağ kenarına hizalanıyor — bunun için `ContextMenuItem.onClick` artık
+mouse event geçiyor.
+
+**İstisna — gerçek sağ tık menüleri fare konumunda kalır:** editördeki
+görsel sağ tık menüsü (`editor.tsx`). Orada işaretçi konumu platform
+sözleşmesi ve Notion da aynısını yapıyor; görselin köşesine sabitlemek
+büyük görsellerde menüyü ekranın uzağına atardı.
+
+### "Display as" Notion'da view TÜRÜ değil, SEKME GÖRÜNÜMÜ
+İlk uygulamada table/board değiştirici sanılmıştı — yanlış. Paylaşılan DOM
+ve ekran görüntüsü: seçenekler **Text and icon / Text only / Icon only**,
+altında ayraç ve "Only applies to you" bilgi satırı, satırlarda ikon yok,
+seçili olanda sağda `checkmarkSmall`. Yeni `databaseViews.tabDisplay`
+alanı `SETTING_FIELDS`'a eklendi, yani `updateViewSettings` üzerinden
+gidiyor ve journal'a otomatik bağlı. "Only applies to you": Zotion tek
+sahipli olduğu için ayarı view kaydında tutmak fiilen kullanıcıya özel
+tutmakla aynı.
+
+`setViewType` mutation'ı duruyor ama artık menüden erişilmiyor — Notion'da
+view türü "Edit view" panelinden değişiyor; oraya bağlanması ayrı iş.
+
+### `ContextMenu` ilk açılışta ekranın sol üstünden "uçuyordu"
+Konum state'i `useState({left: x, top: y})` ile bir KEZ ilkleniyordu;
+menü kapalıyken `x`/`y` 0 geldiği için ilk açılış (0,0)'da boyanıyor,
+layout effect'i ancak sonraki karede düzeltiyordu — açılış animasyonu bunu
+sol üstten bir yolculuk gibi gösteriyordu. Artık konum render sırasında
+türetiliyor: ölçüm yapılana kadar doğrudan çapanın kendisi kullanılıyor,
+ölçüm hangi çapa için yapıldığı (`forX`/`forY`) ile birlikte saklanıyor.
+
+### İç içe menüde tıklama HİÇ ULAŞMIYORDU — ayrı portal tuzağı
+"Display as" alt menüsündeki bir seçeneğe tıklayınca menü kapanıyor ama
+hiçbir şey değişmiyordu. Sebep: `ContextMenu` dışına `pointerdown` gelince
+kapanıyor ve alt menü AYRI BİR PORTAL'a çiziliyor, yani ana menünün
+`menuRef.current.contains(target)` kontrolü onu "dışarısı" sayıyordu.
+Alt menüye basıldığı anda ana menü kapanıyor, alt menü de `menu !== null`
+koşuluyla unmount oluyor ve `click` olayı hiç ulaşmıyordu (pointerdown
+click'ten önce gelir).
+
+Çözüm: `ContextMenu`'ye `rootRef` (kök elemanı dışarı verir) ve
+`ignoreRef` (bu elemanın içindeki pointerdown'lar kapatmaz) props'ları.
+Ana menü alt menünün ref'ini `ignoreRef` olarak alıyor. İç içe menü
+eklerken bu bağlantı KURULMAZSA tıklama sessizce çalışmaz.
+
+### Alt menü hover ile açılır, gecikme yok
+Notion'da "Display as" üzerine gelmek yetiyor; komşu satıra geçilince
+kapanıyor. Tıklama da çalışmaya devam ediyor. Hover-intent gecikmesi
+KONMADI — kullanıcı Notion'da gecikme olmadığını belirtti.
+
+### Board kartı satırın KAPAĞINI ve İKONUNU gösteriyor
+Kart ölçüleri zaten Notion'dan alınmıştı (`--kanban-*` token'ları: 10px
+yan boşluk, 8/6 üst-alt, 148px kapak, 15px başlık, 28px/5px/5px property
+satırı) — eksik olan veriydi. Kart `row.coverImage` ve `row.icon`
+alanlarını hiç okumuyordu; kapak yerine gri bir "Cover" yer tutucu vardı
+("satırların sayfası yok" gerekçesiyle, artık geçersiz: satırlar
+`setRowCover`/`setRowIcon` ile ikon ve kapak taşıyor).
+
+Kapak yoksa alan HİÇ çizilmiyor (Notion böyle) — yer tutucu kaldırıldı.
+İkon: 24x24 yuva, içinde 20x20, emoji 14px, radius 5, sola -2px taşma,
+başlığa 4px boşluk, uzun başlıkta üste hizalı (DOM'dan birebir).
+
+### Board kartında `cardPreview` varsayılanı "cover"
+Kapak kartta hâlâ görünmüyordu: `databaseViews.cardPreview` optional ve
+onu YAZAN bir ayar UI'ı hiç yok, yani her view'da `undefined` geliyor.
+`cardPreview === "cover"` koşulu bu yüzden asla tutmuyordu. Notion'ın
+board varsayılanı zaten "Card preview: Page cover" — `BoardCard`'ın
+destructure'ında `cardPreview = "cover"` verildi. Ayar UI'ı eklenirse
+varsayılan yine burada kalır.
+
+Not: satır kapakları galeriden seçildiğinde HARİCİ URL olarak saklanıyor
+(`https://app.notion.com/images/page-cover/...`), yüklenenler ise göreli
+`/api/files/...`. Kapak arayan bir sorgu ikisini de hesaba katmalı.
+
+### Board sürüklemesi kartı SOLA sıçratıyordu — tutma ofseti tek eksendi
+`use-board-dnd.ts` yalnızca `grabY` (dikey ofset) saklıyordu; klon
+`translate3d(x, y + grabY)` ile konumlanıyordu, yani kartın SOL KENARI
+imlece yapışıyordu. Notion'da kart tutulduğu noktadan gider. `grabX`
+eklendi (`cardRect.left - e.clientX`) ve transform iki eksende de ofset
+uyguluyor. `onPointerDown` imzası `cardTop: number` yerine
+`cardRect: { top, left, width }` alıyor.
+
+Ayrıca klonun genişliği yoktu: `position: fixed` bir kap içerik kadar
+daralır, sürüklenen kart orijinalinden dar görünüyordu. Kaynağın genişliği
+drag durumunda taşınıp klona veriliyor.
+
+### Kapak `<img>`'i sürüklemeyi kırmıştı
+`<img>` tarayıcıda varsayılan olarak sürüklenebilir; kapaktan tutunca
+tarayıcının HTML5 görsel sürüklemesi başlayıp kartın pointer sürüklemesini
+engelliyordu. Notion'un kapak sarmalayıcısında da `pointer-events: none`
+var — aynısı uygulandı, ayrıca `draggable={false}`. Karta Notion'daki gibi
+`user-select: none` kondu (başlık girişine `select-text` ile istisna).
+
+### Tip değişince otomatik ad da yenilenir
+Kolonun tipi değişince adı eskisi gibi kalıyordu ("Text" adlı kolon
+"select" olunca hâlâ "Text"). Notion'da ad TÜRETİLMİŞ varsayılansa yeni
+tipin adına döner. `changePropertyType` artık adın otomatik olup olmadığını
+sınıyor (`PROPERTY_TYPE_LABELS[eskiTip]` ya da `"<label> <n>"` kalıbı) ve
+yalnızca öyleyse `uniquePropertyName` ile yeniliyor — kullanıcının verdiği
+ad korunuyor. Ad değişimi journal'a da giriyor (undo eski adı geri getirir).
+
+### Side peek "Edit property" menüsünde seçili tip görünmüyordu
+Tip listesi tamamen işaretsizdi; hangi tipin yürürlükte olduğu belli
+değildi. Seçili satıra `CheckmarkSmallIcon` kondu (Notion'daki gibi sağda).

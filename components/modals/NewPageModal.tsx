@@ -49,11 +49,7 @@ export const NewPageModal = () => {
       router.push(`/documents/${documentId}?fresh=1`),
     );
 
-    toast.promise(promise, {
-      loading: type === "database" ? "Creating a new database…" : "Creating a new note…",
-      success: type === "database" ? "New database created." : "New note created.",
-      error: "Failed to create.",
-    });
+    promise.catch(() => toast.error("Failed to create."));
 
     onOpenChange(false);
   };

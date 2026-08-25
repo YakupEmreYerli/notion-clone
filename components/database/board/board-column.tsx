@@ -28,7 +28,7 @@ interface BoardColumnProps {
     e: React.PointerEvent,
     rowId: Id<"databaseRows">,
     groupKey: string,
-    cardTop: number,
+    cardRect: { top: number; left: number; width: number },
   ) => void;
   suppressClickRef?: React.RefObject<boolean | null>;
   /** Kolon bu grup için inline kart oluşturma modunda mı? */

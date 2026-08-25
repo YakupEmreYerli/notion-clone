@@ -42,11 +42,7 @@ export const TrashBox = () => {
     event.stopPropagation();
     const promise = restore({ id: documentId });
 
-    toast.promise(promise, {
-      loading: "Restoring note..",
-      success: "Note restored!",
-      error: "Failed to restore note.",
-    });
+    promise.catch(() => toast.error("Failed to restore note."));
   };
 
   const onRemove = (documentId: Id<"documents">) => {
@@ -57,11 +53,7 @@ export const TrashBox = () => {
 
     const promise = remove({ id: documentId });
 
-    toast.promise(promise, {
-      loading: "Deleting note..",
-      success: "Note deleted!",
-      error: "Failed to delete note.",
-    });
+    promise.catch(() => toast.error("Failed to delete note."));
 
     if (params.documentId === documentId) {
       router.push("/documents");
@@ -76,11 +68,7 @@ export const TrashBox = () => {
 
     const promise = removeAll();
 
-    toast.promise(promise, {
-      loading: "Emptying trash..",
-      success: "Trash emptied!",
-      error: "Failed to empty trash.",
-    });
+    promise.catch(() => toast.error("Failed to empty trash."));
 
     if (params.documentId) {
       const isCurrentDocInTrash = documents?.some(

@@ -263,9 +263,110 @@ describe("silme temizliği", () => {
 
     await owner.mutation(api.databases.deleteRow, { rowId: row._id });
 
+    // Hayalet kart yok: satır canlı okumalardan düşer.
+    const rows = await owner.query(api.databases.getRows, { databaseId });
+    expect(rows.map((r) => r._id)).not.toContain(row._id);
+
+    // Sıra kaydı BİLEREK duruyor — geri alındığında kart board'daki eski
+    // grubuna ve sırasına dönsün diye (bkz. databases.ts: deleteRow).
     const leftovers = await t.run(async (ctx) =>
       ctx.db.query("viewCardOrder").collect(),
     );
-    expect(leftovers).toEqual([]);
+    expect(leftovers).toHaveLength(1);
+    expect(leftovers[0].rowId).toBe(row._id);
+  });
+
+  it("deleteRow geri alınınca satır ve board sırası birlikte döner", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+    const before = await owner.query(api.databases.getRows, { databaseId });
+
+    await owner.mutation(api.databases.deleteRow, { rowId: before[1]._id });
+    expect(
+      (await owner.query(api.databases.getRows, { databaseId })).map(
+        (r) => r._id,
+      ),
+    ).toEqual([before[0]._id, before[2]._id]);
+
+    await owner.mutation(api.history.undo, { scopeId: databaseId });
+
+    const after = await owner.query(api.databases.getRows, { databaseId });
+    expect(after.map((r) => r._id)).toEqual(before.map((r) => r._id));
+    expect(after[1].order).toBe(before[1].order);
+  });
+});
+
+describe("changePropertyType — otomatik ad", () => {
+  it("adı tipten türetilmişse yeni tipin adına döner", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+    const propertyId = await owner.mutation(api.databases.createProperty, {
+      databaseId,
+      type: "text",
+    });
+    const before = (
+      await owner.query(api.databases.getSchema, { databaseId })
+    ).find((p) => p._id === propertyId);
+    expect(before?.name).toBe("Text");
+
+    await owner.mutation(api.databases.changePropertyType, {
+      propertyId,
+      type: "select",
+    });
+
+    const after = (
+      await owner.query(api.databases.getSchema, { databaseId })
+    ).find((p) => p._id === propertyId);
+    expect(after?.name).toBe("Select");
+    expect(after?.type).toBe("select");
+  });
+
+  it("kullanıcı adı verdiyse ad KORUNUR", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+    const propertyId = await owner.mutation(api.databases.createProperty, {
+      databaseId,
+      type: "text",
+      name: "Durum",
+    });
+
+    await owner.mutation(api.databases.changePropertyType, {
+      propertyId,
+      type: "select",
+    });
+
+    const after = (
+      await owner.query(api.databases.getSchema, { databaseId })
+    ).find((p) => p._id === propertyId);
+    expect(after?.name).toBe("Durum");
+  });
+
+  it("ad değişimi de geri alınabilir", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+    const propertyId = await owner.mutation(api.databases.createProperty, {
+      databaseId,
+      type: "text",
+    });
+
+    await owner.mutation(api.databases.changePropertyType, {
+      propertyId,
+      type: "select",
+    });
+    await owner.mutation(api.history.undo, { scopeId: databaseId });
+
+    const after = (
+      await owner.query(api.databases.getSchema, { databaseId })
+    ).find((p) => p._id === propertyId);
+    expect(after?.name).toBe("Text");
+    expect(after?.type).toBe("text");
   });
 });

@@ -99,7 +99,6 @@ export const ImageContextMenu = ({
       <ContextMenuItem
         icon={<TrashIcon className="size-4" />}
         label="Delete"
-        danger
         onClick={closeAfter(onDelete)}
       />
 

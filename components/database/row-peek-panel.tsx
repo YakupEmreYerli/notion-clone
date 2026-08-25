@@ -1,18 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import {
-  ChevronsRight,
-  ImageIcon,
-  Maximize2,
-  Minimize2,
-  Copy,
-  Pencil,
-  Plus,
-  Repeat2,
-  Smile,
-  Trash,
-} from "lucide-react";
+import { ChevronsRight, ImageIcon, Maximize2, Minimize2, Copy, Pencil, Plus, Repeat2, Smile } from "lucide-react";
+import { TrashIcon } from "@/app/(main)/_components/icons/TrashIcon";
+import { CheckmarkSmallIcon } from "@/app/(main)/_components/icons/CheckmarkSmallIcon";
 import { IconPicker } from "@/components/icon-picker";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -56,6 +47,7 @@ interface RowPeekPanelProps {
   onIconChange?: (icon: string | undefined) => void;
   /** Kapak seçiciyi açar (satır hedefiyle). */
   onAddCover?: () => void;
+  onRemoveCover?: () => void;
   /** Veritabanına yeni bir property ekler. */
   onAddProperty?: () => void;
   /** Property etiketi menüsünün eylemleri (Notion: Rename / Edit / Duplicate / Delete). */
@@ -77,6 +69,7 @@ export const RowPeekPanel = ({
   onCommit,
   onIconChange,
   onAddCover,
+  onRemoveCover,
   onAddProperty,
   propertyActions,
 }: RowPeekPanelProps) => {
@@ -109,7 +102,9 @@ export const RowPeekPanel = ({
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
         style={{ width, maxWidth: "none" }}
-        className="bg-background dark:bg-dark top-0 right-0 left-auto flex h-full max-h-screen w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 border-l p-0 shadow-none"
+        // Notion: yuzey --c-bacEle (yukseltilmis zemin), golge --c-shaOutMd;
+        // sol kenarlik YOK, ayrimi golge yapiyor.
+        className="bg-card top-0 right-0 left-auto flex h-full max-h-screen w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-[0_0_0_1px_var(--border),0_4px_12px_-2px_rgba(25,25,25,0.08)]"
       >
         {/* Genişlik tutamacı — Notion'da peek sol kenarından sürüklenerek
             daraltılıp genişletiliyor. Pointer capture şart: imleç 6px'lik
@@ -150,13 +145,13 @@ export const RowPeekPanel = ({
             resizing.current = false;
             if (panelRef.current) panelRef.current.style.transition = "";
           }}
-          className="hover:bg-primary/10 absolute inset-y-0 left-0 z-20 w-1.5 cursor-col-resize touch-none"
+          className="hover:bg-primary/10 absolute inset-y-0 left-0 z-20 w-3 cursor-col-resize touch-none"
         />
 
         <DialogTitle className="sr-only">Row properties</DialogTitle>
         {/* Notion'da başlık çubuğunun SOL grubunda kapat ve peek modu
             butonları var (ölçüm: board-parity.md — hepsi 24x24). */}
-        <div className="bg-background dark:bg-dark flex h-11 shrink-0 items-center gap-1 px-3">
+        <div className="bg-card flex h-11 shrink-0 items-center gap-0.5 pr-2.5 pl-3">
           <button
             type="button"
             aria-label="Close"
@@ -176,11 +171,51 @@ export const RowPeekPanel = ({
         </div>
 
         {/* Notion: layout-side-peek padding-bottom 120px. */}
-        <div className="group/peek min-h-0 flex-1 overflow-y-auto px-12 pt-1 pb-[120px]">
+        <div className="group/peek min-h-0 flex-1 overflow-y-auto pb-[120px]">
           {!row || !properties ? (
-            <div className="text-muted-foreground text-sm">Loading…</div>
+            <div className="text-muted-foreground px-[76px] text-sm">Loading…</div>
           ) : (
             <>
+              {/* Kapak. Yatay padding'in DIŞINDA — Notion'da kapak panelin
+                  tam genişliğini kaplar. Değiştir/kaldır düğmeleri doküman
+                  kapağındaki gibi yalnızca hover'da beliriyor. */}
+              {row.coverImage && (
+                // Notion olcumu: height 20vh, max-height 280px.
+                <div className="group/cover relative mb-2 h-[20vh] max-h-[280px] w-full">
+                  {/* Kapak göreli URL (`/api/files/...`) — erişim kontrolü
+                      sunucuda, bkz. .claude/rules/project/convex.md. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={row.coverImage}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                    style={{ objectPosition: "center 100%" }}
+                  />
+                  <div className="absolute right-3 bottom-3 flex gap-1 opacity-0 transition-opacity duration-100 group-hover/cover:opacity-100">
+                    {onAddCover && (
+                      <button
+                        type="button"
+                        onClick={onAddCover}
+                        className="bg-background/80 text-muted-foreground hover:bg-background rounded-md px-2 py-1 text-xs backdrop-blur-sm"
+                      >
+                        Change cover
+                      </button>
+                    )}
+                    {onRemoveCover && (
+                      <button
+                        type="button"
+                        onClick={onRemoveCover}
+                        className="bg-background/80 text-muted-foreground hover:bg-background rounded-md px-2 py-1 text-xs backdrop-blur-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {/* Notion layout: icerik kolonu iki yanda 76px margin ile
+                  (--margin-width: 76px). */}
+              <div className="px-[76px]">
               {/* Sayfa kontrolleri — Notion'da yalnızca hover'da beliriyor
                   (opacity 0 → 1, 100ms), yükseklik 4px/4px padding. */}
               <div className="flex gap-1 py-1 opacity-0 transition-opacity duration-100 group-hover/peek:opacity-100">
@@ -254,6 +289,7 @@ export const RowPeekPanel = ({
                 </button>
               )}
 
+              </div>
             </>
           )}
         </div>
@@ -283,7 +319,7 @@ function RowPropertyEditor({
           value={typeof value === "string" ? value : ""}
           placeholder="Empty"
           onChange={(e) => onCommit(e.target.value)}
-          className="text-foreground hover:bg-secondary focus:bg-secondary min-h-[34px] min-w-0 flex-1 rounded bg-transparent px-1.5 text-sm outline-none"
+          className="text-foreground hover:bg-secondary focus:bg-secondary ml-2 min-h-[34px] min-w-0 flex-1 rounded bg-transparent px-1.5 text-sm outline-none"
         />
       </div>
     );
@@ -296,7 +332,7 @@ function RowPropertyEditor({
     return (
       <div className="flex items-center gap-1">
         <PropertyLabel property={property} actions={actions} />
-        <div className="flex min-h-[34px] min-w-0 flex-1 items-center px-1.5">
+        <div className="ml-2 flex min-h-[34px] min-w-0 flex-1 items-center rounded px-1.5">
           <SelectCell
             property={property}
             value={value as string | string[] | null | undefined}
@@ -315,7 +351,7 @@ function RowPropertyEditor({
   return (
     <div className="flex items-center gap-1">
       <PropertyLabel property={property} actions={actions} />
-      <div className="flex min-h-[34px] min-w-0 flex-1 items-center px-1.5">
+      <div className="ml-2 flex min-h-[34px] min-w-0 flex-1 items-center rounded px-1.5">
         <PropertyValue property={property} row={row} />
       </div>
     </div>
@@ -380,7 +416,7 @@ function PropertyLabel({
           {label}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      <DropdownMenuContent align="start" className="w-[220px]">
         <DropdownMenuItem onClick={() => setRenaming(true)}>
           <Pencil className="mr-2 size-4" />
           Rename
@@ -397,7 +433,12 @@ function PropertyLabel({
                 onClick={() => actions.changeType(property._id, option.type)}
               >
                 <option.icon className="mr-2 size-4" />
-                {option.label}
+                <span className="flex-1">{option.label}</span>
+                {/* Hangi tipin YÜRÜRLÜKTE olduğu görünmüyordu; menü tamamen
+                    işaretsizdi. Seçili tipte sağda onay işareti. */}
+                {property.type === option.type && (
+                  <CheckmarkSmallIcon className="text-muted-foreground ml-2 size-4" />
+                )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuSubContent>
@@ -408,7 +449,7 @@ function PropertyLabel({
           Duplicate property
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.remove(property._id)}>
-          <Trash className="mr-2 size-4" />
+          <TrashIcon className="mr-2 size-4" />
           Delete property
         </DropdownMenuItem>
       </DropdownMenuContent>

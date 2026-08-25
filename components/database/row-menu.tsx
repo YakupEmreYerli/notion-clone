@@ -1,14 +1,8 @@
 "use client";
 
 import { useMutation } from "convex/react";
-import {
-  ArrowDownToLine,
-  ArrowUpToLine,
-  Copy,
-  GripVertical,
-  MoreHorizontal,
-  Trash,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, Copy, GripVertical, MoreHorizontal } from "lucide-react";
+import { TrashIcon } from "@/app/(main)/_components/icons/TrashIcon";
 
 import {
   DropdownMenu,
@@ -89,7 +83,7 @@ export const RowMenu = ({
                 onClick={() => deleteRow({ rowId: row._id })}
                 className="text-red-600 focus:text-red-600"
               >
-                <Trash className="mr-2 h-4 w-4" />
+                <TrashIcon className="mr-2 size-4" />
                 Delete
               </DropdownMenuItem>
             </DropdownMenuContent>

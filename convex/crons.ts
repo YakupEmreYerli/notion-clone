@@ -22,4 +22,13 @@ crons.interval(
   internal.databaseViews.ensureDefaultViews,
 );
 
+// Soft-delete edilen tablo satır/kolonlarını 30 gün sonra kalıcı siler
+// (bkz. databases.ts: purgeSoftDeleted). Undo penceresi çoktan kapanmış
+// kayıtların sonsuza kadar yer kaplamasını engeller.
+crons.interval(
+  "purge soft deleted database records",
+  { hours: 24 },
+  internal.databases.purgeSoftDeleted,
+);
+
 export default crons;
