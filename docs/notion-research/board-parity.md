@@ -101,19 +101,18 @@ sistemi yok; diğer ikisi view ayarı ve panel view'ı bilmiyor).
 
 ## Henüz ÖLÇÜLMEDİ — çıkarsama yapılmayacak
 
-Bu tur ölçüm alınamayan yüzeyler (kart tıklaması peek'i toggle'ladığı için
-ikinci geçiş boş döndü):
+Yukarıdaki "Panel yüzeyi ve düzeni" bölümü kullanıcının paylaştığı tam DOM'dan
+geldiği için önceki eksiklerin çoğu kapandı. Kalanlar:
 
-- **`Add cover` / `Customize layout`** satırı — başlığın üstünde, yalnızca
-  hover'da beliriyor (kullanıcının ekran görüntüsünde görünür).
-- **Genişlik sürükleme tutamacı** — peek'in sol kenarındaki `col-resize`
-  bölge; ölçümde bulunan tek `col-resize` sidebar'a aitti, peek'inki ayrıca
-  ölçülmeli.
-- Property satırlarının hizası/ölçüleri, `Add a property`, `Comments` bölümü.
 - Peek açılış animasyonu ve minimum/maksimum genişlik sınırları.
 
-## Bilinen Zotion hatası (henüz düzeltilmedi)
+## Çözülmüş bulgular
 
-Kullanıcı bildirimi: **side peek açıkken içindeki rozetlere (select/multi-select
-chip) ulaşılamıyor.** Henüz doğrulanmadı, sebebi bulunmadı —
-`components/modals/RowPeekModal.tsx` üzerinde ayrıca incelenecek.
+- **Rozetlere ulaşılamıyor** — sebebi bulundu ve düzeltildi: `select` rozeti
+  salt görünümdü (düzenleme için yanına ayrı bir native `<select>` konmuştu),
+  `multiSelect` ise hiç düzenlenemiyordu. İkisi de tablonun gerçek `SelectCell`
+  editörünü kullanıyor.
+- **Peek açıkken arkadaki arayüz ölüydü** — Radix `Dialog` modaldı ve `body`'ye
+  `pointer-events: none` koyuyordu. `modal={false}` + dışarı etkileşiminin
+  paneli kapatmaması.
+- **Kapak gösterilmiyordu** — eklenebiliyor ama render edilmiyordu.
