@@ -6,23 +6,31 @@
 
 ## Route groups
 
-- `app/(landing)` — marketing/landing page, unauthenticated.
+- `app/(auth)` — `/login` and `/register`, unauthenticated. Shared split-screen shell
+  in `app/(auth)/layout.tsx` (brand panel left, form column right; the panel is hidden
+  below `lg`). Both pages are **server components** that redirect before rendering:
+  a live session goes to `/documents`, and `/register` goes to `/login` once any
+  account exists. There is no landing page and no auth modal — sign-in lives only here.
 - `app/(main)` — the authenticated app (sidebar, editor, database view). Gated by
   `proxy.ts` (see below), not by per-page checks.
 - `app/(public)` — `/preview/<id>`, the read-only unauthenticated publish view.
-- The three groups share no layout. Don't assume a component under one is reachable
+- `app/page.tsx` sits outside every group and renders nothing — it resolves a
+  destination through `resolveRootDestination` (`lib/auth-routing.ts`, kept pure so
+  all three branches are unit-testable) and redirects.
+- The groups share no layout. Don't assume a component under one is reachable
   from another without an explicit import.
 
 ## Route protection (`proxy.ts`)
 
 - `proxy.ts` is an **optimistic** cookie-presence check only (`getSessionCookie`) — it
   never touches the database, so it stays edge-safe, and it only decides
-  redirect-to-`/` vs. pass-through. It is not the source of truth for authorization.
+  redirect-to-`/login` vs. pass-through. It is not the source of truth for authorization.
   Every Convex query/mutation and every `app/api/*` route re-verifies the session (or
   JWT) itself via `requireUser` / Better Auth — never rely on `proxy.ts` alone to
   protect data.
-- `PUBLIC_ROUTES` in `proxy.ts` currently allows `/`, `/preview/*`, `/api/auth/*`,
-  `/api/files/*`, `/.well-known/*`. Adding a new public route means adding it there,
+- `PUBLIC_ROUTES` in `proxy.ts` currently allows `/`, `/login`, `/register`,
+  `/preview/*`, `/api/auth/*`, `/api/files/*`, `/.well-known/*`. `/` stays public
+  because it no longer holds content — it redirects. Adding a new public route means adding it there,
   not just skipping an auth check deeper in the page.
 
 ## Document type branching

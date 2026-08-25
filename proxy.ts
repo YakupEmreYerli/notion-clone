@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionCookie } from "better-auth/cookies";
 
 const PUBLIC_ROUTES = [
+  // `/` artik icerik tutmuyor, sunucuda karar verip yonlendiriyor
+  // (app/page.tsx) — bu yuzden hala herkese acik olmali.
   /^\/$/,
+  /^\/login$/,
+  /^\/register$/,
   /^\/preview(\/.*)?$/,
   /^\/api\/auth(\/.*)?$/,
   /^\/api\/files(\/.*)?$/,
@@ -32,7 +36,7 @@ export default function proxy(request: NextRequest) {
 
   if (!getSessionCookie(request)) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/login";
     url.search = "";
     return NextResponse.redirect(url);
   }

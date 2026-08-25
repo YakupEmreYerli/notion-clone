@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 
 import { SettingsModal } from "@/components/modals/SettingsModal";
 import { CoverImageModal } from "@/components/modals/CoverImageModal";
-import { AuthModal } from "@/components/modals/AuthModal";
 import { AccountModal } from "@/components/modals/AccountModal";
 import { PeekModal } from "@/components/modals/PeekModal";
 import { RowPeekModal } from "@/components/modals/RowPeekModal";
@@ -25,7 +24,6 @@ export const ModalProvider = () => {
     <>
       <SettingsModal />
       <CoverImageModal />
-      <AuthModal />
       <AccountModal />
       <PeekModal />
       <RowPeekModal />
