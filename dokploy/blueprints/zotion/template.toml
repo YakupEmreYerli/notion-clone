@@ -1,0 +1,41 @@
+[variables]
+main_domain = "${domain}"
+# Convex ayrı bir domain ister: tarayıcı Convex backend'ine DOĞRUDAN bağlanır,
+# bu yüzden URL'i uygulamanınkinden farklı ve dışarıdan erişilebilir olmalı.
+convex_domain = "${domain}"
+postgres_password = "${password:32}"
+better_auth_secret = "${password:48}"
+convex_instance_secret = "${hash:64}"
+s3_access_key = "${username}"
+s3_secret_key = "${password:40}"
+
+[config]
+
+[[config.domains]]
+serviceName = "zotion"
+port = 3000
+host = "${main_domain}"
+
+[[config.domains]]
+serviceName = "convex-backend"
+port = 3210
+host = "${convex_domain}"
+
+env = [
+  "POSTGRES_PASSWORD=${postgres_password}",
+  "BETTER_AUTH_SECRET=${better_auth_secret}",
+  "CONVEX_INSTANCE_SECRET=${convex_instance_secret}",
+  "S3_ACCESS_KEY_ID=${s3_access_key}",
+  "S3_SECRET_ACCESS_KEY=${s3_secret_key}",
+]
+
+[[config.mounts]]
+filePath = "/postgres-init.sh"
+content = """
+#!/bin/bash
+set -e
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
+  SELECT 'CREATE DATABASE $AUTH_DATABASE_NAME'
+  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$AUTH_DATABASE_NAME')\\gexec
+EOSQL
+"""

@@ -1,0 +1,17 @@
+{
+  "id": "zotion",
+  "name": "Zotion",
+  "version": "0.1.0",
+  "description": "Zotion is a self-hosted Notion alternative: pages, a block editor, and Notion-style databases with table and board views. No SaaS dependency — Next.js, Convex, Postgres and MinIO all run on your own server.",
+  "logo": "zotion.svg",
+  "links": {
+    "github": "https://github.com/YakupEmreYerli/notion-clone",
+    "website": "https://github.com/YakupEmreYerli/notion-clone",
+    "docs": "https://github.com/YakupEmreYerli/notion-clone#readme"
+  },
+  "tags": [
+    "productivity",
+    "notes",
+    "cms"
+  ]
+}
