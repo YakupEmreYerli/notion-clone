@@ -36,18 +36,25 @@ const threeCards = board.rows.slice(1);
 export function BoardFixture() {
   const [contextMenu, setContextMenu] = useState(false);
   const [dragEnabled, setDragEnabled] = useState(true);
+  // Peek'in gerçekten açıldığını test edebilmek için: onOpenRow boş bir
+  // fonksiyonken "buton görünüyor mu" dışında hiçbir şey doğrulanamıyordu.
+  const [openedRowId, setOpenedRowId] = useState<string | null>(null);
 
   const columnProps = {
     titleProperty: board.titleProperty,
     visibleProperties: board.visibleProperties,
-    onOpenRow: () => {},
+    onOpenRow: (row: { _id: string }) => setOpenedRowId(row._id),
     onAddCard: () => {},
     onDragPointerDown: dragEnabled ? () => {} : undefined,
   };
 
   return (
     <main className="bg-background text-foreground min-h-screen p-12">
-      <section className="mx-auto max-w-[1100px]" data-board-fixture>
+      <section
+        className="mx-auto max-w-[1100px]"
+        data-board-fixture
+        data-opened-row={openedRowId ?? undefined}
+      >
         <button
           type="button"
           className="sr-only"

@@ -31,6 +31,29 @@ export class BoardPage {
     await expect(this.columns.first()).toBeVisible();
   }
 
+  /** Kart hover aksiyonlarındaki başlık düzenleme / side-peek butonu. */
+  cardEditButton(card: Locator) {
+    return card.getByRole("button", { name: "Edit title" });
+  }
+
+  cardPeekButton(card: Locator) {
+    return card.getByRole("button", { name: "Open in side peek" });
+  }
+
+  cardTitleInput(card: Locator) {
+    return card.getByRole("textbox", { name: "Card title" });
+  }
+
+  /**
+   * Fixture, açılan satırı buraya yazar — peek'in gerçekten açıldığını
+   * doğrulayabilmek için (yalnızca fixture route'unda anlamlı).
+   */
+  openedRowId() {
+    return this.page
+      .locator("[data-board-fixture]")
+      .getAttribute("data-opened-row");
+  }
+
   /** Fixture route'unda mıyız, gerçek uygulamada mı? */
   isFixture() {
     return this.page.locator("[data-board-fixture]").isVisible();

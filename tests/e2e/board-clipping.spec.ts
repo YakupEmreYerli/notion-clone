@@ -48,13 +48,16 @@ test.describe("Board surface clipping", () => {
     const actions = await board.revealCardActions(card);
     const title = board.cardTitle(card);
 
-    for (const name of ["Drag card", "Card actions"]) {
+    // Notion'da sürükleme butonu YOK — kartın kendisi sürükleniyor
+    // (ölçüm: docs/notion-research/board-parity.md). Hover'da tek bir çip
+    // içinde iki düz buton var; zemin ve gölge butonlarda değil ÇİPTE.
+    await expect(card.getByRole("button", { name: "Drag card" })).toHaveCount(0);
+    await expect(actions).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(actions).not.toHaveCSS("box-shadow", "none");
+    for (const name of ["Edit title", "Card actions"]) {
       const action = card.getByRole("button", { name });
-      await expect(action).not.toHaveCSS(
-        "background-color",
-        "rgba(0, 0, 0, 0)",
-      );
-      await expect(action).not.toHaveCSS("box-shadow", "none");
+      await expect(action).toBeVisible();
+      await expect(action).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     }
     await assertNoUnexpectedClipping(actions);
 
@@ -106,11 +109,15 @@ test.describe("Board surface clipping", () => {
   test("card actions button opens the row actions menu", async ({ page }) => {
     await board.openCardActionsMenu(board.cards.first());
 
-    await expect(page.getByRole("menuitem", { name: "Open" })).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Open in side peek" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("menuitem", { name: "Duplicate" }),
     ).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Move to Trash" }),
+    ).toBeVisible();
   });
 
   test("dropdown and context menu escape board overflow", async ({ page }) => {

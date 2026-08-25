@@ -2,7 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
-import { Copy, File, GripVertical, MoreHorizontal, Trash2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  Copy,
+  File,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
@@ -53,15 +60,31 @@ export const BoardCard = ({
   suppressClickRef,
 }: BoardCardProps) => {
   const [hovered, setHovered] = useState(false);
+  // Menü açıkken ya da başlık düzenlenirken aksiyonlar görünür kalmalı; yoksa
+  // fare portal'a geçtiği an kart mouseleave alıp onları kaybediyordu.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
   const duplicateRow = useMutation(api.databases.duplicateRow);
   const deleteRow = useMutation(api.databases.deleteRow);
+  const updateCell = useMutation(api.databases.updateCell);
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const colors = groupColorVars(groupColor);
 
   const title = titleProperty ? row.cells[titleProperty._id] : undefined;
   const titleText =
     typeof title === "string" ? title : title == null ? "" : String(title);
-  const hasActions = Boolean(onOpen || onDragPointerDown);
+  const commitTitle = (next: string) => {
+    if (!titleProperty || next === titleText) return;
+    updateCell({
+      rowId: row._id,
+      propertyId: titleProperty._id,
+      value: next,
+    }).catch(() => toast.error("Title could not be saved"));
+  };
+
+  const hasActions = Boolean(onOpen);
+  const actionsVisible = hovered || menuOpen || editingTitle;
   const cardProperties = visibleProperties.filter(
     (property) => !isCellEmpty(row.cells[property._id]),
   );
@@ -97,39 +120,61 @@ export const BoardCard = ({
           : undefined
       }
     >
-      {/* Hover aksiyonları: drag handle + ⋯ — absolute, kartın üstünde;
-          görünmezken pointer-events-none (kart tıklanabilir kalsın). */}
+      {/* Hover aksiyonları — Notion ölçümü (docs/notion-research/board-parity.md):
+          TEK yuvarlak çip (radius 4, popover zemini, yumuşak gölge) içinde iki
+          düz buton (29x24 pencil / 28x24 ellipsis), ikisi de saydam.
+          Sürükleme butonu YOK: Notion'da kartın kendisi sürükleniyor. */}
       {hasActions && (
         <div
           data-testid="board-card-actions"
           onPointerDown={(event) => event.stopPropagation()}
           className={cn(
-            "absolute top-2 right-2 z-10 flex items-center gap-0.5 transition-opacity duration-200",
-            hovered ? "opacity-100" : "pointer-events-none opacity-0",
+            "bg-popover absolute top-2 right-2 z-10 flex h-6 items-center overflow-hidden rounded-[4px] shadow-[var(--popup-shadow)] transition-opacity duration-200",
+            actionsVisible ? "opacity-100" : "pointer-events-none opacity-0",
           )}
         >
           <button
             type="button"
-            aria-label="Drag card"
-            disabled={!onDragPointerDown}
-            className="text-muted-foreground bg-popover hover:bg-accent flex h-6 w-7 cursor-grab items-center justify-center rounded-[4px] shadow-[0_0_0_1px_var(--border),0_2px_4px_rgba(0,0,0,0.18)] transition-colors disabled:cursor-default"
+            aria-label={editingTitle ? "Open in side peek" : "Edit title"}
+            onMouseDown={(event) => {
+              // Düzenleme açıkken preventDefault ŞART: yoksa input önce blur
+              // olup editingTitle'ı false yapıyor, buton click gelmeden
+              // pencil'a dönüyor ve side peek hiç açılmıyor.
+              if (editingTitle) event.preventDefault();
+            }}
+            onClick={() => {
+              // Notion: pencil başlığı yerinde düzenlemeye açar ve buton
+              // side-peek'e dönüşür; ikinci tık peek'i açar.
+              if (editingTitle) {
+                commitTitle(titleInputRef.current?.value ?? titleText);
+                setEditingTitle(false);
+                onOpen?.(row);
+                return;
+              }
+              setEditingTitle(true);
+            }}
+            className="text-muted-foreground hover:bg-accent flex h-6 w-[29px] items-center justify-center transition-colors"
           >
-            <GripVertical className="h-3.5 w-3.5" />
+            {editingTitle ? (
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            ) : (
+              <Pencil className="h-3.5 w-3.5" />
+            )}
           </button>
-          <DropdownMenu>
+          <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 aria-label="Card actions"
-                className="text-muted-foreground bg-popover hover:bg-accent data-[state=open]:bg-accent flex h-6 w-6 items-center justify-center rounded-[4px] shadow-[0_0_0_1px_var(--border),0_2px_4px_rgba(0,0,0,0.18)] transition-colors"
+                className="text-muted-foreground hover:bg-accent data-[state=open]:bg-accent flex h-6 w-7 items-center justify-center transition-colors"
               >
                 <MoreHorizontal className="h-3.5 w-3.5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => onOpen?.(row)}>
-                <File className="mr-2 h-4 w-4" />
-                Open
+                <ArrowUpRight className="mr-2 h-4 w-4" />
+                Open in side peek
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
@@ -148,13 +193,61 @@ export const BoardCard = ({
                     toast.error("Row could not be deleted"),
                   )
                 }
-                className="text-red-600 focus:text-red-600"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                Move to Trash
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
+      )}
+
+      {/* Başlık düzenleme katmanı. Kart içeriği bir <button> içinde olduğu
+          için input onun içine konulamaz (geçersiz HTML) — aynı padding'le
+          başlık satırının üzerine bindiriliyor. */}
+      {editingTitle && titleProperty && (
+        <div
+          // Katman aksiyon çipinin SOLUNDA biter. inset-x-0 + paddingRight
+          // kullanmak kutuyu çipin altına kadar uzatıyor ve (z-20 > z-10)
+          // side-peek butonunu tıklanamaz hale getiriyordu.
+          className="absolute top-0 left-0 z-20 flex items-center"
+          onPointerDown={(event) => event.stopPropagation()}
+          style={{
+            right:
+              "calc(var(--kanban-card-pad-x) + var(--kanban-card-actions-width))",
+            padding:
+              "var(--kanban-card-pad-top) 0 var(--kanban-card-pad-bottom) var(--kanban-card-pad-x)",
+          }}
+        >
+          <input
+            ref={titleInputRef}
+            autoFocus
+            defaultValue={titleText}
+            aria-label="Card title"
+            className="w-full min-w-0 bg-transparent outline-none"
+            style={{
+              fontSize: "var(--kanban-title-size)",
+              fontWeight: "var(--kanban-title-weight)",
+              lineHeight: 1.5,
+              color: "var(--kanban-title-color)",
+            }}
+            onBlur={(event) => {
+              commitTitle(event.target.value);
+              setEditingTitle(false);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+              if (event.key === "Escape") {
+                event.preventDefault();
+                // Kaydetmeden çık: blur commit etmesin diye önce değeri geri al.
+                event.currentTarget.value = titleText;
+                event.currentTarget.blur();
+              }
+            }}
+          />
         </div>
       )}
 
@@ -207,7 +300,9 @@ export const BoardCard = ({
               color: "var(--kanban-title-color)",
             }}
           >
-            {titleText || <span className="opacity-50">Untitled</span>}
+            <span className={editingTitle ? "invisible" : undefined}>
+              {titleText || <span className="opacity-50">Untitled</span>}
+            </span>
           </span>
         </div>
 

@@ -599,6 +599,32 @@ export const deleteRow = mutation({
   },
 });
 
+/** Satır ikonunu (emoji) ayarlar; `undefined` ikonu kaldırır. */
+export const setRowIcon = mutation({
+  args: {
+    rowId: v.id("databaseRows"),
+    icon: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    await requireOwnedRow(ctx, args.rowId, userId);
+    await ctx.db.patch(args.rowId, { icon: args.icon });
+  },
+});
+
+/** Satır kapağını ayarlar; `undefined` kapağı kaldırır. */
+export const setRowCover = mutation({
+  args: {
+    rowId: v.id("databaseRows"),
+    coverImage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUser(ctx);
+    await requireOwnedRow(ctx, args.rowId, userId);
+    await ctx.db.patch(args.rowId, { coverImage: args.coverImage });
+  },
+});
+
 export const duplicateRow = mutation({
   args: { rowId: v.id("databaseRows") },
   handler: async (ctx, args) => {
