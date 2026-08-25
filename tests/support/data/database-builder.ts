@@ -125,6 +125,18 @@ class DatabaseBuilder {
     });
   }
 
+  withMultiSelect(
+    name: string,
+    options: PropertyOption[],
+    extras: PropertyExtras = {},
+  ) {
+    return this.withProperty({
+      name,
+      type: "multiSelect",
+      extras: { ...extras, options },
+    });
+  }
+
   /** Hücreler özellik **adıyla** verilir: `{ Title: "...", Status: "next" }`. */
   withRow(cells: CellsByName) {
     return new DatabaseBuilder(

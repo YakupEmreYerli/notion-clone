@@ -22,6 +22,7 @@ export const CoverImageModal = () => {
   const [linkUrl, setLinkUrl] = useState("");
 
   const update = useMutation(api.documents.update);
+  const setRowCover = useMutation(api.databases.setRowCover);
   const removeCoverImage = useMutation(api.documents.removeCoverImage);
   const coverImage = useCoverImage();
 
@@ -34,12 +35,31 @@ export const CoverImageModal = () => {
     coverImage.onClose();
   };
 
+  /**
+   * Kapağı açılışta sabitlenen hedefe uygular: bir doküman ya da bir
+   * database satırı (side peek'ten açıldığında). Tek yerde toplanıyor ki
+   * yükleme / galeri / link / kaldırma yolları ayrışmasın.
+   */
+  const applyCover = async (url?: string) => {
+    if (coverImage.rowId) {
+      await setRowCover({ rowId: coverImage.rowId, coverImage: url });
+      return;
+    }
+    if (!coverImage.documentId) return;
+    if (url === undefined) {
+      await removeCoverImage({ id: coverImage.documentId });
+      return;
+    }
+    await update({ id: coverImage.documentId, coverImage: url });
+  };
+
+  const hasTarget = Boolean(coverImage.documentId || coverImage.rowId);
+
   const onChange = async (file?: File) => {
     // Kapak, popover'ın açıldığı ana route değil, açılışta sabitlenen
     // `coverImage.documentId`ye uygulanır — PeekModal içinden (bir alt
     // sayfadan) açıldığında bile doğru dokümanı hedefler.
-    if (file && coverImage.documentId) {
-      const documentId = coverImage.documentId;
+    if (file && hasTarget) {
       setIsSubmitting(true);
 
       const previousUrl = coverImage.url;
@@ -47,10 +67,7 @@ export const CoverImageModal = () => {
       try {
         const url = await uploadFile(file);
 
-        await update({
-          id: documentId,
-          coverImage: url,
-        });
+        await applyCover(url);
 
         await deleteFile(previousUrl);
       } catch (error) {
@@ -107,13 +124,10 @@ export const CoverImageModal = () => {
   }, [coverImage.isOpen]);
 
   const onSelectGalleryImage = async (url: string) => {
-    if (!coverImage.documentId) return;
+    if (!hasTarget) return;
     setIsSubmitting(true);
     try {
-      await update({
-        id: coverImage.documentId,
-        coverImage: url,
-      });
+      await applyCover(url);
       await deleteFile(coverImage.url);
       onClose();
     } catch (error) {
@@ -138,10 +152,10 @@ export const CoverImageModal = () => {
   };
 
   const onRemove = async () => {
-    if (!coverImage.documentId) return;
+    if (!hasTarget) return;
     setIsSubmitting(true);
     try {
-      await removeCoverImage({ id: coverImage.documentId });
+      await applyCover(undefined);
       await deleteFile(coverImage.url);
       onClose();
     } catch (error) {

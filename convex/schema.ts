@@ -70,6 +70,12 @@ export default defineSchema({
     databaseId: v.id("documents"),
     userId: v.string(),
     order: v.number(),
+    // Satır ikonu (emoji). Notion'da side peek bir sayfa gibi davranır ve
+    // başlığın üstünde ikon taşır. Opsiyonel: mevcut satırlar migration
+    // gerektirmesin (bkz. .claude/rules/project/convex.md).
+    icon: v.optional(v.string()),
+    /** Satır kapağı — dokümanlardaki `coverImage` ile aynı, göreli URL. */
+    coverImage: v.optional(v.string()),
     cells: v.record(v.id("databaseProperties"), cellValueValidator),
   }).index("by_database_order", ["databaseId", "order"]),
 
