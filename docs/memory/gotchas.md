@@ -120,3 +120,31 @@ düzenlemesinden Escape ile çıkınca input blur oluyor ve odak `body`'ye gidiy
 — yani "idle hücrede yazmaya başla" yolu klavyeden erişilemiyor. Testte
 `TablePage.focusGrid()` ile açıkça odaklamak gerekti. Gerçek kullanıcı için de
 bu bir a11y pürüzü: Escape'ten sonra odağın grid'e dönmesi gerekir (açık madde).
+
+## Radix Dialog
+
+### Modal Dialog arkadaki arayüzü tamamen ölü bırakır
+`Dialog` varsayılan olarak modaldır ve `body`'ye `pointer-events: none` koyar.
+Yan panel (side peek) gibi "arkasıyla çalışılabilen" yüzeylerde `modal={false}`
+şart; ayrıca dışarı tıklamanın paneli kapatmaması için
+`onPointerDownOutside` / `onInteractOutside` engellenmeli. Bir de: modal
+değilken popover içinde Escape'e basmak Dialog'a sıçrayıp paneli kapatır.
+
+## Sürükleyerek boyutlandırma
+
+### Genişliği state'e yazmak + CSS geçişi = gecikme hissi
+İki ayrı sebep üst üste biner: her `pointermove`'da `setState`
+(+ `localStorage`) ve elemanın kendi `transition`'ının genişliği
+animasyonlaması. İkincisi tek başına imleci ~40px geride bırakıyordu.
+Sürükleme boyunca doğrudan `style.width` yazıp `transition`'ı kapat,
+state'i bırakınca güncelle.
+
+## Test yazarken
+
+### "Görünür mü" testi "çalışıyor mu" testi değildir
+Side-peek butonunun görünürlüğü doğrulanmıştı, tıklanınca peek'in açıldığı
+değil — üstelik fixture'ın `onOpenRow`'u boş bir fonksiyondu, yani açılış
+gözlemlenebilir bile değildi. Kullanıcı hatayı elle buldu. Fixture artık
+açılan satırı DOM'a yazıyor ve test iki tıklık akışın tamamını sürüyor.
+Yeni bir regresyon testi yazınca **hatayı geri koyup kırmızı olduğunu gör**;
+ilk denemede className'i geri alıp inline stili unutunca test yeşil kalmıştı.

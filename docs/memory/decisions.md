@@ -539,3 +539,39 @@ Uygulama detayları (hepsi denemeyle bulundu):
   birincinin sonuçlarını siler).
 - `.next-gallery` hem `.gitignore`'a hem eslint `ignores` listesine eklendi —
   eklenmezse lint 15'ten 57 soruna fırlıyor.
+
+## 2026-08-25 — Board kartı ve side peek Notion'a göre yeniden kuruldu
+
+Ölçüm kaydı `docs/notion-research/board-parity.md` (gerçek Notion, CDP).
+
+### Kart hover'ında sürükleme butonu yok
+Notion'da kartın kendisi sürükleme yüzeyi. Bizdeki buton zaten ölüydü: aksiyon
+kabındaki `stopPropagation` olayın sürükleme motoruna ulaşmasını engelliyordu.
+Zemin ve gölge butonlarda değil, onları saran **tek çipte** (57×24, radius 4).
+
+### Side peek modal DEĞİL
+Radix `Dialog` varsayılanı `body`'ye `pointer-events: none` koyuyor — peek
+açıkken arkadaki board'da hiçbir hover/tık çalışmıyordu. `modal={false}` ve
+`onPointerDownOutside`/`onInteractOutside` engellenmiş: dışarı tık peek'i
+kapatmıyor, Notion da kapatmıyor. Kapanış Close butonu ya da Escape ile.
+
+### Sürükleme sırasında React state'i değil DOM güncellenir
+Her `pointermove`'da `setState` + `localStorage` yazmak **ve** panelin CSS
+geçişinin genişliği animasyonlaması, sürüklemeyi gözle görülür şekilde
+geciktiriyordu. Sürükleme boyunca genişlik doğrudan DOM'a yazılıyor ve
+`transition` kapatılıyor; state/depolama yalnızca bırakınca güncelleniyor.
+
+### Peek'in sunum katmanı ayrı (`RowPeekPanel`)
+`RowPeekModal` Convex `useQuery`'ye bağlı olduğu için fixture'da render
+edilemiyordu ve hiç testi yoktu. Panel prop alacak şekilde ayrıldı; gerçek
+uygulama ve fixture aynı bileşeni kullanıyor.
+
+### Satırlar ikon ve kapak taşıyor
+`databaseRows.icon` / `coverImage` (opsiyonel, migration gerektirmeyen desen)
++ `setRowIcon` / `setRowCover`. `CoverImageModal` doğrudan `documents.update`'e
+bağlıydı; üç uygulama noktası tek `applyCover()` altında toplanıp hedef
+doküman **veya** satır olabilecek hale getirildi (`useCoverImage.onOpenRow`).
+
+### Yeni property'nin adı tipinden gelir
+Sabit "Property" adı, birkaç property eklenince Board'un görünürlük listesini
+okunamaz hale getiriyordu. Ad tipten üretiliyor ve çakışırsa numaralanıyor.
