@@ -1,22 +1,24 @@
 #!/usr/bin/env node
 /**
- * Prepares the demo workspaces the README screenshots are taken from — one per
- * README language, each in its own account so the two never mix:
+ * README ekran görüntülerinin çekildiği demo çalışma alanını hazırlar.
  *
- *   en -> README.md      (English pages, English book tracker)
- *   tr -> README.tr.md   (Türkçe sayfalar, Türkçe kitap takibi)
+ *   node scripts/seed-demo.mjs --register        # hesabı aç (yalnızca bir kez)
+ *   node scripts/seed-demo.mjs --locale en|tr    # o dilin içeriğini kur
  *
- * For each locale it signs the demo account up (or in) through Better Auth,
- * runs `seed:demoWorkspace`, and writes the session cookie plus the seeded
- * document ids to `.screenshots/<locale>.json` (gitignored) for Playwright.
+ * **Tek hesap** kullanır. Zotion tek sahip modelinde olduğu için ikinci bir
+ * demo hesabı açmak üretim kuralını delmek demekti; bunun yerine iki dil aynı
+ * hesaba sırayla seed'lenir (`seed:demoWorkspace` zaten o kullanıcının
+ * dokümanlarını silip yeniden kurar) ve her dil kendi çekiminden hemen önce
+ * hazırlanır.
  *
- * The whole stack has to be running (`docker compose up -d postgres minio
- * minio-init convex-backend` plus `npm run dev`). If it is not, this exits 0
- * with a warning — the capture step then skips those shots and keeps the
- * committed PNGs rather than blocking a commit.
+ * Bu yüzden script yalnızca `scripts/gallery/run.mjs`'in kaldırdığı **tek
+ * kullanımlık boş yığında** anlamlıdır: orada demo hesabı gerçekten ilk
+ * kullanıcıdır ve seed kimsenin verisini silemez.
  *
- * The credentials below are local-only fixtures for a self-hosted dev
- * instance, not secrets; override them with DEMO_PASSWORD / DEMO_EMAIL_PREFIX.
+ * Yığın ayakta değilse 0 ile çıkar ve uyarır — çekim adımı o zaman commit
+ * edilmiş PNG'leri korur.
+ *
+ * Aşağıdaki kimlik bilgileri yerel fixture'dır, sır değildir.
  */
 import { execFile } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -27,14 +29,14 @@ import { promisify } from "node:util";
 const run = promisify(execFile);
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
-const PASSWORD = process.env.DEMO_PASSWORD ?? "zotion-demo-password";
-const PREFIX = process.env.DEMO_EMAIL_PREFIX ?? "demo";
+const PASSWORD = process.env.DEMO_PASSWORD ?? "zotion-gallery-demo";
+const EMAIL = process.env.DEMO_EMAIL ?? "demo@zotion.local";
+const NAME = process.env.DEMO_NAME ?? "Demo";
 const OUT_DIR = path.join(process.cwd(), ".screenshots");
 
-const LOCALES = [
-  { locale: "en", name: "Demo" },
-  { locale: "tr", name: "Demo" },
-];
+const args = process.argv.slice(2);
+const REGISTER_ONLY = args.includes("--register");
+const LOCALE = args[args.indexOf("--locale") + 1];
 
 const warnAndExit = (message) => {
   console.warn(`! demo workspaces not seeded — ${message}`);
@@ -64,8 +66,12 @@ const signIn = async (email, name) => {
   }
   if (!auth.response.ok) {
     warnAndExit(
-      `Better Auth rejected ${email} (${auth.response.status}). ` +
-        "If the password was changed, delete the demo user or set DEMO_PASSWORD.",
+      auth.response.status === 403
+        ? `registration is closed on ${APP_URL} and ${email} does not exist. ` +
+            "The gallery must run against the disposable stack " +
+            "(`npm run screenshots`), where the demo account is the first user."
+        : `Better Auth rejected ${email} (${auth.response.status}). ` +
+            "If the password was changed, delete the demo user or set DEMO_PASSWORD.",
     );
   }
 
@@ -122,14 +128,21 @@ const storageState = (cookie) => {
 
 await mkdir(OUT_DIR, { recursive: true });
 
-for (const { locale, name } of LOCALES) {
-  const email = `${PREFIX}-${locale}@zotion.local`;
-  const { userId, cookie } = await signIn(email, name);
-  const workspace = await seed(userId, locale);
+const { userId, cookie } = await signIn(EMAIL, NAME);
 
+if (REGISTER_ONLY) {
+  console.log(`✓ demo account ready: ${EMAIL}`);
+} else {
+  if (LOCALE !== "en" && LOCALE !== "tr") {
+    console.error("usage: seed-demo.mjs --register | --locale en|tr");
+    process.exit(1);
+  }
+  // Aynı hesaba sırayla iki dil kurulur; seed mutation'ı önce bu kullanıcının
+  // dokümanlarını temizlediği için diller birbirine karışmaz.
+  const workspace = await seed(userId, LOCALE);
   await writeFile(
-    path.join(OUT_DIR, `${locale}.json`),
-    `${JSON.stringify({ email, workspace, storageState: storageState(cookie) }, null, 2)}\n`,
+    path.join(OUT_DIR, `${LOCALE}.json`),
+    `${JSON.stringify({ email: EMAIL, workspace, storageState: storageState(cookie) }, null, 2)}\n`,
   );
-  console.log(`✓ ${locale}: ${workspace.rows} books seeded as ${email}`);
+  console.log(`✓ ${LOCALE}: ${workspace.rows} books seeded as ${EMAIL}`);
 }

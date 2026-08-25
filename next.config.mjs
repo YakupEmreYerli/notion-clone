@@ -5,8 +5,14 @@ const isProduction = process.env.NODE_ENV === "production";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Self-contained server bundle for the Docker image.
-  output: "standalone",
+  // README galerisi kendi build'ini ayrı bir dizine alır
+  // (`scripts/gallery/run.mjs`) — böylece çalışan `next dev`'in `.next`'ini
+  // ne ezer, ne de onun dev-server kilidine takılır. O build `next start` ile
+  // sunulduğu için `output: "standalone"` (yalnızca Docker imajı için gerekli)
+  // orada kapatılır; `next start` standalone ile çalışmaz.
+  ...(process.env.NEXT_DIST_DIR
+    ? { distDir: process.env.NEXT_DIST_DIR }
+    : { output: "standalone" }),
   pageExtensions: isProduction
     ? ["tsx", "ts", "jsx", "js"]
     : ["fixture.tsx", "tsx", "ts", "jsx", "js"],

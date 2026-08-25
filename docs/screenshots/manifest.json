@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-24",
+  "generatedAt": "2026-08-25",
   "viewport": {
     "width": 1920,
     "height": 1080
@@ -7,33 +7,33 @@
   "deviceScaleFactor": 2,
   "shots": [
     {
-      "group": "landing",
-      "title": "Landing page",
+      "group": "login",
+      "title": "Sign in",
       "caption": "What a signed-out visitor lands on.",
-      "titleTr": "Karşılama sayfası",
+      "titleTr": "Giriş",
       "captionTr": "Giriş yapmamış bir ziyaretçinin gördüğü sayfa.",
-      "path": "/",
-      "fullPage": true,
-      "file": "landing-light",
+      "path": "/login",
+      "signedOut": true,
+      "file": "login-light",
       "theme": "light",
       "locale": "shared",
       "workspace": "en",
-      "waitFor": "text=Welcome to",
+      "waitFor": "text=Log in to Zotion",
       "status": "unchanged"
     },
     {
-      "group": "landing",
-      "title": "Landing page",
+      "group": "login",
+      "title": "Sign in",
       "caption": "What a signed-out visitor lands on.",
-      "titleTr": "Karşılama sayfası",
+      "titleTr": "Giriş",
       "captionTr": "Giriş yapmamış bir ziyaretçinin gördüğü sayfa.",
-      "path": "/",
-      "fullPage": true,
-      "file": "landing-dark",
+      "path": "/login",
+      "signedOut": true,
+      "file": "login-dark",
       "theme": "dark",
       "locale": "shared",
       "workspace": "en",
-      "waitFor": "text=Welcome to",
+      "waitFor": "text=Log in to Zotion",
       "status": "unchanged"
     },
     {
@@ -48,7 +48,7 @@
       "locale": "en",
       "workspace": "en",
       "waitFor": "text=Why I keep coming back to it",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "workspace",
@@ -62,7 +62,7 @@
       "locale": "en",
       "workspace": "en",
       "waitFor": "text=Why I keep coming back to it",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "workspace",
@@ -76,7 +76,7 @@
       "locale": "tr",
       "workspace": "tr",
       "waitFor": "text=Neden hep geri dönüyorum",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "workspace",
@@ -90,7 +90,7 @@
       "locale": "tr",
       "workspace": "tr",
       "waitFor": "text=Neden hep geri dönüyorum",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-table",
@@ -104,7 +104,7 @@
       "locale": "en",
       "workspace": "en",
       "waitFor": "[data-testid=\"database-column-header\"]",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-table",
@@ -118,7 +118,7 @@
       "locale": "en",
       "workspace": "en",
       "waitFor": "[data-testid=\"database-column-header\"]",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-table",
@@ -132,7 +132,7 @@
       "locale": "tr",
       "workspace": "tr",
       "waitFor": "[data-testid=\"database-column-header\"]",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-table",
@@ -146,7 +146,7 @@
       "locale": "tr",
       "workspace": "tr",
       "waitFor": "[data-testid=\"database-column-header\"]",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-board",
@@ -160,7 +160,7 @@
       "locale": "en",
       "workspace": "en",
       "waitFor": "text=Want to read",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-board",
@@ -174,7 +174,7 @@
       "locale": "en",
       "workspace": "en",
       "waitFor": "text=Want to read",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-board",
@@ -188,7 +188,7 @@
       "locale": "tr",
       "workspace": "tr",
       "waitFor": "text=Okunacak",
-      "status": "unchanged"
+      "status": "skipped"
     },
     {
       "group": "database-board",
@@ -202,7 +202,7 @@
       "locale": "tr",
       "workspace": "tr",
       "waitFor": "text=Okunacak",
-      "status": "unchanged"
+      "status": "skipped"
     }
   ]
 }

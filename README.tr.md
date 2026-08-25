@@ -37,18 +37,18 @@ gerçek bir blok editörü, tablo ve board görünümlü veritabanları.</p>
 
 <!-- SCREENSHOTS:START -->
 
-<!-- `npm run screenshots` tarafından üretildi · 2026-08-24 · 1920x1080@2x · elle düzenlemeyin -->
+<!-- `npm run screenshots` tarafından üretildi · 2026-08-25 · 1920x1080@2x · elle düzenlemeyin -->
 
-#### Karşılama sayfası
+#### Giriş
 
 Giriş yapmamış bir ziyaretçinin gördüğü sayfa.
 
-<img src="docs/screenshots/landing-light.webp" alt="Karşılama sayfası" width="100%">
+<img src="docs/screenshots/login-light.webp" alt="Giriş" width="100%">
 
 <details>
 <summary>Koyu tema</summary>
 
-<img src="docs/screenshots/landing-dark.webp" alt="Karşılama sayfası — dark" width="100%">
+<img src="docs/screenshots/login-dark.webp" alt="Giriş — dark" width="100%">
 
 </details>
 

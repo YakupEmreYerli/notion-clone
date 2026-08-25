@@ -29,18 +29,20 @@ if [ -z "$staged" ]; then
   exit 0
 fi
 
-echo "> UI change detected — refreshing README screenshots..."
-
-if ! npm run --silent screenshots; then
-  cat >&2 <<'MSG'
-
-x Screenshot capture failed, commit aborted.
-  Usual causes: the dev server did not boot, the Playwright browser is missing
-  (`npx playwright install chromium`), or a fixture page is throwing.
-  To skip deliberately: ZOTION_SKIP_SCREENSHOTS=1 git commit ...
-MSG
-  exit 1
+# Galeri artık tek kullanımlık bir Docker yığınında üretiliyor
+# (scripts/gallery/run.mjs): dakikalar sürer ve Docker ister. Bunu her UI
+# commit'inde otomatik çalıştırmak commit'i kullanılamaz hale getiriyordu —
+# bu yüzden hook yalnızca HATIRLATIR, commit'i bloke etmez.
+if git diff --cached --name-only --diff-filter=ACMR -- docs/screenshots | grep -q .; then
+  exit 0
 fi
 
-git add docs/screenshots README.md README.tr.md
-echo "✓ docs/screenshots and both READMEs staged with this commit."
+cat <<'MSG'
+> UI değişikliği var ama docs/screenshots bu commit'te değil.
+  Galeri eskimiş olabilir; görünüşü etkileyen bir değişiklikse:
+
+      npm run screenshots
+
+  (tek kullanımlık yığın kurar, birkaç dakika sürer, Docker ister)
+  Bu bir uyarıdır — commit engellenmedi.
+MSG

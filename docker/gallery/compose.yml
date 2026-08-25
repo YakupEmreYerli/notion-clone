@@ -1,0 +1,36 @@
+# Tek kullanımlık README galeri yığını.
+#
+#   node scripts/gallery/run.mjs
+#
+# Ayrı bir Compose **projesi** olarak kalkar (`-p zotion-gallery`), yani kendi
+# volume'ları ve konteynerleri olur — geliştirme yığınına hiç dokunmaz. Portlar
+# geliştirme yığınıyla çakışmayacak şekilde kaydırılmıştır.
+#
+# Uygulama host'ta (`next start`, port 3100) çalışır; konteynerler ona Docker'ın
+# varsayılan köprüsü üzerinden (172.17.0.1) ulaşır. Bu adres host'ta da gerçek
+# bir arayüz olduğu için tarayıcı ve Convex backend aynı origin'i görür.
+# Bkz. scripts/gallery/env.mjs (GALLERY_HOST ile değiştirilebilir).
+
+services:
+  postgres:
+    ports:
+      - "55433:5432"
+
+  minio:
+    ports:
+      - "9010:9000"
+      - "9011:9001"
+
+  convex-backend:
+    ports:
+      - "3310:3210"
+      - "3311:3211"
+
+  # Galeri yığınında gerekmeyenler: uygulamayı host'ta `next dev` sunuyor,
+  # Convex fonksiyonlarını da host'tan `npx convex deploy` itiyor.
+  convex-dashboard:
+    profiles: ["unused"]
+  convex-deploy:
+    profiles: ["unused"]
+  web:
+    profiles: ["unused"]

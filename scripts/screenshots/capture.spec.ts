@@ -73,7 +73,9 @@ const capture = async (
   if (!seed) return "skipped";
 
   const context = await browser.newContext({
-    storageState: seed.storageState,
+    // Auth ekranları oturumluyu /documents'a atar — onları yalnızca
+    // oturumsuz bir bağlamda yakalayabiliriz.
+    storageState: shot.signedOut ? undefined : seed.storageState,
     colorScheme: shot.theme,
     reducedMotion: "reduce",
     viewport,
@@ -120,13 +122,23 @@ const capture = async (
 
 test.describe.configure({ mode: "serial" });
 
+/**
+ * Galeri tek bir demo hesabına iki dili SIRAYLA seed'lediği için çekim de iki
+ * geçişte yapılır: `GALLERY_LOCALE` o geçişte hangi çekimlerin alınacağını
+ * seçer. Bayrak yoksa (elle koşum) hepsi denenir.
+ */
+const galleryLocale = process.env.GALLERY_LOCALE as Locale | undefined;
+const activeShots = galleryLocale
+  ? shots.filter((shot) => shot.workspace === galleryLocale)
+  : shots;
+
 test.describe("README screenshots", () => {
   const results = new Map<string, Outcome>();
   const seeds = new Map<Locale, Seed | null>();
 
   test.beforeAll(async () => {
     await mkdir(OUTPUT_DIR, { recursive: true });
-    for (const locale of ["en", "tr"] as const) {
+    for (const locale of galleryLocale ? [galleryLocale] : (["en", "tr"] as const)) {
       seeds.set(locale, await loadSeed(locale));
     }
     if ([...seeds.values()].some((seed) => !seed)) {
@@ -136,7 +148,7 @@ test.describe("README screenshots", () => {
     }
   });
 
-  for (const shot of shots) {
+  for (const shot of activeShots) {
     test(shot.file, async ({ browser }) => {
       const outcome = await capture(browser, shot, seeds.get(shot.workspace) ?? null);
       results.set(shot.file, outcome);
@@ -147,13 +159,23 @@ test.describe("README screenshots", () => {
   }
 
   test.afterAll(async () => {
+    // İki geçiş var: bu geçişin sonuçları öncekinin üzerine yazılmamalı, bu
+    // yüzden mevcut manifest'ten okunup birleştirilir.
+    const previous = await readFile(MANIFEST, "utf8")
+      .then((raw) => JSON.parse(raw) as { shots?: { file: string; status: string }[] })
+      .catch(() => null);
+    const previousStatus = new Map(
+      (previous?.shots ?? []).map((shot) => [shot.file, shot.status]),
+    );
+
     const manifest = {
       generatedAt: new Date().toISOString().slice(0, 10),
       viewport,
       deviceScaleFactor,
       shots: shots.map((shot) => ({
         ...shot,
-        status: results.get(shot.file) ?? "not-run",
+        status:
+          results.get(shot.file) ?? previousStatus.get(shot.file) ?? "not-run",
       })),
     };
     await writeFile(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);

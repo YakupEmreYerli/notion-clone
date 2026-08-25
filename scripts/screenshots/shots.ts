@@ -35,6 +35,11 @@ type View = {
   fullPage?: boolean;
   /** No user content — captured once and shown in both READMEs. */
   shared?: boolean;
+  /**
+   * Capture without the seeded session. Auth screens redirect a signed-in
+   * visitor straight to `/documents`, so they can only be shot signed out.
+   */
+  signedOut?: boolean;
 };
 
 export type Shot = Omit<View, "waitFor" | "shared"> & {
@@ -58,15 +63,15 @@ export const deviceScaleFactor = 2;
 
 const VIEWS: View[] = [
   {
-    group: "landing",
-    title: "Landing page",
+    group: "login",
+    title: "Sign in",
     caption: "What a signed-out visitor lands on.",
-    titleTr: "Karşılama sayfası",
+    titleTr: "Giriş",
     captionTr: "Giriş yapmamış bir ziyaretçinin gördüğü sayfa.",
-    path: "/",
-    waitFor: { en: "text=Welcome to", tr: "text=Welcome to" },
-    fullPage: true,
+    path: "/login",
+    waitFor: { en: "text=Log in to Zotion", tr: "text=Log in to Zotion" },
     shared: true,
+    signedOut: true,
   },
   {
     group: "workspace",

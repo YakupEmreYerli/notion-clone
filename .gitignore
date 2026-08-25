@@ -52,3 +52,4 @@ next-env.d.ts
 # Notion parity ölçüm çıktıları — Playwright'ın ürettiği ham veri (JSON + PNG).
 # Türetilmiş token'lar (design/kanban-tokens.{md,css}) commit'li kalır.
 design/notion-measurements/
+.next-gallery

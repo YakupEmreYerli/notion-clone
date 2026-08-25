@@ -36,6 +36,25 @@ npm run lint          # baseline: docs/memory/gotchas.md
 npm run test:e2e      # playwright, tests/e2e/*.spec.ts
 ```
 
+## README galerisi (`npm run screenshots`)
+
+```bash
+npm run screenshots
+```
+
+Kendi **tek kullanımlık** yığınını kaldırır (ayrı Compose projesi, ayrı
+volume'lar, kaydırılmış portlar — geliştirme yığınına dokunmaz), Convex
+fonksiyonlarını iter, demo hesabını **normal kayıt akışıyla** açar (o yığında
+ilk kullanıcıdır), `en` ve `tr` içeriğini sırayla seed'leyip çeker, iki
+README'yi yazar ve yığını volume'larıyla siler.
+
+Yani galeri için ne geliştirme yığınının ayakta olması, ne de kayıt kuralının
+gevşetilmesi gerekir. Seed operatörün kendi dokümanlarına **erişemez**.
+
+Galeri portları: app 3100 · Convex 3310/3311 · Postgres 55433 · MinIO 9010.
+Linux'a özgü not: konteyner↔host aynı adresle (`172.31.240.1`) konuşsun diye
+Compose ağına sabit subnet verilmiştir (`docker/gallery/compose.yml`).
+
 ## Uçtan uca duman testi
 
 kayıt ol → not oluştur → cover yükle (MinIO console'da `zotion` bucket'ında görünmeli)

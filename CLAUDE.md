@@ -143,10 +143,19 @@ Three systems, no other backend/API layer:
   published, non-archived document (the `fileRefs` mapping in Convex,
   `convex/files.ts`) — anything else is a 404.
 
-Route groups: `app/(landing)` (marketing), `app/(main)` (authenticated app, gated by
-`proxy.ts`), `app/(public)` (`/preview/<id>`, anonymous). Frontend conventions (route
-protection, document-type branching, modal state pattern, editor):
+Route groups: `app/(auth)` (`/login`, `/register`), `app/(main)` (authenticated app,
+gated by `proxy.ts`), `app/(public)` (`/preview/<id>`, anonymous). There is no landing
+page — `app/page.tsx` only redirects (session → `/documents`, no account yet →
+`/register`, otherwise → `/login`). Frontend conventions (route protection,
+document-type branching, modal state pattern, editor):
 **`.claude/rules/project/frontend.md`**.
+
+**Zotion is single-owner.** The first account set up on a server is the only one:
+`/register` closes once any user exists. The redirect on that page is convenience —
+the rule is enforced in `lib/auth.ts`'s `databaseHooks.user.create.before`, because
+`/api/auth/sign-up/email` can be called directly. There is no escape hatch: the
+README gallery does not need one because `npm run screenshots` builds a throwaway
+stack where the demo account *is* the first user (`scripts/gallery/run.mjs`).
 
 Key directories:
 
