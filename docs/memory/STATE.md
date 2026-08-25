@@ -4,9 +4,31 @@
 > kararlar `decisions.md`'de, kalıcı kurallar `CLAUDE.md`'de.
 > Her oturum sonunda güncelle (bkz. en alttaki şablon).
 
-**Son güncelleme:** 2026-08-25 (Notion tablo ölçümü + landing kaldırma / auth sayfaları)
+**Son güncelleme:** 2026-08-25 (board kartı + side peek Notion parity)
 
 ## Aktif iş
+
+**Board kartı + side peek Notion parity'si** — bu turda tamamlandı ve
+commit'lendi (`f07fddf`, `bac6fb6`, `17b8a48`, `f7bc127`). Ölçüm kaydı
+**`docs/notion-research/board-parity.md`**.
+
+Kapatılanlar:
+- Kart hover'ında sürükleme butonu kaldırıldı (Notion'da yok; bizimki zaten
+  çalışmıyordu). Yerine tek çip içinde pencil + ellipsis; pencil başlığı
+  düzenlemeye açıyor ve buton side-peek'e dönüşüyor.
+- Side peek: genişlik %48.5 (ölçülen), sol kenardan sürüklenebilir,
+  `modal={false}` (peek açıkken arkadaki arayüz çalışıyor), rozetler
+  düzenlenebilir, tipografi Notion DOM'undan birebir, satır ikonu + kapağı,
+  `Add a property`, property etiketi menüsü (Rename / Edit / Duplicate /
+  Delete).
+- `createProperty` artık tipin adını veriyor (Text, Text 2, Select…) —
+  hepsi "Property" oluyordu.
+
+**Sıradaki:** Notion'ın peek başlığındaki `Share`, `Favorite`, `...` ve üç
+modlu `Switch peek mode` (side / center / full) bizde yok.
+
+**Not:** `cover-modal-parity` testi tam paralel koşuda bir kez düştü, tek
+başına ve sonraki tam koşularda geçti — kararsız (uzak CDN görselleri).
 
 **Auth yüzeyi yenilendi** (bu turun ikinci işi) — landing sayfası kaldırıldı,
 `/login` + `/register` Dokploy tarzı split-screen olarak kuruldu, Zotion tek
