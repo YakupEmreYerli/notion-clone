@@ -133,6 +133,35 @@ async function nextPropertyOrder(
   return orderBetween(rebalancedPrev, rebalancedNext) ?? 0;
 }
 
+/**
+ * Yeni property'nin varsayılan adı. Eskiden hepsi "Property" adını alıyordu;
+ * birkaç tane ekleyince listede ayırt edilemez hale geliyorlardı (Board'un
+ * "Property visibility" menüsünde üst üste "Property" satırları). Notion gibi
+ * tipin adını kullanıp, çakışırsa sonuna sayı ekliyoruz.
+ */
+const PROPERTY_TYPE_LABELS: Record<string, string> = {
+  text: "Text",
+  select: "Select",
+  multiSelect: "Multi-select",
+  checkbox: "Checkbox",
+  number: "Number",
+  date: "Date",
+  url: "URL",
+  email: "Email",
+  phone: "Phone",
+  person: "Person",
+  relation: "Relation",
+  formula: "Formula",
+  files: "Files",
+};
+
+function uniquePropertyName(taken: string[], base: string) {
+  if (!taken.includes(base)) return base;
+  let suffix = 2;
+  while (taken.includes(`${base} ${suffix}`)) suffix += 1;
+  return `${base} ${suffix}`;
+}
+
 export const createProperty = mutation({
   args: {
     databaseId: v.id("documents"),
@@ -150,10 +179,22 @@ export const createProperty = mutation({
       args.afterPropertyId,
     );
 
+    const existing = await ctx.db
+      .query("databaseProperties")
+      .withIndex("by_database_order", (q) => q.eq("databaseId", args.databaseId))
+      .collect();
+
+    const name =
+      args.name ??
+      uniquePropertyName(
+        existing.map((property) => property.name),
+        PROPERTY_TYPE_LABELS[args.type] ?? "Property",
+      );
+
     const propertyId = await ctx.db.insert("databaseProperties", {
       databaseId: args.databaseId,
       userId,
-      name: args.name ?? "Property",
+      name,
       type: args.type,
       order,
       width: 200,

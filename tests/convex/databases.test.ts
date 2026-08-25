@@ -118,6 +118,52 @@ describe("satır sıralaması (fractional index)", () => {
   });
 });
 
+describe("createProperty — varsayılan ad", () => {
+  it("tipin adını kullanır ve çakışınca numaralandırır", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+
+    // Regresyon: hepsi "Property" adını alıyordu; birkaç tane eklenince
+    // Board'un "Property visibility" listesinde ayırt edilemiyorlardı.
+    const first = await owner.mutation(api.databases.createProperty, {
+      databaseId,
+      type: "text",
+    });
+    const second = await owner.mutation(api.databases.createProperty, {
+      databaseId,
+      type: "text",
+    });
+    const third = await owner.mutation(api.databases.createProperty, {
+      databaseId,
+      type: "select",
+    });
+
+    const schema = await owner.query(api.databases.getSchema, { databaseId });
+    const nameOf = (id: string) =>
+      schema.find((property) => property._id === id)?.name;
+
+    expect(nameOf(first)).toBe("Text");
+    expect(nameOf(second)).toBe("Text 2");
+    expect(nameOf(third)).toBe("Select");
+  });
+
+  it("açıkça verilen adı olduğu gibi bırakır", async () => {
+    const { owner } = setup();
+    const databaseId = await owner.mutation(api.databases.createDatabase, {
+      title: "Kitaplar",
+    });
+    const propertyId = await owner.mutation(api.databases.createProperty, {
+      databaseId,
+      type: "number",
+      name: "Puan",
+    });
+    const schema = await owner.query(api.databases.getSchema, { databaseId });
+    expect(schema.find((p) => p._id === propertyId)?.name).toBe("Puan");
+  });
+});
+
 describe("updateCell — patch sığ merge eder", () => {
   it("bir hücreyi yazarken diğer hücreleri düşürmez", async () => {
     const { owner } = setup();
